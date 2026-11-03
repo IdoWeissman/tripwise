@@ -9,13 +9,13 @@ import { createClient } from 'graphql-ws';
 import WebSocket from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, type App } from '../src/app.js';
-import { loadEnv } from '../src/config.js';
+import { loadEnv, type Env } from '../src/config.js';
 import { createDb, type Db } from '../src/db.js';
 
 const run = process.env.INTEGRATION === '1';
 
 describe.runIf(run)('API integration', () => {
-  const env = loadEnv({ ...process.env, NODE_ENV: 'test' });
+  let env: Env;
   let db: Db;
   let server: App;
   let owner: ReturnType<typeof request.agent>;
@@ -47,6 +47,8 @@ describe.runIf(run)('API integration', () => {
   };
 
   beforeAll(async () => {
+    // Read config here, not at collection time, so a skipped run never needs a database URL.
+    env = loadEnv({ ...process.env, NODE_ENV: 'test' });
     db = createDb(env.DATABASE_URL);
     server = await createApp(env, db);
     await new Promise<void>((r) => server.httpServer.listen(0, r));
