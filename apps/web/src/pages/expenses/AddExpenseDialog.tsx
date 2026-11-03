@@ -134,23 +134,18 @@ export function AddExpenseDialog({
           <SelectField
             label="Paid by"
             value={paidById}
-            onChange={(e) => setPaidById(e.target.value)}
-          >
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.id === viewerId ? 'You' : m.name}
-              </option>
-            ))}
-          </SelectField>
+            onValueChange={setPaidById}
+            options={members.map((m) => ({
+              value: m.id,
+              label: m.id === viewerId ? 'You' : m.name,
+            }))}
+          />
           <SelectField
             label="Category"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </SelectField>
+            onValueChange={setCategory}
+            options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+          />
         </div>
 
         <fieldset className="flex flex-col gap-2.5">

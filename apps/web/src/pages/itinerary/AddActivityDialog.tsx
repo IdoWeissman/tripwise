@@ -2,7 +2,7 @@ import { useMutation } from '@apollo/client/react';
 import { useState, type FormEvent } from 'react';
 import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
-import { TextField } from '../../components/Fields';
+import { TextField, TimeInputField } from '../../components/Fields';
 import { messageFromError } from '../../lib/errors';
 import { AddActivityDocument, ItineraryDocument } from './queries';
 
@@ -53,12 +53,7 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
           autoFocus
         />
         <div className="grid grid-cols-2 gap-3">
-          <TextField
-            label="Time"
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-          />
+          <TimeInputField label="Time" value={startTime} onChange={setStartTime} />
           <TextField
             label="Cost pp"
             inputMode="decimal"

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { PageHeader } from '../components/Bits';
 import { PlusIcon } from '../components/Icons';
 import { Segmented } from '../components/Segmented';
+import { Select } from '../components/Select';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { messageFromError } from '../lib/errors';
@@ -227,20 +228,19 @@ function MobileDayList({
             avatarIndex={avatarIndex(a.createdBy.id)}
             control={
               canEdit && (
-                <label className="flex items-center gap-1 text-[13px] text-ink-muted">
-                  <span className="sr-only">Move {a.title} to</span>
-                  <select
-                    value={selected}
-                    onChange={(e) => onMove(id, e.target.value)}
-                    className="h-11 rounded-control border border-border-input bg-surface px-2 text-[13px] text-ink"
-                  >
-                    {columns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.id === selected ? 'Move to…' : c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Select
+                  size="sm"
+                  aria-label={`Move ${a.title} to another day`}
+                  placeholder="Move to…"
+                  value={undefined}
+                  onValueChange={(col) => onMove(id, col)}
+                  options={columns
+                    .filter((c) => c.id !== selected)
+                    .map((c) => ({
+                      value: c.id,
+                      label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
+                    }))}
+                />
               )
             }
           />

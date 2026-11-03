@@ -76,6 +76,8 @@ const ProposeDocument = graphql(`
   }
 `);
 
+const ANY_DAY = 'any';
+
 type Proposal = NonNullable<ProposalsQuery['trip']>['proposals'][number];
 
 const TABS: { value: ActivityStatus; label: string; key: 'proposed' | 'scheduled' | 'declined' }[] =
@@ -341,14 +343,18 @@ function ProposeForm({
         placeholder="e.g. Surf lesson in Ericeira"
       />
       <div className="grid grid-cols-2 gap-3">
-        <SelectField label="Day" value={dayId} onChange={(e) => setDayId(e.target.value)}>
-          <option value="">Any day</option>
-          {days.map((d) => (
-            <option key={d.id} value={d.id}>
-              Day {d.position + 1} · {formatDay(d.date)}
-            </option>
-          ))}
-        </SelectField>
+        <SelectField
+          label="Day"
+          value={dayId || ANY_DAY}
+          onValueChange={(v) => setDayId(v === ANY_DAY ? '' : v)}
+          options={[
+            { value: ANY_DAY, label: 'Any day' },
+            ...days.map((d) => ({
+              value: d.id,
+              label: `Day ${d.position + 1} · ${formatDay(d.date)}`,
+            })),
+          ]}
+        />
         <TextField
           label="Est. cost pp"
           inputMode="decimal"

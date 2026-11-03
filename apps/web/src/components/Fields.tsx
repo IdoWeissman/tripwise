@@ -2,9 +2,11 @@ import {
   useId,
   type InputHTMLAttributes,
   type ReactNode,
-  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
+import { DateField, type DateFieldProps } from './DateField';
+import { Select, type SelectProps } from './Select';
+import { TimeField, type TimeFieldProps } from './TimeField';
 
 const control =
   'w-full rounded-control border border-border-input bg-surface px-3 text-sm text-ink placeholder:text-ink-muted aria-[invalid=true]:border-negative';
@@ -60,24 +62,60 @@ export function TextField({ label, error, hint, className = '', ...rest }: TextF
   );
 }
 
-type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
+interface SelectFieldProps<T extends string> extends Omit<SelectProps<T>, 'id'> {
   label: string;
   error?: string | null;
-};
+  hint?: string;
+}
 
-export function SelectField({ label, error, className = '', children, ...rest }: SelectFieldProps) {
+export function SelectField<T extends string>({
+  label,
+  error,
+  hint,
+  ...rest
+}: SelectFieldProps<T>) {
+  return (
+    <FieldShell label={label} error={error} hint={hint}>
+      {(id, describedBy) => (
+        <Select
+          id={id}
+          aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
+          {...rest}
+        />
+      )}
+    </FieldShell>
+  );
+}
+
+interface DateInputFieldProps extends Omit<DateFieldProps, 'id'> {
+  label: string;
+  error?: string | null;
+}
+
+export function DateInputField({ label, error, ...rest }: DateInputFieldProps) {
   return (
     <FieldShell label={label} error={error}>
       {(id, describedBy) => (
-        <select
+        <DateField
           id={id}
           aria-describedby={describedBy}
-          className={`${control} h-11 ${className}`}
+          aria-invalid={error ? true : undefined}
           {...rest}
-        >
-          {children}
-        </select>
+        />
       )}
+    </FieldShell>
+  );
+}
+
+interface TimeInputFieldProps extends Omit<TimeFieldProps, 'id'> {
+  label: string;
+}
+
+export function TimeInputField({ label, ...rest }: TimeInputFieldProps) {
+  return (
+    <FieldShell label={label}>
+      {(id, describedBy) => <TimeField id={id} aria-describedby={describedBy} {...rest} />}
     </FieldShell>
   );
 }

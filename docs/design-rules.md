@@ -48,7 +48,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 - 4px base grid; prefer 8 / 12 / 16 / 20 / 24 / 32 / 48.
 - Radius: 6 (chips) · 10 (buttons, inputs, nav items) · 12–16 (cards) · 999 (avatars, pills, dots).
-- Elevation is mostly **borders, not shadows**. Shadows only for: the selected segment in a segmented control, and an item being dragged. Use the `shadow-segment` / `shadow-lifted` tokens.
+- Elevation is mostly **borders, not shadows**. Shadows only for: the selected segment in a segmented control, an item being dragged, and floating menus/popovers. Use the `shadow-segment` / `shadow-lifted` / `shadow-popover` tokens.
 - No gradients, no left-border accent cards, no emoji in UI.
 
 ### 1.4 Layout
@@ -68,6 +68,11 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Segmented control / tabs**: muted track, selected segment white with a subtle shadow; uses `role="tablist"`/`role="radiogroup"` correctly.
 - **Avatar**: circle, initial, member palette, 2px white ring when stacked (−8px overlap). Tooltip/title with full name.
 - **Live indicator**: 8px `color.live` dot + "Live" in `accent-strong` while the subscription is connected; grey dot + "Reconnecting…" otherwise. (Per-person presence is planned; until then never show an "N online" count.)
+- **Never use native `<select>`, `type="date"` or `type="time"` inputs** — their look differs per browser. Use the shared components:
+  - **Select** (`components/Select.tsx`, Radix): field-styled trigger (44px, or 40px `sm` for inline row controls), 16px chevron with 12px right padding that flips when open; menu = surface card, `rounded-xl`, `border`, `shadow-popover`, 6px gap below the trigger, at least the trigger's width; items 40px tall, hover/keyboard highlight `surface-muted`, the selected item in `accent-strong` semibold with a teal check. Full keyboard support (arrows, type-ahead, Enter, Esc).
+  - **Date field** (`components/DateField.tsx`, react-day-picker): trigger shows "Fri, Nov 20, 2026" with a calendar icon; calendar popover with 44px day cells, selected day = accent fill, today = bold + underline, days before `min` disabled; Clear / Today footer. Opening focuses the selected day (or today) for arrow-key navigation.
+  - **Time field** (`components/TimeField.tsx`): a Select of 24h times in 15-minute steps plus "Any time"; opens scrolled to the current value.
+  - Menus inside a dialog render inside that dialog (`PortalContainerContext`) so they stay above it.
 - **Dialog**: native `<dialog>`; full-screen sheet on phones, centered card (440px, or 560px for forms with lists) from `sm` up; title + 44px close button in the header.
 - **Confirm dialog**: every destructive action (delete expense, remove member, leave trip) asks first; confirm button uses `negative` colors.
 - **Toast**: bottom-center, auto-dismiss after 4s, `role="status"` (or `alert` for errors); sits above the mobile tab bar.

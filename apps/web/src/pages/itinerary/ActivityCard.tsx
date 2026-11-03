@@ -22,9 +22,7 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
     <article
       ref={ref}
       className={`flex flex-col gap-2.5 rounded-xl border bg-surface p-3.5 ${
-        lifted
-          ? '-rotate-[1.5deg] border-accent shadow-lifted'
-          : 'border-border'
+        lifted ? '-rotate-[1.5deg] border-accent shadow-lifted' : 'border-border'
       } ${className}`}
       {...rest}
     >

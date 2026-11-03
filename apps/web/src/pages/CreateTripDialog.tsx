@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
-import { SelectField, TextField } from '../components/Fields';
+import { DateInputField, SelectField, TextField } from '../components/Fields';
 import { graphql } from '../gql';
 import { messageFromError } from '../lib/errors';
 
@@ -54,32 +54,26 @@ export function CreateTripDialog({ onClose }: { onClose: () => void }) {
           placeholder="City, country"
         />
         <div className="grid grid-cols-2 gap-3">
-          <TextField
-            label="Start date"
-            type="date"
-            required
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <TextField
+          <DateInputField label="Start date" value={startDate} onChange={setStartDate} />
+          <DateInputField
             label="End date"
-            type="date"
-            required
             min={startDate || undefined}
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            onChange={setEndDate}
             error={datesInvalid ? 'End date must be after the start date.' : null}
           />
         </div>
         <SelectField
           label="Currency"
           value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
-        >
-          {['EUR', 'USD', 'GBP', 'ILS'].map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </SelectField>
+          onValueChange={setCurrency}
+          options={[
+            { value: 'EUR', label: 'EUR · Euro' },
+            { value: 'USD', label: 'USD · US dollar' },
+            { value: 'GBP', label: 'GBP · British pound' },
+            { value: 'ILS', label: 'ILS · Israeli shekel' },
+          ]}
+        />
         {error && (
           <p role="alert" className="text-sm text-negative-ink">
             {messageFromError(error)}
@@ -89,7 +83,7 @@ export function CreateTripDialog({ onClose }: { onClose: () => void }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={loading || datesInvalid}>
+          <Button type="submit" disabled={loading || datesInvalid || !startDate || !endDate}>
             {loading ? 'Creating…' : 'Create trip'}
           </Button>
         </div>

@@ -6,6 +6,8 @@ import { PageHeader } from '../components/Bits';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CheckIcon, CopyIcon } from '../components/Icons';
+import { SelectField } from '../components/Fields';
+import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
 import { graphql } from '../gql';
 import type { TripRole } from '../gql/graphql';
@@ -92,27 +94,23 @@ export function MembersPage() {
                   </span>
                   <span className="truncate text-[13px] text-ink-muted">{m.user.email}</span>
                 </span>
-                <label className="flex items-center gap-2">
-                  <span className="sr-only">Role for {m.user.name}</span>
-                  <select
-                    value={m.role}
-                    disabled={locked}
-                    onChange={(e) =>
-                      void updateRole({
-                        variables: {
-                          tripId: trip.id,
-                          userId: m.user.id,
-                          role: e.target.value as TripRole,
-                        },
-                      })
-                    }
-                    className="h-11 rounded-control border border-border-input bg-surface px-2.5 text-sm text-ink disabled:bg-bg disabled:text-ink-secondary"
-                  >
-                    {m.role === 'OWNER' && <option value="OWNER">Owner</option>}
-                    <option value="EDITOR">{ROLE_LABEL.EDITOR}</option>
-                    <option value="VIEWER">{ROLE_LABEL.VIEWER}</option>
-                  </select>
-                </label>
+                <Select
+                  size="sm"
+                  className="w-32"
+                  aria-label={`Role for ${m.user.name}`}
+                  value={m.role}
+                  disabled={locked}
+                  onValueChange={(role) =>
+                    void updateRole({ variables: { tripId: trip.id, userId: m.user.id, role } })
+                  }
+                  options={[
+                    ...(m.role === 'OWNER'
+                      ? [{ value: 'OWNER' as const, label: ROLE_LABEL.OWNER }]
+                      : []),
+                    { value: 'EDITOR' as const, label: ROLE_LABEL.EDITOR },
+                    { value: 'VIEWER' as const, label: ROLE_LABEL.VIEWER },
+                  ]}
+                />
                 {((isOwner && !isSelf) || (isSelf && m.role !== 'OWNER')) && (
                   <Button
                     variant="destructive"
@@ -180,20 +178,20 @@ function InviteCard({ tripId }: { tripId: string }) {
         <p className="text-[13px] text-ink-muted">Anyone with the link can join for 7 days.</p>
       </div>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          Role
-          <select
+        <div className="w-40">
+          <SelectField<TripRole>
+            label="Role"
             value={role}
-            onChange={(e) => {
-              setRole(e.target.value as TripRole);
+            onValueChange={(r) => {
+              setRole(r);
               setLink(null);
             }}
-            className="h-11 rounded-control border border-border-input bg-surface px-2.5 text-sm font-normal"
-          >
-            <option value="EDITOR">Editor</option>
-            <option value="VIEWER">Viewer</option>
-          </select>
-        </label>
+            options={[
+              { value: 'EDITOR', label: 'Editor' },
+              { value: 'VIEWER', label: 'Viewer' },
+            ]}
+          />
+        </div>
         <Button onClick={() => void generate()} disabled={loading}>
           {link ? 'New link' : 'Create invite link'}
         </Button>
