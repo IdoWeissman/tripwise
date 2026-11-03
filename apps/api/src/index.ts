@@ -6,6 +6,17 @@ const env = loadEnv();
 const db = createDb(env.DATABASE_URL);
 const { httpServer, stop } = await createApp(env, db);
 
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `Port ${env.PORT} is already in use. Stop the other process or change PORT in apps/api/.env.`,
+    );
+  } else {
+    console.error('HTTP server error:', err);
+  }
+  process.exit(1);
+});
+
 httpServer.listen(env.PORT, () => {
   console.log(`🚀 Tripwise API ready at http://localhost:${env.PORT}/graphql`);
 });
