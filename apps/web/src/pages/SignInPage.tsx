@@ -1,9 +1,10 @@
 import { useMutation } from '@apollo/client/react';
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { graphql } from '../gql';
+import { messageFromError } from '../lib/errors';
 import { MeDocument } from '../lib/session';
 
 const SignInMutation = graphql(`
@@ -18,7 +19,23 @@ const SignInMutation = graphql(`
   }
 `);
 
+const SignUpMutation = graphql(`
+  mutation SignUp($input: SignUpInput!) {
+    signUp(input: $input) {
+      user {
+        id
+        name
+        email
+      }
+    }
+  }
+`);
+
 const DEMO = { email: 'demo@tripwise.app', password: 'tripwise-demo' };
+
+/** Only allow in-app redirects. */
+const safeNext = (next: string | null) =>
+  next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
 
 const POINTS = [
   { t: 'One shared itinerary', d: 'Drag activities between days. Everyone sees changes live.' },
@@ -29,22 +46,32 @@ const POINTS = [
 const inputCls =
   'h-12 rounded-control border border-border-input bg-surface px-3.5 text-[15px] font-normal text-ink';
 
-export function SignInPage() {
+export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = safeNext(params.get('next'));
+  const isSignUp = mode === 'signUp';
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [signIn, { loading, error }] = useMutation(SignInMutation, {
+  const options = {
     refetchQueries: [{ query: MeDocument }],
     awaitRefetchQueries: true,
-    onCompleted: () => navigate('/'),
-  });
+    onCompleted: () => navigate(next),
+  };
+  const [signIn, signInState] = useMutation(SignInMutation, options);
+  const [signUp, signUpState] = useMutation(SignUpMutation, options);
+  const loading = signInState.loading || signUpState.loading;
+  const error = isSignUp ? signUpState.error : signInState.error;
 
   const submit = (input: { email: string; password: string }) =>
-    void signIn({ variables: { input } });
+    void signIn({ variables: { input } }).catch(() => {});
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    submit({ email, password });
+    if (isSignUp) void signUp({ variables: { input: { name, email, password } } }).catch(() => {});
+    else submit({ email, password });
   };
+  const switchHref = `${isSignUp ? '/sign-in' : '/sign-up'}${params.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`;
 
   return (
     <div className="flex min-h-screen flex-wrap bg-surface">
@@ -55,9 +82,27 @@ export function SignInPage() {
       >
         <form onSubmit={onSubmit} className="flex w-full max-w-[400px] flex-col gap-5" noValidate>
           <div className="flex flex-col gap-2">
-            <h1 className="text-[28px] font-bold tracking-[-0.02em]">Welcome back</h1>
-            <p className="text-[15px] text-ink-muted">Sign in to see your trips.</p>
+            <h1 className="text-[28px] font-bold tracking-[-0.02em]">
+              {isSignUp ? 'Create your account' : 'Welcome back'}
+            </h1>
+            <p className="text-[15px] text-ink-muted">
+              {isSignUp ? 'Start planning trips with your friends.' : 'Sign in to see your trips.'}
+            </p>
           </div>
+          {isSignUp && (
+            <label className="flex flex-col gap-1.5 text-sm font-semibold">
+              Name
+              <input
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="What friends call you"
+                className={inputCls}
+              />
+            </label>
+          )}
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
             Email
             <input
@@ -74,7 +119,7 @@ export function SignInPage() {
             Password
             <input
               type="password"
-              autoComplete="current-password"
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -84,11 +129,11 @@ export function SignInPage() {
           </label>
           {error && (
             <p role="alert" className="text-sm text-negative-ink">
-              {error.message}
+              {messageFromError(error)}
             </p>
           )}
           <Button type="submit" disabled={loading} className="h-12">
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
           </Button>
           <div className="flex items-center gap-3 text-[13px] text-ink-muted">
             <span className="h-px flex-1 bg-border" />
@@ -103,6 +148,12 @@ export function SignInPage() {
           >
             Explore with the demo account
           </Button>
+          <p className="text-center text-sm text-ink-muted">
+            {isSignUp ? 'Already have an account? ' : 'New to Tripwise? '}
+            <Link to={switchHref} className="font-semibold text-accent">
+              {isSignUp ? 'Sign in' : 'Create an account'}
+            </Link>
+          </p>
         </form>
       </section>
 
@@ -135,13 +186,13 @@ export function SignInPage() {
                 </span>
                 <span className="flex flex-col gap-0.5">
                   <strong className="font-semibold text-accent-deep">{p.t}</strong>
-                  <span className="text-[15px] text-[#33524f]">{p.d}</span>
+                  <span className="text-[15px] text-accent-ink-soft">{p.d}</span>
                 </span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-[13px] text-[#33524f]">
+        <p className="text-[13px] text-accent-ink-soft">
           An open-source portfolio project · React, GraphQL, PostgreSQL
         </p>
       </section>

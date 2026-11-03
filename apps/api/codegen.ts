@@ -1,6 +1,7 @@
 import type { CodegenConfig } from '@graphql-codegen/cli';
 
 const prisma = '../../generated/prisma/client.js';
+const models = '../models.js';
 
 const config: CodegenConfig = {
   schema: 'schema.graphql',
@@ -19,6 +20,12 @@ const config: CodegenConfig = {
           TripMember: `${prisma}#TripMember as TripMemberModel`,
           Day: `${prisma}#Day as DayModel`,
           Activity: `${prisma}#Activity as ActivityModel`,
+          Expense: `${models}#ExpenseModel`,
+          ExpenseSplit: `${models}#ExpenseSplitModel`,
+          Balance: `${models}#BalanceModel`,
+          Settlement: `${models}#SettlementModel`,
+          ExpenseSummary: `${models}#ExpenseSummaryModel`,
+          ProposalCounts: `${models}#ProposalCountsModel`,
         },
       },
     },
