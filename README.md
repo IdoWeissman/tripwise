@@ -56,15 +56,16 @@ Open http://localhost:5173 and choose **Explore with the demo account**
 
 ## Scripts
 
-| Command          | What it does                              |
-| ---------------- | ----------------------------------------- |
-| `pnpm dev`       | Run API and web in watch mode             |
-| `pnpm codegen`   | Regenerate types after editing the schema |
-| `pnpm lint`      | ESLint across the monorepo                |
-| `pnpm typecheck` | TypeScript in every package               |
-| `pnpm test`      | Vitest in every package                   |
-| `pnpm build`     | Production builds                         |
-| `pnpm db:studio` | Browse the database in Prisma Studio      |
+| Command                                        | What it does                              |
+| ---------------------------------------------- | ----------------------------------------- |
+| `pnpm dev`                                     | Run API and web in watch mode             |
+| `pnpm codegen`                                 | Regenerate types after editing the schema |
+| `pnpm lint`                                    | ESLint across the monorepo                |
+| `pnpm typecheck`                               | TypeScript in every package               |
+| `pnpm test`                                    | Vitest in every package                   |
+| `pnpm --filter @tripwise/api test:integration` | API flows against the seeded database     |
+| `pnpm build`                                   | Production builds                         |
+| `pnpm db:studio`                               | Browse the database in Prisma Studio      |
 
 ## Design
 

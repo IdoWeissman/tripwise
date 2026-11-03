@@ -29,3 +29,15 @@ Fine for a single API instance. When scaling horizontally, replace with Redis (`
 ## 007 — Tailwind CSS v4 with design tokens
 
 Tokens from `docs/design-rules.md` live in `@theme` in `apps/web/src/styles.css`, so utilities like `bg-accent` or `text-ink-muted` are the only way to apply color. This keeps the UI consistent with the rules.
+
+## 008 — Stateless invite links
+
+Invites are signed JWTs (`typ: "invite"`, trip, role, inviter, 7-day expiry), so no table or migration is needed and links can be shared anywhere. Session verification rejects invite tokens and vice-versa. Trade-off: a link can't be revoked before it expires. When email invites land, add an `Invite` table with a revocable id.
+
+## 009 — Money math in integer cents
+
+Splits, balances and settle-up run in integer cents (`apps/api/src/lib/money.ts`). Equal and percent splits use largest-remainder rounding so shares always add up to the exact total, and balances always sum to zero. Settle-up uses the greedy "largest debtor pays largest creditor" heuristic (≤ n−1 payments).
+
+## 010 — Live updates via lightweight events
+
+Subscriptions publish small `TripEvent`s (kind, activityId, actorId) instead of full payloads. Clients refetch whatever is on screen (debounced) and skip events they caused, which keeps the cache logic trivial and authorization in one place.
