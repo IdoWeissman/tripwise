@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: tripwise-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tripwise
+      POSTGRES_PASSWORD: tripwise
+      POSTGRES_DB: tripwise
+    ports:
+      - '5432:5432'
+    volumes:
+      - tripwise-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tripwise -d tripwise']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tripwise-db:

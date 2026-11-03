@@ -1,0 +1,149 @@
+// Tripwise data model — see docs/decisions.md for rationale.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TripRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum ActivityStatus {
+  PROPOSED
+  SCHEDULED
+  DECLINED
+}
+
+enum SplitMethod {
+  EQUAL
+  PERCENT
+  EXACT
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships   TripMember[]
+  activities    Activity[]     @relation("ActivityCreatedBy")
+  votes         Vote[]
+  expensesPaid  Expense[]      @relation("ExpensePaidBy")
+  expenseSplits ExpenseSplit[]
+}
+
+model Trip {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  destination   String
+  startDate     DateTime @db.Date
+  endDate       DateTime @db.Date
+  currency      String   @default("EUR") @db.Char(3)
+  voteThreshold Int      @default(3)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members    TripMember[]
+  days       Day[]
+  activities Activity[]
+  expenses   Expense[]
+}
+
+model TripMember {
+  tripId   String   @db.Uuid
+  userId   String   @db.Uuid
+  role     TripRole @default(EDITOR)
+  joinedAt DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tripId, userId])
+  @@index([userId])
+}
+
+model Day {
+  id       String   @id @default(uuid()) @db.Uuid
+  tripId   String   @db.Uuid
+  date     DateTime @db.Date
+  position Int
+
+  trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@unique([tripId, position])
+}
+
+model Activity {
+  id            String         @id @default(uuid()) @db.Uuid
+  tripId        String         @db.Uuid
+  dayId         String?        @db.Uuid
+  createdById   String         @db.Uuid
+  title         String
+  description   String?
+  location      String?
+  startTime     String? // "HH:mm" local to the trip
+  costPerPerson Decimal?       @db.Decimal(12, 2)
+  status        ActivityStatus @default(PROPOSED)
+  position      Int            @default(0)
+  createdAt     DateTime       @default(now())
+
+  trip      Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  day       Day?   @relation(fields: [dayId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("ActivityCreatedBy", fields: [createdById], references: [id])
+  votes     Vote[]
+
+  @@index([tripId, status])
+  @@index([dayId, position])
+}
+
+model Vote {
+  activityId String   @db.Uuid
+  userId     String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // one vote per user per proposal
+  @@id([activityId, userId])
+}
+
+model Expense {
+  id          String      @id @default(uuid()) @db.Uuid
+  tripId      String      @db.Uuid
+  paidById    String      @db.Uuid
+  description String
+  category    String      @default("Other")
+  amount      Decimal     @db.Decimal(12, 2)
+  splitMethod SplitMethod @default(EQUAL)
+  spentAt     DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+
+  trip   Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  paidBy User           @relation("ExpensePaidBy", fields: [paidById], references: [id])
+  splits ExpenseSplit[]
+
+  @@index([tripId, spentAt])
+}
+
+model ExpenseSplit {
+  expenseId String  @db.Uuid
+  userId    String  @db.Uuid
+  amount    Decimal @db.Decimal(12, 2)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([expenseId, userId])
+}

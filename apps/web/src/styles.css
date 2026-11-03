@@ -1,0 +1,54 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens — mirror docs/design-rules.md §1.1.
+ * Add a token here (and to the rules) BEFORE using a new color/size anywhere.
+ */
+@theme {
+  --font-sans: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+
+  --color-bg: #fafaf8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f0ec;
+  --color-surface-column: #f4f3ef;
+  --color-border: #e7e5e0;
+  --color-border-input: #d6d3cc;
+  --color-ink: #1c1b1a;
+  --color-ink-secondary: #4a4844;
+  --color-ink-muted: #6b6862;
+  --color-accent: #0f766e;
+  --color-accent-hover: #115e59;
+  --color-accent-strong: #0f5f58;
+  --color-accent-tint: #e6f4f1;
+  --color-accent-deep: #0b3d39;
+  --color-live: #14b8a6;
+  --color-negative: #c2410c;
+  --color-negative-ink: #b13a0a;
+  --color-attention: #fce3cf;
+  --color-attention-ink: #9a3412;
+
+  /* member avatar palette (bg / ink) */
+  --color-member-teal: #ccebe6;
+  --color-member-teal-ink: #0f5f58;
+  --color-member-orange: #fce3cf;
+  --color-member-orange-ink: #9a3412;
+  --color-member-blue: #dce3fa;
+  --color-member-blue-ink: #2e3f9e;
+  --color-member-purple: #e9ddf7;
+  --color-member-purple-ink: #5b2b8c;
+  --color-member-amber: #fbebc2;
+  --color-member-amber-ink: #7a4e00;
+
+  --radius-chip: 6px;
+  --radius-control: 10px;
+  --radius-card: 16px;
+}
+
+@layer base {
+  html {
+    @apply bg-bg font-sans text-ink antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}

@@ -1,0 +1,133 @@
+# Tripwise GraphQL schema — the single source of truth.
+# Server resolver types and client hooks are generated from this file (`pnpm codegen`).
+
+scalar DateTime
+scalar Date
+
+enum TripRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum ActivityStatus {
+  PROPOSED
+  SCHEDULED
+  DECLINED
+}
+
+type User {
+  id: ID!
+  email: String!
+  name: String!
+}
+
+type TripMember {
+  user: User!
+  role: TripRole!
+  joinedAt: DateTime!
+}
+
+type Trip {
+  id: ID!
+  name: String!
+  destination: String!
+  startDate: Date!
+  endDate: Date!
+  currency: String!
+  voteThreshold: Int!
+  members: [TripMember!]!
+  days: [Day!]!
+  proposals(status: ActivityStatus = PROPOSED): [Activity!]!
+  "The current viewer's role on this trip."
+  myRole: TripRole!
+}
+
+type Day {
+  id: ID!
+  date: Date!
+  position: Int!
+  activities: [Activity!]!
+}
+
+type Activity {
+  id: ID!
+  title: String!
+  description: String
+  location: String
+  "Local start time, HH:mm."
+  startTime: String
+  "Decimal string, e.g. \"45.00\"."
+  costPerPerson: String
+  status: ActivityStatus!
+  position: Int!
+  createdBy: User!
+  createdAt: DateTime!
+  voteCount: Int!
+  viewerHasVoted: Boolean!
+}
+
+type AuthPayload {
+  user: User!
+}
+
+input SignUpInput {
+  email: String!
+  name: String!
+  password: String!
+}
+
+input SignInInput {
+  email: String!
+  password: String!
+}
+
+input CreateTripInput {
+  name: String!
+  destination: String!
+  startDate: Date!
+  endDate: Date!
+  currency: String
+}
+
+input ProposeActivityInput {
+  tripId: ID!
+  title: String!
+  description: String
+  location: String
+  dayId: ID
+  startTime: String
+  costPerPerson: String
+}
+
+type Query {
+  me: User
+  trips: [Trip!]!
+  trip(id: ID!): Trip
+}
+
+type Mutation {
+  signUp(input: SignUpInput!): AuthPayload!
+  signIn(input: SignInInput!): AuthPayload!
+  signOut: Boolean!
+  createTrip(input: CreateTripInput!): Trip!
+  proposeActivity(input: ProposeActivityInput!): Activity!
+  "Toggles the viewer's vote. Proposals reaching the trip's threshold are scheduled."
+  toggleVote(activityId: ID!): Activity!
+}
+
+enum TripEventKind {
+  ACTIVITY_PROPOSED
+  ACTIVITY_UPDATED
+  VOTE_CHANGED
+}
+
+type TripEvent {
+  tripId: ID!
+  kind: TripEventKind!
+  activity: Activity!
+}
+
+type Subscription {
+  tripEvents(tripId: ID!): TripEvent!
+}

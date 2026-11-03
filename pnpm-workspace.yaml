@@ -1,0 +1,11 @@
+packages:
+  - 'apps/*'
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@prisma/engines'
+  - esbuild
+  - prisma
+
+ignoredBuiltDependencies:
+  - '@apollo/protobufjs'
