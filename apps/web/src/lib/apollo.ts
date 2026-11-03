@@ -25,4 +25,13 @@ const link = ApolloLink.split(
   httpLink,
 );
 
-export const apolloClient = new ApolloClient({ link, cache: new InMemoryCache() });
+export const apolloClient = new ApolloClient({
+  link,
+  cache: new InMemoryCache(),
+  defaultOptions: {
+    // Apollo Client 4 defaults this to true, which flips `loading` back on for every
+    // background refetch (live events, refetchQueries) and makes screens flash their
+    // skeletons. Refetches should update the UI silently — design rules §1.8.
+    watchQuery: { notifyOnNetworkStatusChange: false },
+  },
+});

@@ -89,7 +89,7 @@ export function ItineraryPage() {
     />
   );
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="flex flex-col gap-6">
         {header}

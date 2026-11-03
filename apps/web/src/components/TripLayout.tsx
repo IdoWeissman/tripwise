@@ -52,7 +52,7 @@ export function TripLayout() {
     };
   }, [data]);
 
-  if (loading) return <ShellSkeleton />;
+  if (loading && !data) return <ShellSkeleton />;
   if (!data?.me) return <Navigate to="/sign-in" replace />;
   if (error) {
     return (

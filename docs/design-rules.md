@@ -98,6 +98,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 ### 1.8 States every screen must design
 
 - **Loading**: skeletons in the shape of the final content (no full-page spinners).
+- **Refetches are silent**: skeletons appear only before the first response. Background refreshes (live events, refetch after a mutation) update content in place and never swap it for a skeleton.
 - **Empty**: dashed-border block with a one-line explanation + the next action.
 - **Error**: inline message near the failed element + retry; never lose user input.
 - **Optimistic updates**: votes, reorders and new expenses appear instantly and roll back with a toast on failure.

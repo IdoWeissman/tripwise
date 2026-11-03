@@ -46,7 +46,7 @@ export function JoinPage() {
     <div className="flex min-h-screen flex-col items-center gap-10 bg-bg px-4 py-10">
       <Logo />
       <main className="w-full max-w-[440px]">
-        {loading ? (
+        {loading && !data ? (
           <Skeleton className="h-64" />
         ) : !invite ? (
           <EmptyState

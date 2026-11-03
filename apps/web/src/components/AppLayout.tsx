@@ -17,7 +17,7 @@ const SignOutDocument = graphql(`
 export function RequireAuth() {
   const { data, loading } = useQuery(MeDocument);
   const location = useLocation();
-  if (loading) return <Skeleton className="m-8 h-24" />;
+  if (loading && !data) return <Skeleton className="m-8 h-24" />;
   if (!data?.me)
     return <Navigate to={`/sign-in?next=${encodeURIComponent(location.pathname)}`} replace />;
   return <Outlet />;

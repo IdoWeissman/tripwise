@@ -113,6 +113,9 @@ export function ProposalsPage() {
   });
 
   const counts = data?.trip?.proposalCounts;
+  // Activities are normalized in the cache, so an optimistic status change (accept by
+  // vote, decline) removes the card from this tab instantly — no waiting, no flash.
+  const proposals = (data?.trip?.proposals ?? []).filter((p) => p.status === status);
   const threshold = data?.trip?.voteThreshold ?? trip.voteThreshold;
   const days = data?.trip?.days ?? [];
 
@@ -186,7 +189,7 @@ export function ProposalsPage() {
         {loading &&
           !data &&
           Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-40" />)}
-        {data?.trip?.proposals.length === 0 && (
+        {data?.trip && proposals.length === 0 && (
           <EmptyState
             title={
               status === 'PROPOSED'
@@ -203,7 +206,7 @@ export function ProposalsPage() {
           />
         )}
 
-        {data?.trip?.proposals.map((p) => {
+        {proposals.map((p) => {
           const remaining = Math.max(0, threshold - p.voteCount);
           const open = p.status === 'PROPOSED';
           return (
@@ -265,7 +268,19 @@ export function ProposalsPage() {
                     <Button
                       variant="destructive"
                       className="min-h-10 px-3 text-sm"
-                      onClick={() => void decline({ variables: { activityId: p.id } })}
+                      onClick={() =>
+                        void decline({
+                          variables: { activityId: p.id },
+                          optimisticResponse: {
+                            __typename: 'Mutation',
+                            declineActivity: {
+                              __typename: 'Activity',
+                              id: p.id,
+                              status: 'DECLINED',
+                            },
+                          },
+                        })
+                      }
                     >
                       Decline
                     </Button>

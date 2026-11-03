@@ -52,6 +52,8 @@ export function TripsPage() {
   const { data, loading, error, refetch } = useQuery(TripsQuery);
   const [filter, setFilter] = useState<Filter>('upcoming');
   const [creating, setCreating] = useState(false);
+  /** Skeletons only before the first response — refetches update silently. */
+  const initialLoading = loading && !data;
   const all = data?.trips ?? [];
   const trips = all.filter((t) => daysUntil(t.endDate) < 0 === (filter === 'past'));
   const upcoming = all.filter((t) => daysUntil(t.endDate) >= 0).length;
@@ -61,7 +63,7 @@ export function TripsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-[32px] font-bold tracking-[-0.02em]">Your trips</h1>
-          {!loading && (
+          {!initialLoading && (
             <p className="text-[15px] text-ink-muted">
               {upcoming} upcoming · {all.length - upcoming} past
             </p>
@@ -92,7 +94,8 @@ export function TripsPage() {
         aria-label="Trips"
         className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6"
       >
-        {loading && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[280px]" />)}
+        {initialLoading &&
+          Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[280px]" />)}
 
         {trips.map((trip, i) => {
           const s = status(trip.startDate, trip.endDate);
@@ -136,7 +139,7 @@ export function TripsPage() {
           );
         })}
 
-        {!loading && filter === 'upcoming' && (
+        {!initialLoading && filter === 'upcoming' && (
           <button
             type="button"
             onClick={() => setCreating(true)}
@@ -150,7 +153,7 @@ export function TripsPage() {
         )}
       </section>
 
-      {!loading && !error && filter === 'past' && trips.length === 0 && (
+      {!initialLoading && !error && filter === 'past' && trips.length === 0 && (
         <EmptyState title="No past trips yet" body="Trips move here after their last day." />
       )}
 
