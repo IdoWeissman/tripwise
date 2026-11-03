@@ -2,7 +2,7 @@
 
 **Plan group trips together — a shared itinerary, voting on ideas and fair expense splitting, all updating live.**
 
-![CI](https://github.com/<your-username>/tripwise/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/IdoWeissman/tripwise/actions/workflows/ci.yml/badge.svg)
 
 <!-- TODO: add a GIF of live voting here, plus a link to the live demo -->
 
