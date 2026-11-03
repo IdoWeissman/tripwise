@@ -16,6 +16,12 @@ enum ActivityStatus {
   DECLINED
 }
 
+enum SplitMethod {
+  EQUAL
+  PERCENT
+  EXACT
+}
+
 type User {
   id: ID!
   email: String!
@@ -39,8 +45,74 @@ type Trip {
   members: [TripMember!]!
   days: [Day!]!
   proposals(status: ActivityStatus = PROPOSED): [Activity!]!
+  proposalCounts: ProposalCounts!
+  "Scheduled activities that are not assigned to a day yet."
+  unplannedActivities: [Activity!]!
+  expenses: [Expense!]!
+  expenseSummary: ExpenseSummary!
+  "Net balance per member. Positive = the group owes them. Always sums to zero."
+  balances: [Balance!]!
+  "Suggested payments that clear every balance."
+  settlements: [Settlement!]!
   "The current viewer's role on this trip."
   myRole: TripRole!
+}
+
+type ProposalCounts {
+  proposed: Int!
+  scheduled: Int!
+  declined: Int!
+}
+
+type ExpenseSplit {
+  user: User!
+  "Decimal string."
+  amount: String!
+}
+
+type Expense {
+  id: ID!
+  description: String!
+  category: String!
+  "Decimal string, e.g. \"184.00\"."
+  amount: String!
+  splitMethod: SplitMethod!
+  spentAt: DateTime!
+  paidBy: User!
+  splits: [ExpenseSplit!]!
+  "The viewer's share of this expense (\"0.00\" if not included)."
+  viewerShare: String!
+  "True for 'Mark paid' settlement entries."
+  isSettlement: Boolean!
+}
+
+type ExpenseSummary {
+  "Sum of all expenses excluding settlements."
+  total: String!
+  viewerPaid: String!
+  viewerBalance: String!
+  expenseCount: Int!
+}
+
+type Balance {
+  user: User!
+  "Signed decimal string."
+  amount: String!
+}
+
+type Settlement {
+  from: User!
+  to: User!
+  amount: String!
+}
+
+type InvitePreview {
+  tripId: ID!
+  tripName: String!
+  destination: String!
+  role: TripRole!
+  invitedBy: String!
+  alreadyMember: Boolean!
 }
 
 type Day {
@@ -98,12 +170,42 @@ input ProposeActivityInput {
   dayId: ID
   startTime: String
   costPerPerson: String
+  "Add straight to the itinerary instead of proposing (editors and owners)."
+  scheduleNow: Boolean
+}
+
+input MoveActivityInput {
+  activityId: ID!
+  "Target day; null moves it to 'unplanned'."
+  dayId: ID
+  "Zero-based index within the target day."
+  position: Int!
+}
+
+input SplitInput {
+  userId: ID!
+  "Percent (PERCENT) or amount (EXACT). Ignored for EQUAL."
+  value: String
+}
+
+input AddExpenseInput {
+  tripId: ID!
+  description: String!
+  category: String
+  "Decimal string, e.g. \"184.00\"."
+  amount: String!
+  paidById: ID!
+  splitMethod: SplitMethod!
+  "Participants. For EQUAL, the amount is divided between them."
+  splits: [SplitInput!]!
+  spentAt: DateTime
 }
 
 type Query {
   me: User
   trips: [Trip!]!
   trip(id: ID!): Trip
+  invitePreview(token: String!): InvitePreview
 }
 
 type Mutation {
@@ -114,18 +216,37 @@ type Mutation {
   proposeActivity(input: ProposeActivityInput!): Activity!
   "Toggles the viewer's vote. Proposals reaching the trip's threshold are scheduled."
   toggleVote(activityId: ID!): Activity!
+  "Owner only."
+  declineActivity(activityId: ID!): Activity!
+  moveActivity(input: MoveActivityInput!): Activity!
+  addExpense(input: AddExpenseInput!): Expense!
+  "Payer or owner."
+  deleteExpense(id: ID!): Boolean!
+  "Owner only. Returns a signed invite token (valid 7 days)."
+  createInviteLink(tripId: ID!, role: TripRole!): String!
+  joinTrip(token: String!): Trip!
+  "Owner only."
+  updateMemberRole(tripId: ID!, userId: ID!, role: TripRole!): TripMember!
+  "Owner only, or yourself (leave trip)."
+  removeMember(tripId: ID!, userId: ID!): Boolean!
 }
 
 enum TripEventKind {
   ACTIVITY_PROPOSED
   ACTIVITY_UPDATED
+  ACTIVITY_MOVED
   VOTE_CHANGED
+  EXPENSE_CHANGED
+  MEMBER_CHANGED
 }
 
+"Lightweight change notification; clients refetch what they display."
 type TripEvent {
   tripId: ID!
   kind: TripEventKind!
-  activity: Activity!
+  activityId: ID
+  "Who made the change."
+  actorId: ID
 }
 
 type Subscription {

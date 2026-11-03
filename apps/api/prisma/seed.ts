@@ -5,6 +5,7 @@
 import 'dotenv/config';
 import { hashPassword } from '../src/auth/passwords.js';
 import { createDb } from '../src/db.js';
+import { computeShares, fromCents, toCents } from '../src/lib/money.js';
 
 const db = createDb(process.env.DATABASE_URL!);
 const DAY = 24 * 60 * 60 * 1000;
@@ -52,87 +53,154 @@ async function main() {
   });
   const day = (i: number) => trip.days[i]!.id;
 
-  await db.activity.createMany({
+  type Seed = {
+    day?: number;
+    by: { id: string };
+    title: string;
+    location?: string;
+    time?: string;
+    cost?: string;
+    description?: string;
+    proposed?: boolean;
+  };
+  const activities: Seed[] = [
+    {
+      day: 0,
+      by: ido,
+      title: 'Check in · Alfama apartment',
+      location: 'Rua dos Remédios',
+      time: '14:00',
+    },
+    {
+      day: 0,
+      by: maya,
+      title: 'Dinner at Taberna da Rua',
+      location: 'Alfama',
+      time: '19:30',
+      cost: '35.00',
+    },
+    {
+      day: 1,
+      by: noa,
+      title: 'Tram 28 + Castelo de São Jorge',
+      location: 'Castelo',
+      time: '10:00',
+      cost: '15.00',
+    },
+    { day: 2, by: noa, title: 'Sintra day trip', location: 'Sintra', time: '09:00', cost: '22.00' },
+    {
+      day: 2,
+      by: daniel,
+      title: 'Lunch in Sintra village',
+      location: 'Sintra',
+      time: '13:00',
+      cost: '20.00',
+    },
+    { day: 2, by: ido, title: 'Fado night', location: 'Bairro Alto', time: '20:00', cost: '30.00' },
+    {
+      day: 3,
+      by: daniel,
+      title: 'Pastéis de Belém + Jerónimos',
+      location: 'Belém',
+      time: '11:00',
+      cost: '12.00',
+    },
+    {
+      day: 1,
+      by: maya,
+      title: 'Sunset sail on the Tagus',
+      location: 'Doca de Alcântara',
+      time: '18:30',
+      cost: '45.00',
+      proposed: true,
+      description: 'Two-hour catamaran from Doca de Alcântara. Drinks included, leaves at 18:30.',
+    },
+    {
+      by: daniel,
+      title: 'Surf lesson in Ericeira',
+      cost: '35.00',
+      proposed: true,
+      description: 'Beginner group lesson, boards and wetsuits included. 50 min drive from Lisbon.',
+    },
+    {
+      day: 3,
+      by: noa,
+      title: 'LX Factory brunch + market',
+      location: 'Alcântara',
+      cost: '18.00',
+      proposed: true,
+      description: 'Sunday market, bookshops and brunch at a converted factory under the bridge.',
+    },
+    {
+      day: 4,
+      by: ido,
+      title: 'Bike ride to Cascais',
+      location: 'Belém → Cascais',
+      cost: '12.00',
+      proposed: true,
+      description: 'Coastal bike path from Belém, train back. Easy pace, about 3 hours.',
+    },
+  ];
+  const positions = new Map<number, number>();
+  const created: { id: string; title: string }[] = [];
+  for (const a of activities) {
+    const pos = a.day === undefined ? 0 : (positions.get(a.day) ?? 0);
+    if (a.day !== undefined && !a.proposed) positions.set(a.day, pos + 1);
+    created.push(
+      await db.activity.create({
+        data: {
+          tripId: trip.id,
+          dayId: a.day === undefined ? null : day(a.day),
+          createdById: a.by.id,
+          title: a.title,
+          description: a.description ?? null,
+          location: a.location ?? null,
+          startTime: a.time ?? null,
+          costPerPerson: a.cost ?? null,
+          status: a.proposed ? 'PROPOSED' : 'SCHEDULED',
+          position: a.proposed ? 0 : pos,
+        },
+      }),
+    );
+  }
+  const byTitle = (t: string) => created.find((c) => c.title === t)!.id;
+  await db.vote.createMany({
     data: [
-      {
-        tripId: trip.id,
-        dayId: day(0),
-        createdById: ido.id,
-        title: 'Check in · Alfama apartment',
-        location: 'Rua dos Remédios',
-        startTime: '14:00',
-        status: 'SCHEDULED',
-        position: 0,
-      },
-      {
-        tripId: trip.id,
-        dayId: day(0),
-        createdById: maya.id,
-        title: 'Dinner at Taberna da Rua',
-        location: 'Alfama',
-        startTime: '19:30',
-        costPerPerson: '35.00',
-        status: 'SCHEDULED',
-        position: 1,
-      },
-      {
-        tripId: trip.id,
-        dayId: day(1),
-        createdById: noa.id,
-        title: 'Tram 28 + Castelo de São Jorge',
-        location: 'Castelo',
-        startTime: '10:00',
-        costPerPerson: '15.00',
-        status: 'SCHEDULED',
-        position: 0,
-      },
-      {
-        tripId: trip.id,
-        dayId: day(2),
-        createdById: noa.id,
-        title: 'Sintra day trip',
-        location: 'Sintra',
-        startTime: '09:00',
-        costPerPerson: '22.00',
-        status: 'SCHEDULED',
-        position: 0,
-      },
-      {
-        tripId: trip.id,
-        dayId: day(1),
-        createdById: maya.id,
-        title: 'Sunset sail on the Tagus',
-        description: 'Two-hour catamaran from Doca de Alcântara.',
-        location: 'Doca de Alcântara',
-        startTime: '18:30',
-        costPerPerson: '45.00',
-      },
-      {
-        tripId: trip.id,
-        createdById: daniel.id,
-        title: 'Surf lesson in Ericeira',
-        description: 'Beginner group lesson, boards included.',
-        costPerPerson: '35.00',
-      },
+      { activityId: byTitle('Sunset sail on the Tagus'), userId: maya.id },
+      { activityId: byTitle('Surf lesson in Ericeira'), userId: daniel.id },
     ],
   });
 
-  const dinner = await db.expense.create({
-    data: {
-      tripId: trip.id,
-      paidById: daniel.id,
-      description: 'Dinner at Taberna da Rua',
-      category: 'Food',
-      amount: '184.00',
-    },
-  });
-  await db.expenseSplit.createMany({
-    data: [ido, maya, noa, daniel].map((u) => ({
-      expenseId: dinner.id,
-      userId: u.id,
-      amount: '46.00',
-    })),
-  });
+  const everyone = [ido, maya, noa, daniel].map((u) => ({ userId: u.id }));
+  const expenses: [string, string, { id: string }, string, number][] = [
+    ['Apartment balance', 'Stay', maya, '318.40', 0],
+    ['Groceries', 'Food', ido, '48.50', 0],
+    ['Dinner at Taberna da Rua', 'Food', daniel, '184.00', 0],
+    ['Tram & castle tickets', 'Activities', noa, '60.00', 1],
+    ['Wine & snacks', 'Food', daniel, '71.80', 1],
+    ['Fado night tickets', 'Activities', maya, '120.00', 2],
+    ['Car rental, 2 days', 'Transport', ido, '161.60', 2],
+    ['Sintra train', 'Transport', ido, '88.00', 2],
+    ['Airport taxi', 'Transport', ido, '64.00', 0],
+    ['Museum passes', 'Activities', noa, '120.00', 3],
+    ['Pastelaria + market run', 'Food', noa, '43.70', 3],
+  ];
+  for (const [description, category, payer, amount, dayIndex] of expenses) {
+    const shares = computeShares(toCents(amount), 'EQUAL', everyone);
+    await db.expense.create({
+      data: {
+        tripId: trip.id,
+        paidById: payer.id,
+        description,
+        category,
+        amount,
+        spentAt: new Date(start.getTime() + dayIndex * DAY + 12 * 60 * 60 * 1000),
+        splits: {
+          create: shares.map((sh) => ({ userId: sh.userId, amount: fromCents(sh.cents) })),
+        },
+      },
+    });
+  }
 
   console.log('Seeded demo data. Sign in with demo@tripwise.app / tripwise-demo');
 }

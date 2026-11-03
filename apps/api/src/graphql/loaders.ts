@@ -1,6 +1,18 @@
 import DataLoader from 'dataloader';
 import type { Db } from '../db.js';
-import type { User } from '../generated/prisma/client.js';
+import type { ExpenseSplit, User } from '../generated/prisma/client.js';
+import { computeBalances, decimalToCents, settleUp, type Transfer } from '../lib/money.js';
+import type { ExpenseModel } from './models.js';
+
+export const SETTLEMENT_CATEGORY = 'Settlement';
+
+export interface Ledger {
+  expenses: ExpenseModel[];
+  balances: Map<string, number>;
+  settlements: Transfer[];
+  totalCents: number;
+  paidCentsByUser: Map<string, number>;
+}
 
 /** Per-request DataLoaders — batch N+1 lookups into single queries. */
 export function createLoaders(db: Db, viewerId: string | null) {
@@ -30,6 +42,51 @@ export function createLoaders(db: Db, viewerId: string | null) {
       const voted = new Set(rows.map((r) => r.activityId));
       return ids.map((id) => voted.has(id));
     }),
+
+    splitsByExpense: new DataLoader<string, ExpenseSplit[]>(async (ids) => {
+      const rows = await db.expenseSplit.findMany({ where: { expenseId: { in: [...ids] } } });
+      return ids.map((id) => rows.filter((r) => r.expenseId === id));
+    }),
+
+    /** Everything money-related for a trip, computed once per request. */
+    ledgerByTrip: new DataLoader<string, Ledger>(async (tripIds) =>
+      Promise.all(
+        tripIds.map(async (tripId) => {
+          const [expenses, members] = await Promise.all([
+            db.expense.findMany({
+              where: { tripId },
+              include: { splits: true },
+              orderBy: [{ spentAt: 'desc' }, { createdAt: 'desc' }],
+            }),
+            db.tripMember.findMany({ where: { tripId }, select: { userId: true } }),
+          ]);
+          const ledgerRows = expenses.map((e) => ({
+            paidById: e.paidById,
+            amountCents: decimalToCents(e.amount),
+            shares: e.splits.map((s) => ({ userId: s.userId, cents: decimalToCents(s.amount) })),
+            isSettlement: e.category === SETTLEMENT_CATEGORY,
+          }));
+          const balances = computeBalances(
+            ledgerRows,
+            members.map((m) => m.userId),
+          );
+          const paidCentsByUser = new Map<string, number>();
+          let totalCents = 0;
+          for (const r of ledgerRows) {
+            if (r.isSettlement) continue;
+            totalCents += r.amountCents;
+            paidCentsByUser.set(r.paidById, (paidCentsByUser.get(r.paidById) ?? 0) + r.amountCents);
+          }
+          return {
+            expenses,
+            balances,
+            settlements: settleUp(balances),
+            totalCents,
+            paidCentsByUser,
+          };
+        }),
+      ),
+    ),
   };
 }
 

@@ -2,9 +2,17 @@ import { DateResolver, DateTimeResolver } from 'graphql-scalars';
 import type { Resolvers } from '../__generated__/resolvers-types.js';
 import { activityResolvers } from './activities.js';
 import { authResolvers } from './auth.js';
+import { expenseResolvers } from './expenses.js';
+import { memberResolvers } from './members.js';
 import { tripResolvers } from './trips.js';
 
-const parts: Resolvers[] = [authResolvers, tripResolvers, activityResolvers];
+const parts: Resolvers[] = [
+  authResolvers,
+  tripResolvers,
+  activityResolvers,
+  expenseResolvers,
+  memberResolvers,
+];
 
 /** Shallow-merges resolver maps per type. */
 export const resolvers: Resolvers = parts.reduce<Resolvers>(

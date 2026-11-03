@@ -1,10 +1,22 @@
 import { PubSub } from 'graphql-subscriptions';
-import type { Activity } from '../generated/prisma/client.js';
 
-export type TripEventKind = 'ACTIVITY_PROPOSED' | 'ACTIVITY_UPDATED' | 'VOTE_CHANGED';
+export type TripEventKind =
+  | 'ACTIVITY_PROPOSED'
+  | 'ACTIVITY_UPDATED'
+  | 'ACTIVITY_MOVED'
+  | 'VOTE_CHANGED'
+  | 'EXPENSE_CHANGED'
+  | 'MEMBER_CHANGED';
+
+export interface TripEvent {
+  tripId: string;
+  kind: TripEventKind;
+  activityId: string | null;
+  actorId: string | null;
+}
 
 export interface TripEventPayload {
-  tripEvents: { tripId: string; kind: TripEventKind; activity: Activity };
+  tripEvents: TripEvent;
 }
 
 // In-memory PubSub is fine for a single instance.
@@ -13,6 +25,17 @@ export const pubsub = new PubSub<Record<string, TripEventPayload>>();
 
 export const tripTopic = (tripId: string) => `TRIP_EVENTS:${tripId}`;
 
-export function publishTripEvent(tripId: string, kind: TripEventKind, activity: Activity) {
-  return pubsub.publish(tripTopic(tripId), { tripEvents: { tripId, kind, activity } });
+export function publishTripEvent(
+  tripId: string,
+  kind: TripEventKind,
+  extra: { activityId?: string; actorId?: string | null } = {},
+) {
+  return pubsub.publish(tripTopic(tripId), {
+    tripEvents: {
+      tripId,
+      kind,
+      activityId: extra.activityId ?? null,
+      actorId: extra.actorId ?? null,
+    },
+  });
 }

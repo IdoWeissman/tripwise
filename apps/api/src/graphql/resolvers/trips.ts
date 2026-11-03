@@ -56,6 +56,24 @@ export const tripResolvers: Resolvers = {
         where: { tripId: trip.id, status: status ?? 'PROPOSED' },
         orderBy: { createdAt: 'desc' },
       }),
+    proposalCounts: async (trip, _a, ctx) => {
+      const rows = await ctx.db.activity.groupBy({
+        by: ['status'],
+        where: { tripId: trip.id },
+        _count: { _all: true },
+      });
+      const count = (s: string) => rows.find((r) => r.status === s)?._count._all ?? 0;
+      return {
+        proposed: count('PROPOSED'),
+        scheduled: count('SCHEDULED'),
+        declined: count('DECLINED'),
+      };
+    },
+    unplannedActivities: (trip, _a, ctx) =>
+      ctx.db.activity.findMany({
+        where: { tripId: trip.id, status: 'SCHEDULED', dayId: null },
+        orderBy: { position: 'asc' },
+      }),
     myRole: (trip, _a, ctx) => requireTripRole(ctx, trip.id),
   },
 
