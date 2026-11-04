@@ -242,6 +242,45 @@ describe.runIf(run)('API integration', () => {
     expect(removed.data.removeMember).toBe(true);
   });
 
+  it('lets only the owner delete a trip, with everything in it', async () => {
+    const created = await gql(
+      owner,
+      'mutation($i: CreateTripInput!) { createTrip(input: $i) { id } }',
+      {
+        i: {
+          name: 'Throwaway',
+          destination: 'Porto',
+          startDate: '2027-06-01',
+          endDate: '2027-06-03',
+          currency: 'EUR',
+        },
+      },
+    );
+    expect(created.errors).toBeUndefined();
+    const id = created.data.createTrip.id as string;
+
+    // An editor of that trip may not delete it.
+    const token = (
+      await gql(owner, 'mutation($t: ID!) { createInviteLink(tripId: $t, role: EDITOR) }', {
+        t: id,
+      })
+    ).data.createInviteLink;
+    const editor = request.agent(server.app);
+    await gql(editor, 'mutation($i: SignUpInput!) { signUp(input: $i) { user { id } } }', {
+      i: { email: `editor-${Date.now()}@example.com`, name: 'Eden', password: 'password123' },
+    });
+    await gql(editor, 'mutation($t: String!) { joinTrip(token: $t) { id } }', { t: token });
+    const denied = await gql(editor, 'mutation($id: ID!) { deleteTrip(id: $id) }', { id });
+    expect(denied.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+
+    const res = await gql(owner, 'mutation($id: ID!) { deleteTrip(id: $id) }', { id });
+    expect(res).toEqual({ data: { deleteTrip: true } });
+    expect(await db.trip.findUnique({ where: { id } })).toBeNull();
+    expect(await db.tripMember.count({ where: { tripId: id } })).toBe(0);
+    const gone = await gql(owner, 'query($id: ID!) { trip(id: $id) { id } }', { id });
+    expect(gone.data?.trip ?? null).toBeNull();
+  });
+
   it('pushes live events over WebSocket subscriptions', async () => {
     // Sign in with a plain request to grab the raw Set-Cookie header for the WS handshake.
     const login = await request(server.app).post('/graphql').send({
