@@ -32,7 +32,7 @@ export function CreateTripDialog({ onClose }: { onClose: () => void }) {
     const res = await create({
       variables: { input: { name, destination, startDate, endDate, currency } },
     }).catch(() => null);
-    if (res?.data) navigate(`/trips/${res.data.createTrip.id}/itinerary`);
+    if (res?.data) navigate(`/trips/${res.data.createTrip.id}`);
   };
 
   return (

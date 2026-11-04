@@ -10,15 +10,18 @@ import {
   type TripContext,
 } from '../lib/trip';
 import { AvatarStack, CountBadge, LiveIndicator } from './Bits';
-import { BulbIcon, CalendarIcon, UsersIcon, WalletIcon } from './Icons';
+import { BulbIcon, CalendarIcon, HomeIcon, SuitcaseIcon, UsersIcon, WalletIcon } from './Icons';
 import { Logo } from './Logo';
 import { EmptyState, ErrorState, Skeleton } from './States';
 
 const SECTIONS = [
-  { to: 'itinerary', label: 'Itinerary', short: 'Plan', icon: CalendarIcon },
-  { to: 'proposals', label: 'Proposals', short: 'Vote', icon: BulbIcon },
-  { to: 'expenses', label: 'Expenses', short: 'Money', icon: WalletIcon },
-  { to: 'members', label: 'Members', short: 'People', icon: UsersIcon },
+  { to: 'overview', label: 'Overview', short: 'Today', icon: HomeIcon, mobile: true },
+  { to: 'itinerary', label: 'Itinerary', short: 'Plan', icon: CalendarIcon, mobile: true },
+  { to: 'bookings', label: 'Bookings', short: 'Bookings', icon: SuitcaseIcon, mobile: true },
+  { to: 'proposals', label: 'Proposals', short: 'Vote', icon: BulbIcon, mobile: true },
+  { to: 'expenses', label: 'Expenses', short: 'Money', icon: WalletIcon, mobile: true },
+  // On phones Members moves to a header button (five tabs max).
+  { to: 'members', label: 'Members', short: 'People', icon: UsersIcon, mobile: false },
 ] as const;
 
 /** Shared shell for every trip screen — design rules §1.4. */
@@ -136,17 +139,29 @@ export function TripLayout() {
                 <s.icon />
                 <span className="flex-1">{s.label}</span>
                 {s.to === 'proposals' && <CountBadge count={trip.proposalCounts.proposed} />}
+                {s.to === 'bookings' && <CountBadge count={trip.bookingStats.needsDetails} />}
               </NavLink>
             ))}
           </nav>
         </aside>
 
-        {/* Mobile: trip name above content */}
-        <div className="w-full md:hidden">
-          <p className="text-[17px] font-bold">{trip.name}</p>
-          <p className="text-[13px] text-ink-muted">
-            {formatDateRange(trip.startDate, trip.endDate)} · {trip.members.length} members
-          </p>
+        {/* Mobile: trip name above content, People as a button */}
+        <div className="flex w-full items-center gap-3 md:hidden">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[17px] font-bold">{trip.name}</p>
+            <p className="text-[13px] text-ink-muted">
+              {formatDateRange(trip.startDate, trip.endDate)} · {trip.members.length} members
+            </p>
+          </div>
+          <NavLink
+            to="members"
+            aria-label="People on this trip"
+            className={({ isActive }) =>
+              `flex size-11 items-center justify-center rounded-control border ${isActive ? 'border-accent text-accent' : 'border-border-input text-ink-secondary'}`
+            }
+          >
+            <UsersIcon size={20} />
+          </NavLink>
         </div>
 
         <main className="min-w-0 flex-[999_1_560px]">
@@ -154,27 +169,32 @@ export function TripLayout() {
         </main>
       </div>
 
-      {/* Mobile bottom tab bar — M1–M4 */}
+      {/* Mobile bottom tab bar — M1–M7 */}
       <nav
         aria-label="Trip sections"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-border bg-surface px-2 pt-1.5 pb-[22px] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-surface px-1 pt-1.5 pb-[22px] md:hidden"
       >
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => s.mobile).map((s) => (
           <NavLink
             key={s.to}
             to={s.to}
             className={({ isActive }) =>
-              `relative flex min-h-14 flex-col items-center justify-center gap-1 text-xs no-underline ${
+              `relative flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] no-underline ${
                 isActive ? 'font-semibold text-accent' : 'font-medium text-ink-muted'
               }`
             }
           >
             <s.icon size={22} />
             {s.short}
-            {s.to === 'proposals' && trip.proposalCounts.proposed > 0 && (
+            {((s.to === 'proposals' && trip.proposalCounts.proposed > 0) ||
+              (s.to === 'bookings' && trip.bookingStats.needsDetails > 0)) && (
               <span
-                className="absolute top-1 right-[28%] size-2 rounded-full bg-attention-ink"
-                aria-label={`${trip.proposalCounts.proposed} open proposals`}
+                className="absolute top-1 right-[26%] size-2 rounded-full bg-attention-ink"
+                aria-label={
+                  s.to === 'proposals'
+                    ? `${trip.proposalCounts.proposed} open proposals`
+                    : `${trip.bookingStats.needsDetails} bookings need details`
+                }
               />
             )}
           </NavLink>

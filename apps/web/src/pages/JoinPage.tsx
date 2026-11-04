@@ -69,7 +69,7 @@ export function JoinPage() {
             </div>
             {invite.alreadyMember ? (
               <Link
-                to={`/trips/${invite.tripId}/itinerary`}
+                to={`/trips/${invite.tripId}`}
                 className="flex min-h-12 items-center justify-center rounded-control bg-accent font-semibold text-white no-underline"
               >
                 Open trip
@@ -80,7 +80,7 @@ export function JoinPage() {
                 disabled={joining}
                 onClick={() =>
                   void join({ variables: { token } })
-                    .then((res) => res.data && navigate(`/trips/${res.data.joinTrip.id}/itinerary`))
+                    .then((res) => res.data && navigate(`/trips/${res.data.joinTrip.id}`))
                     .catch(() => {})
                 }
               >
