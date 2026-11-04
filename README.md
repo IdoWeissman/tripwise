@@ -106,6 +106,24 @@ On every start the service runs migrations and (with `SEED_DEMO=true`) resets th
 | `pnpm build`                                   | Production builds                         |
 | `pnpm db:studio`                               | Browse the database in Prisma Studio      |
 
+## AI coding agents
+
+Tripwise ships a [graphify](https://github.com/Graphify-Labs/graphify) setup for Claude Code so the agent asks a
+knowledge graph of the code ("what calls `reconcile`?") instead of grepping and reading whole files — far fewer
+tokens per question. The graph is built locally from the source (tree-sitter, no API key, nothing leaves your machine)
+and is gitignored, so each machine builds its own.
+
+```bash
+uv tool install graphifyy          # or: pipx install graphifyy  (Windows: winget install astral-sh.uv first)
+graphify update .                  # build graphify-out/ (a few seconds)
+graphify hook install              # optional: rebuild after every commit, checkout and merge
+```
+
+What's in the repo: the skill (`.claude/skills/graphify/`), Claude Code hooks that nudge the agent to query the graph
+before raw reads (`.claude/settings.json`), and the rules in `CLAUDE.md`. Useful commands: `graphify query "…"`,
+`graphify explain "BookingsPage"`, `graphify path "parseFile" "createBooking"`, and `graphify-out/graph.html` to browse.
+The hooks only add a hint and never block a read. Without graphify installed, Claude Code shows a non-blocking "command not found" hook notice and works as before.
+
 ## Design
 
 All UI follows [`docs/design-rules.md`](docs/design-rules.md). Architecture choices are explained in [`docs/decisions.md`](docs/decisions.md).
