@@ -1,3 +1,4 @@
+import './env.js';
 import { createApp } from './app.js';
 import { startReminderMailer } from './bookings/reminderMailer.js';
 import { createStorage } from './storage.js';

@@ -2,7 +2,7 @@
 
 **Plan group trips together — a shared itinerary, voting on ideas and fair expense splitting, all updating live.**
 
-**[Live demo →](https://tripwise-v289.onrender.com/)** · click *Explore with the demo account*. The free host sleeps when idle, so the first load can take ~30–60 s.
+**[Live demo →](https://tripwise-v289.onrender.com/)** · click _Explore with the demo account_. The free host sleeps when idle, so the first load can take ~30–60 s.
 
 ![CI](https://github.com/IdoWeissman/tripwise/actions/workflows/ci.yml/badge.svg)
 
@@ -70,7 +70,7 @@ pnpm --filter @tripwise/api verify:neon                  # proves Postgres + sto
 pnpm dev
 ```
 
-`apps/api` loads `.env` and then `../../.env.local` (later wins). Neon's `AWS_*` variables are
+`apps/api` reads the repo-root `.env.local`, then `apps/api/.env`; real environment variables always win and missing files are skipped. Neon's `AWS_*` variables are
 mapped to the app's `S3_*` settings automatically; `S3_BUCKET` defaults to `documents`. The app
 uses the pooled `DATABASE_URL`, and migrations use `DATABASE_URL_UNPOOLED`.
 
