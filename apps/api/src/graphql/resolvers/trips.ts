@@ -1,5 +1,6 @@
 import type { Resolvers } from '../__generated__/resolvers-types.js';
 import { badInput, requireTripRole, requireViewer } from '../errors.js';
+import { isValidZone } from '../../lib/time.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -34,6 +35,7 @@ export const tripResolvers: Resolvers = {
           startDate: start,
           endDate: end,
           currency: input.currency ?? 'EUR',
+          timeZone: input.timeZone && isValidZone(input.timeZone) ? input.timeZone : 'UTC',
           members: { create: { userId, role: 'OWNER' } },
           days: {
             create: Array.from({ length: dayCount }, (_, i) => ({

@@ -14,6 +14,9 @@ import { WebSocketServer } from 'ws';
 import { AUTH_COOKIE, readCookie, verifySession } from './auth/tokens.js';
 import type { Env } from './config.js';
 import type { Db } from './db.js';
+import { calendarRouter } from './bookings/calendar.js';
+import { uploadRouter } from './bookings/upload.js';
+import { createStorage, type Storage } from './storage.js';
 import { buildContext, type Context } from './graphql/context.js';
 import { schema } from './graphql/schema.js';
 
@@ -23,7 +26,11 @@ export interface App {
   stop: () => Promise<void>;
 }
 
-export async function createApp(env: Env, db: Db): Promise<App> {
+export async function createApp(
+  env: Env,
+  db: Db,
+  storage: Storage = createStorage(env),
+): Promise<App> {
   const app = express();
   const httpServer = createServer(app);
   const isProd = env.NODE_ENV === 'production';
@@ -35,7 +42,7 @@ export async function createApp(env: Env, db: Db): Promise<App> {
       schema,
       context: (ctx) => {
         const token = readCookie(ctx.extra.request.headers.cookie, AUTH_COOKIE);
-        return buildContext({ db, env, viewerId: verifySession(token, env.JWT_SECRET) });
+        return buildContext({ db, env, storage, viewerId: verifySession(token, env.JWT_SECRET) });
       },
     },
     wsServer,
@@ -75,6 +82,15 @@ export async function createApp(env: Env, db: Db): Promise<App> {
     res.json({ status: 'ok' });
   });
 
+  app.use(calendarRouter(env, db));
+  app.use(
+    '/api',
+    cors<cors.CorsRequest>({ origin: env.WEB_ORIGIN, credentials: true }),
+    rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false }),
+    cookieParser(),
+  );
+  app.use(uploadRouter(env, db, storage));
+
   app.use(
     '/graphql',
     cors<cors.CorsRequest>({ origin: env.WEB_ORIGIN, credentials: true }),
@@ -87,6 +103,7 @@ export async function createApp(env: Env, db: Db): Promise<App> {
           {
             db,
             env,
+            storage,
             viewerId: verifySession(
               req.cookies?.[AUTH_COOKIE] as string | undefined,
               env.JWT_SECRET,

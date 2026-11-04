@@ -1,8 +1,8 @@
 import DataLoader from 'dataloader';
 import type { Db } from '../db.js';
-import type { ExpenseSplit, User } from '../generated/prisma/client.js';
+import type { Attachment, ExpenseSplit, Trip, User } from '../generated/prisma/client.js';
 import { computeBalances, decimalToCents, settleUp, type Transfer } from '../lib/money.js';
-import type { ExpenseModel } from './models.js';
+import type { BookingModel, ExpenseModel } from './models.js';
 
 export const SETTLEMENT_CATEGORY = 'Settlement';
 
@@ -46,6 +46,29 @@ export function createLoaders(db: Db, viewerId: string | null) {
     splitsByExpense: new DataLoader<string, ExpenseSplit[]>(async (ids) => {
       const rows = await db.expenseSplit.findMany({ where: { expenseId: { in: [...ids] } } });
       return ids.map((id) => rows.filter((r) => r.expenseId === id));
+    }),
+
+    tripById: new DataLoader<string, Trip | null>(async (ids) => {
+      const trips = await db.trip.findMany({ where: { id: { in: [...ids] } } });
+      return ids.map((id) => trips.find((t) => t.id === id) ?? null);
+    }),
+
+    /** All bookings of a trip with their legs, in time order (undated last). */
+    bookingsByTrip: new DataLoader<string, BookingModel[]>(async (tripIds) => {
+      const rows = await db.booking.findMany({
+        where: { tripId: { in: [...tripIds] } },
+        include: { segments: { orderBy: { position: 'asc' } } },
+        orderBy: [{ startsAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+      });
+      return tripIds.map((id) => rows.filter((r) => r.tripId === id));
+    }),
+
+    attachmentsByBooking: new DataLoader<string, Attachment[]>(async (ids) => {
+      const rows = await db.attachment.findMany({
+        where: { bookingId: { in: [...ids] } },
+        orderBy: { createdAt: 'asc' },
+      });
+      return ids.map((id) => rows.filter((r) => r.bookingId === id));
     }),
 
     /** Everything money-related for a trip, computed once per request. */

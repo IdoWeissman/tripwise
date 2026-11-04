@@ -1,6 +1,6 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # One web service: the API also serves the built React app (same origin → cookies + WebSockets just work).
-# Database: PostgreSQL on Neon (or Render Postgres) — paste its connection string as DATABASE_URL.
+# Database + file storage: Neon (`neon deploy` writes the values below into .env.local).
 services:
   - type: web
     name: tripwise
@@ -25,8 +25,19 @@ services:
         value: '22'
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        sync: false # paste the Neon connection string when creating the Blueprint
+      # Paste these from .env.local when creating the Blueprint.
+      - key: DATABASE_URL # pooled — used by the app
+        sync: false
+      - key: DATABASE_URL_UNPOOLED # direct — used by migrations
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: WEB_DIST

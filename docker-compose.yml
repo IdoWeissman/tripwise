@@ -17,5 +17,32 @@ services:
       timeout: 5s
       retries: 10
 
+  # S3-compatible storage for booking documents. Console: http://localhost:9001
+  # MinIO stopped publishing community images in 2025; Chainguard maintains a free build.
+  # Any S3-compatible server works — only the S3_* settings in apps/api/.env matter.
+  storage:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: tripwise-storage
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: tripwise
+      MINIO_ROOT_PASSWORD: tripwise-secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - tripwise-storage:/data
+
+  # Catches reminder emails locally. Inbox: http://localhost:8025
+  mail:
+    image: axllent/mailpit:latest
+    container_name: tripwise-mail
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
 volumes:
   tripwise-db:
+  tripwise-storage:

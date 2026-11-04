@@ -28,6 +28,31 @@ enum SplitMethod {
   EXACT
 }
 
+enum BookingType {
+  FLIGHT
+  STAY
+  EVENT
+  ATTRACTION
+  TOUR
+  TRANSPORT
+  DINING
+  OTHER
+}
+
+enum BookingStatus {
+  CONFIRMED
+  NEEDS_DETAILS
+  CANCELLED
+}
+
+enum BookingSource {
+  MANUAL
+  EMAIL
+  PDF
+  IMAGE
+  TEXT
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
@@ -35,11 +60,14 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
-  memberships   TripMember[]
-  activities    Activity[]     @relation("ActivityCreatedBy")
-  votes         Vote[]
-  expensesPaid  Expense[]      @relation("ExpensePaidBy")
-  expenseSplits ExpenseSplit[]
+  memberships         TripMember[]
+  activities          Activity[]           @relation("ActivityCreatedBy")
+  votes               Vote[]
+  expensesPaid        Expense[]            @relation("ExpensePaidBy")
+  expenseSplits       ExpenseSplit[]
+  bookings            Booking[]
+  attachments         Attachment[]
+  reminderPreferences ReminderPreference[]
 }
 
 model Trip {
@@ -50,13 +78,20 @@ model Trip {
   endDate       DateTime @db.Date
   currency      String   @default("EUR") @db.Char(3)
   voteThreshold Int      @default(3)
+  /// IANA zone used for activity times and manual bookings, e.g. "Europe/Lisbon".
+  timeZone      String   @default("UTC")
+  /// Secret for the read-only calendar feed; null until first requested.
+  calendarToken String?  @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  members    TripMember[]
-  days       Day[]
-  activities Activity[]
-  expenses   Expense[]
+  members       TripMember[]
+  days          Day[]
+  activities    Activity[]
+  expenses      Expense[]
+  bookings      Booking[]
+  attachments   Attachment[]
+  reminderPrefs ReminderPreference[]
 }
 
 model TripMember {
@@ -146,4 +181,103 @@ model ExpenseSplit {
   user    User    @relation(fields: [userId], references: [id])
 
   @@id([expenseId, userId])
+}
+
+model Booking {
+  id               String        @id @default(uuid()) @db.Uuid
+  tripId           String        @db.Uuid
+  createdById      String        @db.Uuid
+  type             BookingType
+  status           BookingStatus @default(CONFIRMED)
+  source           BookingSource @default(MANUAL)
+  title            String
+  provider         String?
+  confirmationCode String?
+  bookingUrl       String?
+  /// Instants (UTC). `timeZone` is an IANA name or a fixed offset like "+01:00".
+  startsAt         DateTime?
+  endsAt           DateTime?
+  timeZone         String?
+  location         String?
+  address          String?
+  price            Decimal?      @db.Decimal(12, 2)
+  currency         String?       @db.Char(3)
+  travellers       Int?
+  notes            String?
+  /// Type-specific extras (seats, room type, …).
+  details          Json?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  trip        Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation(fields: [createdById], references: [id])
+  segments    BookingSegment[]
+  attachments Attachment[]
+
+  @@index([tripId, startsAt])
+}
+
+/// One leg of a flight or train booking.
+model BookingSegment {
+  id        String    @id @default(uuid()) @db.Uuid
+  bookingId String    @db.Uuid
+  position  Int
+  carrier   String?
+  number    String?
+  fromCode  String?
+  fromName  String?
+  toCode    String?
+  toName    String?
+  departsAt DateTime
+  arrivesAt DateTime?
+  departTz  String?
+  arriveTz  String?
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, position])
+}
+
+model Attachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  tripId       String   @db.Uuid
+  bookingId    String?  @db.Uuid
+  uploadedById String   @db.Uuid
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   @unique
+  createdAt    DateTime @default(now())
+
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([tripId, createdAt])
+  @@index([bookingId])
+}
+
+/// Per-person reminder settings for a trip.
+model ReminderPreference {
+  tripId          String  @db.Uuid
+  userId          String  @db.Uuid
+  checkIn         Boolean @default(true)
+  leaveForAirport Boolean @default(true)
+  checkOut        Boolean @default(true)
+  startingSoon    Boolean @default(false)
+  email           Boolean @default(false)
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tripId, userId])
+}
+
+/// Dedupe log for emailed reminders.
+model ReminderLog {
+  userId String   @db.Uuid
+  key    String
+  sentAt DateTime @default(now())
+
+  @@id([userId, key])
 }

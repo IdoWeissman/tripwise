@@ -16,6 +16,31 @@ enum ActivityStatus {
   DECLINED
 }
 
+enum BookingType {
+  FLIGHT
+  STAY
+  EVENT
+  ATTRACTION
+  TOUR
+  TRANSPORT
+  DINING
+  OTHER
+}
+
+enum BookingStatus {
+  CONFIRMED
+  NEEDS_DETAILS
+  CANCELLED
+}
+
+enum BookingSource {
+  MANUAL
+  EMAIL
+  PDF
+  IMAGE
+  TEXT
+}
+
 enum SplitMethod {
   EQUAL
   PERCENT
@@ -56,6 +81,180 @@ type Trip {
   settlements: [Settlement!]!
   "The current viewer's role on this trip."
   myRole: TripRole!
+  "IANA time zone for the destination, e.g. \"Europe/Lisbon\"."
+  timeZone: String!
+  bookings: [Booking!]!
+  booking(id: ID!): Booking
+  bookingStats: BookingStats!
+  "The next booking (or flight leg) that hasn't started yet."
+  upNext: UpNext
+  "Bookings and scheduled plans for one trip day, in time order."
+  agenda(dayId: ID!): [AgendaItem!]!
+  "Upcoming reminders for the viewer, soonest first."
+  reminders(limit: Int = 5): [Reminder!]!
+  myReminderPreferences: ReminderPreferences!
+  "Most recent documents first."
+  attachments(limit: Int = 20): [Attachment!]!
+  "Private, read-only iCalendar feed (created on first request)."
+  calendarUrl: String!
+}
+
+type BookingStats {
+  total: Int!
+  needsDetails: Int!
+}
+
+type Booking {
+  id: ID!
+  type: BookingType!
+  status: BookingStatus!
+  source: BookingSource!
+  title: String!
+  provider: String
+  confirmationCode: String
+  bookingUrl: String
+  startsAt: DateTime
+  endsAt: DateTime
+  "IANA zone or fixed offset (\"+01:00\") the times are shown in."
+  timeZone: String
+  "Wall-clock start in the booking's zone, \"YYYY-MM-DDTHH:mm\"."
+  startLocal: String
+  endLocal: String
+  location: String
+  address: String
+  "Decimal string."
+  price: String
+  currency: String
+  travellers: Int
+  notes: String
+  segments: [BookingSegment!]!
+  attachments: [Attachment!]!
+  "Fields that should be filled in before the booking is complete."
+  missingFields: [String!]!
+  createdBy: User!
+  createdAt: DateTime!
+}
+
+type BookingSegment {
+  id: ID!
+  position: Int!
+  carrier: String
+  number: String
+  fromCode: String
+  fromName: String
+  toCode: String
+  toName: String
+  departsAt: DateTime!
+  arrivesAt: DateTime
+  departTz: String
+  arriveTz: String
+  departLocal: String!
+  arriveLocal: String
+}
+
+type Attachment {
+  id: ID!
+  fileName: String!
+  mimeType: String!
+  sizeBytes: Int!
+  createdAt: DateTime!
+  uploadedBy: User!
+  booking: Booking
+  "Short-lived signed download URL."
+  url: String!
+}
+
+type UpNext {
+  booking: Booking!
+  "The specific flight/train leg, when the booking has several."
+  segment: BookingSegment
+  startsAt: DateTime!
+}
+
+enum AgendaKind {
+  BOOKING
+  CHECK_IN
+  CHECK_OUT
+  ACTIVITY
+}
+
+type AgendaItem {
+  kind: AgendaKind!
+  "Local time \"HH:mm\", or null when not set."
+  time: String
+  title: String!
+  subtitle: String
+  booking: Booking
+  activity: Activity
+}
+
+type StayNight {
+  booking: Booking!
+  "1-based night number, 0 on the check-out day."
+  night: Int!
+  nights: Int!
+  isCheckIn: Boolean!
+  isCheckOut: Boolean!
+}
+
+enum ReminderKind {
+  CHECK_IN_OPENS
+  LEAVE_FOR_AIRPORT
+  CHECK_OUT
+  STARTING_SOON
+}
+
+type Reminder {
+  key: ID!
+  kind: ReminderKind!
+  title: String!
+  body: String!
+  fireAt: DateTime!
+  booking: Booking!
+}
+
+type ReminderPreferences {
+  checkIn: Boolean!
+  leaveForAirport: Boolean!
+  checkOut: Boolean!
+  startingSoon: Boolean!
+  email: Boolean!
+}
+
+"What the importer found in an uploaded file or pasted text. Nothing is saved until createBooking."
+type BookingDraft {
+  type: BookingType!
+  title: String!
+  provider: String
+  confirmationCode: String
+  bookingUrl: String
+  startLocal: String
+  endLocal: String
+  timeZone: String
+  location: String
+  address: String
+  price: String
+  currency: String
+  travellers: Int
+  segments: [SegmentDraft!]!
+  "Names of fields that were read from the source."
+  fromSource: [String!]!
+  source: BookingSource!
+  attachmentId: ID
+  sourceName: String
+}
+
+type SegmentDraft {
+  carrier: String
+  number: String
+  fromCode: String
+  fromName: String
+  toCode: String
+  toName: String
+  departLocal: String!
+  arriveLocal: String
+  departTz: String
+  arriveTz: String
 }
 
 type ProposalCounts {
@@ -120,6 +319,9 @@ type Day {
   date: Date!
   position: Int!
   activities: [Activity!]!
+  "Bookings that start this day (stays are reported via `stay`)."
+  bookings: [Booking!]!
+  stay: StayNight
 }
 
 type Activity {
@@ -160,6 +362,50 @@ input CreateTripInput {
   startDate: Date!
   endDate: Date!
   currency: String
+  timeZone: String
+}
+
+input SegmentInput {
+  carrier: String
+  number: String
+  fromCode: String
+  fromName: String
+  toCode: String
+  toName: String
+  "\"YYYY-MM-DDTHH:mm\" in departTz (defaults to the booking's zone)."
+  departLocal: String!
+  arriveLocal: String
+  departTz: String
+  arriveTz: String
+}
+
+input BookingInput {
+  type: BookingType!
+  title: String!
+  provider: String
+  confirmationCode: String
+  bookingUrl: String
+  "\"YYYY-MM-DDTHH:mm\" (or \"YYYY-MM-DD\") in timeZone."
+  startLocal: String
+  endLocal: String
+  "IANA zone or \"+01:00\"; defaults to the trip's zone."
+  timeZone: String
+  location: String
+  address: String
+  price: String
+  currency: String
+  travellers: Int
+  notes: String
+  segments: [SegmentInput!]
+  status: BookingStatus
+}
+
+input ReminderPreferencesInput {
+  checkIn: Boolean
+  leaveForAirport: Boolean
+  checkOut: Boolean
+  startingSoon: Boolean
+  email: Boolean
 }
 
 input ProposeActivityInput {
@@ -229,6 +475,24 @@ type Mutation {
   updateMemberRole(tripId: ID!, userId: ID!, role: TripRole!): TripMember!
   "Owner only, or yourself (leave trip)."
   removeMember(tripId: ID!, userId: ID!): Boolean!
+  "Editors and owners. Links any uploaded attachments to the new booking."
+  createBooking(
+    tripId: ID!
+    input: BookingInput!
+    source: BookingSource
+    attachmentIds: [ID!]
+  ): Booking!
+  updateBooking(id: ID!, input: BookingInput!): Booking!
+  "Creator or owner. Attached files are kept as trip documents."
+  deleteBooking(id: ID!): Boolean!
+  attachToBooking(attachmentId: ID!, bookingId: ID): Attachment!
+  "Uploader or owner. Removes the stored file."
+  deleteAttachment(id: ID!): Boolean!
+  "Reads booking details from pasted confirmation text."
+  parseBookingText(tripId: ID!, text: String!): [BookingDraft!]!
+  updateReminderPreferences(tripId: ID!, input: ReminderPreferencesInput!): ReminderPreferences!
+  "Owner only. Invalidates the old calendar link."
+  resetCalendarLink(tripId: ID!): String!
 }
 
 enum TripEventKind {
@@ -238,6 +502,7 @@ enum TripEventKind {
   VOTE_CHANGED
   EXPENSE_CHANGED
   MEMBER_CHANGED
+  BOOKING_CHANGED
 }
 
 "Lightweight change notification; clients refetch what they display."
