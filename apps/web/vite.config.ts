@@ -10,6 +10,7 @@ export default defineConfig({
     // Same-origin in dev: session cookies and WebSockets just work.
     proxy: {
       '/graphql': { target: 'http://localhost:4000', changeOrigin: true, ws: true },
+      '/api': { target: 'http://localhost:4000', changeOrigin: true },
     },
   },
   test: {

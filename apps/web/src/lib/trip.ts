@@ -18,8 +18,13 @@ export const TripShellDocument = graphql(`
       currency
       voteThreshold
       myRole
+      timeZone
       proposalCounts {
         proposed
+      }
+      bookingStats {
+        total
+        needsDetails
       }
       members {
         role
