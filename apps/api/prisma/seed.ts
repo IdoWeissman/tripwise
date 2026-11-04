@@ -5,6 +5,7 @@
 import 'dotenv/config';
 import { hashPassword } from '../src/auth/passwords.js';
 import { createDb } from '../src/db.js';
+import { toBookingData, type BookingInputLike } from '../src/bookings/service.js';
 import { computeShares, fromCents, toCents } from '../src/lib/money.js';
 
 const db = createDb(process.env.DATABASE_URL!);
@@ -35,6 +36,7 @@ async function main() {
     data: {
       name: 'Lisbon with the crew',
       destination: 'Lisbon, Portugal',
+      timeZone: 'Europe/Lisbon',
       startDate: start,
       endDate: new Date(start.getTime() + 5 * DAY),
       members: {
@@ -204,6 +206,151 @@ async function main() {
       },
     });
   }
+
+  // Bookings (times are wall-clock in each place's zone)
+  const LIS = 'Europe/Lisbon';
+  const book = (
+    input: BookingInputLike,
+    by: { id: string },
+    source: 'MANUAL' | 'EMAIL' | 'PDF' = 'EMAIL',
+  ) => {
+    const { data, segments } = toBookingData(input, LIS);
+    return db.booking.create({
+      data: {
+        ...data,
+        tripId: trip.id,
+        createdById: by.id,
+        source,
+        segments: { create: segments },
+      },
+    });
+  };
+  await book(
+    {
+      type: 'FLIGHT',
+      title: 'Tel Aviv ⇄ Lisbon',
+      provider: 'TAP Air Portugal',
+      confirmationCode: 'K7Q2ZP',
+      bookingUrl: 'https://www.flytap.com/en-pt/manage-booking',
+      price: '1248.00',
+      currency: 'EUR',
+      travellers: 4,
+      segments: [
+        {
+          carrier: 'TAP Air Portugal',
+          number: 'TP 1394',
+          fromCode: 'TLV',
+          fromName: 'Tel Aviv',
+          toCode: 'LIS',
+          toName: 'Lisbon',
+          departLocal: '2027-05-14T06:10',
+          departTz: 'Asia/Jerusalem',
+          arriveLocal: '2027-05-14T10:05',
+          arriveTz: LIS,
+        },
+        {
+          carrier: 'TAP Air Portugal',
+          number: 'TP 1395',
+          fromCode: 'LIS',
+          fromName: 'Lisbon',
+          toCode: 'TLV',
+          toName: 'Tel Aviv',
+          departLocal: '2027-05-19T17:40',
+          departTz: LIS,
+          arriveLocal: '2027-05-20T00:25',
+          arriveTz: 'Asia/Jerusalem',
+        },
+      ],
+    },
+    ido,
+    'PDF',
+  );
+  await book(
+    {
+      type: 'STAY',
+      title: 'Casa do Largo, Alfama',
+      provider: 'Apartment · 5 nights',
+      confirmationCode: 'HMX4-22A9',
+      startLocal: '2027-05-14T14:00',
+      endLocal: '2027-05-19T11:00',
+      address: 'Rua dos Remédios 42, Lisbon',
+      price: '636.80',
+      currency: 'EUR',
+      travellers: 4,
+      notes: 'Self check-in. Key box code 4471.',
+    },
+    maya,
+  );
+  await book(
+    {
+      type: 'DINING',
+      title: 'Taberna da Rua',
+      provider: 'Restaurant · table for 4',
+      confirmationCode: 'TR-8812',
+      startLocal: '2027-05-14T19:30',
+      location: 'Alfama',
+      travellers: 4,
+    },
+    maya,
+    'MANUAL',
+  );
+  await book(
+    {
+      type: 'TOUR',
+      title: 'Sunset sail on the Tagus',
+      provider: 'Catamaran tour',
+      confirmationCode: 'SAIL-3391',
+      startLocal: '2027-05-15T18:30',
+      endLocal: '2027-05-15T20:30',
+      location: 'Doca de Alcântara',
+      price: '180.00',
+      currency: 'EUR',
+      travellers: 4,
+    },
+    maya,
+  );
+  await book(
+    {
+      type: 'TRANSPORT',
+      title: 'Sintra train',
+      provider: 'Rossio → Sintra · 4 tickets',
+      price: '22.00',
+      currency: 'EUR',
+      travellers: 4,
+    },
+    noa,
+    'MANUAL',
+  );
+  await book(
+    {
+      type: 'ATTRACTION',
+      title: 'Pena Palace',
+      provider: 'Timed entry · 4 adults',
+      confirmationCode: 'PNP-77120',
+      startLocal: '2027-05-16T09:30',
+      location: 'Sintra',
+      price: '80.00',
+      currency: 'EUR',
+      travellers: 4,
+    },
+    noa,
+    'PDF',
+  );
+  await book(
+    {
+      type: 'EVENT',
+      title: 'Fado night',
+      provider: 'Casa da Saudade · 4 tickets',
+      confirmationCode: 'FD-20491',
+      startLocal: '2027-05-16T20:00',
+      endLocal: '2027-05-16T22:30',
+      location: 'Bairro Alto',
+      price: '120.00',
+      currency: 'EUR',
+      travellers: 4,
+    },
+    ido,
+  );
 
   console.log('Seeded demo data. Sign in with demo@tripwise.app / tripwise-demo');
 }

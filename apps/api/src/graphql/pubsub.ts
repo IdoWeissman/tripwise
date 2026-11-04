@@ -6,7 +6,8 @@ export type TripEventKind =
   | 'ACTIVITY_MOVED'
   | 'VOTE_CHANGED'
   | 'EXPENSE_CHANGED'
-  | 'MEMBER_CHANGED';
+  | 'MEMBER_CHANGED'
+  | 'BOOKING_CHANGED';
 
 export interface TripEvent {
   tripId: string;
