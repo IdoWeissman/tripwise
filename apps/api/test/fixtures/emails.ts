@@ -135,3 +135,100 @@ export const restaurantEmail = (): Buffer =>
       })}</script>`,
     ].join('\r\n'),
   );
+
+const vcs = (
+  n: number,
+  from: string,
+  to: string,
+  num: string,
+  startZ: string,
+  endZ: string,
+  dep: [string, string],
+  arr: [string, string],
+) =>
+  [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'BEGIN:VEVENT',
+    `UID:${n}-1000@example-air.test`,
+    `DTSTART:${startZ}`,
+    `DTEND:${endZ}`,
+    `SUMMARY:Your flight from ${from} to ${to}`,
+    `DESCRIPTION:Booking reference: QX7MLB  \\n \\n Operated by: Example Air  \\n Flight number: ${num} \\n Total travel time: 3h 50m \\n\\n Departure - Date: ${dep[0]} \\n Time: ${dep[1]} \\n From: Ben Gurion Intl Arpt (${from}) \\n\\n Arrival \\n Date: ${arr[0]} \\n Time: ${arr[1]} \\n At: Fiumicino (${to})`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+/**
+ * A forwarded airline confirmation without structured data: plain text + one .vcs per leg,
+ * a per-person fare before the real total, and a legal footer with a huge amount.
+ * Modelled on a real ITA Airways email (all details invented).
+ */
+export const forwardedAirlineEmail = (): Buffer => {
+  const text = [
+    '-----Original Message-----',
+    'From: Example Air Booking <booking@example-air.test>',
+    'Subject: Thank you for booking with us | From Tel Aviv to Rome on 17 November 2026',
+    '',
+    'Dear Ms Cohen,',
+    'Departure IATA Code TLV',
+    'Arrival IATA Code FCO',
+    'Departure City Tel Aviv',
+    'Arrival City Rome',
+    'Final price',
+    'USD  324.97',
+    '(incl. taxes, fees and surcharges)',
+    'Manage your booking: https://www.example-air.test/myflights/mmb?ref=QX7MLB',
+    'Passenger',
+    'Ms Dana Cohen',
+    'Price details',
+    'Fare',
+    'USD 130.00',
+    'Ticket number: 1234567890123',
+    'Example Air S.p.A. Share Capital EUR 792.682.926,83 fully paid-up',
+  ].join('\r\n');
+  const b = 'BOUNDARY42';
+  return Buffer.from(
+    [
+      'From: Dana <dana@example.test>',
+      'Subject: FW: Thank you for booking with us | From Tel Aviv to Rome on 17 November 2026',
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${b}"`,
+      '',
+      `--${b}`,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      text,
+      `--${b}`,
+      'Content-Type: text/X-vCalendar; name="1_TLV-FCO.ics"',
+      'Content-Disposition: attachment; filename="1_TLV-FCO.ics"',
+      '',
+      vcs(
+        1,
+        'TLV',
+        'FCO',
+        'AZ 815',
+        '20261117T063000Z',
+        '20261117T102000Z',
+        ['17 Nov 2026', '08:30'],
+        ['17 Nov 2026', '11:20'],
+      ),
+      `--${b}`,
+      'Content-Type: text/X-vCalendar; name="2_FCO-TLV.ics"',
+      'Content-Disposition: attachment; filename="2_FCO-TLV.ics"',
+      '',
+      vcs(
+        2,
+        'FCO',
+        'TLV',
+        'AZ 810',
+        '20261119T215000Z',
+        '20261120T011000Z',
+        ['19 Nov 2026', '22:50'],
+        ['20 Nov 2026', '03:10'],
+      ),
+      `--${b}--`,
+      '',
+    ].join('\r\n'),
+  );
+};

@@ -109,8 +109,8 @@ describe('plain text and PDFs', () => {
     });
   });
 
-  it('parses pasted text and ignores non-bookings', () => {
-    const [d] = parseText(
+  it('parses pasted text and ignores non-bookings', async () => {
+    const [d] = await parseText(
       'Subject: Your booking confirmation for Fado night\n\nTickets x4. Date: 16 May 2027 at 20:00. Order #FD-20491. Total €120.00',
     );
     expect(d).toMatchObject({
@@ -119,7 +119,7 @@ describe('plain text and PDFs', () => {
       startLocal: '2027-05-16T20:00',
       price: '120.00',
     });
-    expect(parseText('hello, see you tomorrow!')).toEqual([]);
+    expect(await parseText('hello, see you tomorrow!')).toEqual([]);
   });
 
   it('returns nothing for images (no OCR)', async () => {

@@ -2,6 +2,7 @@
  * Best-effort extraction from plain text (PDF tickets, pasted emails, emails without markup).
  * Conservative on purpose: it only fills fields it is fairly sure about; the user reviews everything.
  */
+import { flightTitle } from './title.js';
 import { withProvenance, type BookingTypeName, type Draft, type SegmentDraft } from './types.js';
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -84,24 +85,127 @@ export function findTimes(text: string): string[] {
 
 const SYMBOLS: Record<string, string> = { '€': 'EUR', $: 'USD', '£': 'GBP', '₪': 'ILS' };
 
+/** Amount labels, strongest first. A total beats a fare, a fare beats an unlabelled amount. */
+const PRICE_LABELS: [RegExp, number][] = [
+  [
+    /\b(final price|grand total|total price|total amount|total paid|amount paid|amount charged|you paid|total)\b/i,
+    3,
+  ],
+  [/\b(price|amount|cost)\b/i, 1],
+];
+
 export function findPrice(text: string): { price: string; currency: string } | null {
   const re =
-    /(total|amount paid|price|grand total)?[^\n\d€$£₪]{0,20}(€|\$|£|₪|EUR|USD|GBP|ILS)\s?(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?)|(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?)\s?(€|EUR|USD|GBP|ILS|₪)/gi;
+    /(€|\$|£|₪|\b(?:EUR|USD|GBP|ILS|CHF|JPY)\b)[ \t\u00a0]{0,3}(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)|(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)[ \t\u00a0]{0,3}(€|₪|\b(?:EUR|USD|GBP|ILS|CHF|JPY)\b)/gi;
   let best: { price: string; currency: string; weight: number } | null = null;
   for (const m of text.matchAll(re)) {
-    const raw = m[3] ?? m[4]!;
-    const cur = (m[2] ?? m[5]!).toUpperCase();
+    const raw = (m[2] ?? m[3]!).trim();
+    const cur = (m[1] ?? m[4]!).toUpperCase();
     // "1.248,00" vs "1,248.00": the last separator followed by 2 digits is the decimal mark.
     const normalized = /[.,]\d{2}$/.test(raw)
       ? raw.slice(0, -3).replace(/[.,\s]/g, '') + '.' + raw.slice(-2)
       : raw.replace(/[.,\s]/g, '');
     const value = Number(normalized);
     if (!Number.isFinite(value) || value <= 0) continue;
-    const weight = (m[1] ? 1_000_000 : 0) + value; // prefer labelled totals, then the largest amount
+    // Legal footers ("Share capital EUR 792.682.926,83") are not prices.
+    const lineStart = text.lastIndexOf('\n', m.index!) + 1;
+    const line = text.slice(lineStart, text.indexOf('\n', m.index!) >>> 0);
+    if (/\b(share capital|capital stock|registered|company no|vat (no|number)|iban)\b/i.test(line))
+      continue;
+    // The label may sit on the previous line ("Final price\nUSD 324.97").
+    const before = text
+      .slice(Math.max(0, m.index! - 60), m.index!)
+      .split('\n')
+      .slice(-2)
+      .join(' ');
+    const label = PRICE_LABELS.find(([l]) => l.test(before))?.[1] ?? 0;
+    const weight = label * 1_000_000_000 + value; // labelled totals first, then the largest amount
     if (!best || weight > best.weight)
       best = { price: value.toFixed(2), currency: SYMBOLS[cur] ?? cur, weight };
   }
   return best ? { price: best.price, currency: best.currency } : null;
+}
+
+/** How many people the booking is for. */
+export function findTravellers(text: string): number | null {
+  const counted =
+    /(?<![\d.,])\b([1-9]\d?)[ \t]*(?:x[ \t]*)?(?:adults?|passengers?|travell?ers?|guests?|people|persons|tickets?)\b/i.exec(
+      text,
+    ) ??
+    /\b(?:tickets?|adults?|passengers?|guests?)[ \t]*(?:x|:)[ \t]*([1-9]\d?)\b/i.exec(text) ??
+    /\b(?:table|party) (?:for|of) ([1-9]\d?)\b/i.exec(text);
+  if (counted) return Number(counted[1]);
+  // Named passengers: "Ms Adi Cohen", "MR JOHN SMITH" (two or more name words).
+  const names = new Set(
+    [
+      ...text.matchAll(
+        /\b(?:Mr|Mrs|Ms|Miss|Mstr|Dr)\.?[ \t]+([A-Z][a-zA-Z'-]+(?:[ \t]+[A-Z][a-zA-Z'-]+)+)\b/g,
+      ),
+    ].map((m) => m[1]!.toLowerCase()),
+  );
+  return names.size || null;
+}
+
+/** "ITA Airways" from "From: ITA Airways Booking <booking@…>" (forwarded headers) or the sender. */
+export function findProvider(text: string, sender?: string | null): string | null {
+  const forwarded = /^\s*From:\s*"?([^<"\n]+?)"?\s*<[^>\n]+>/im.exec(text)?.[1];
+  const operated = /\boperated by:?\s*([A-Z][^\n,;]{1,40}?)\s*(?:\n|$)/im.exec(text)?.[1];
+  const raw = operated ?? forwarded ?? sender ?? null;
+  if (!raw || /@/.test(raw)) return null;
+  const clean = raw
+    .replace(
+      /\b(booking|bookings|reservations?|confirmations?|no-?reply|do not reply|team|service|customer care|notifications?)\b/gi,
+      '',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return clean.length >= 2 ? clean : null;
+}
+
+/** The provider's "manage booking" link, if the text has one. */
+export function findManageUrl(text: string): string | null {
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"')\]]+/g)) {
+    const url = m[0].replace(/[.,;]+$/, '');
+    if (/\.(png|jpe?g|gif|svg)(\?|$)/i.test(url)) continue;
+    if (
+      /(manage|mmb|my-?booking|myflights|my-?trips?|reservation|itinerary|booking-?details|view-?booking)/i.test(
+        url,
+      )
+    )
+      return url;
+  }
+  return null;
+}
+
+/**
+ * City names for airport codes, from "From Tel Aviv to Rome" (subject) or
+ * "Departure IATA Code TLV … Departure City Tel Aviv" style itineraries.
+ */
+export function cityNames(
+  text: string,
+  subject: string | null | undefined,
+  legs: SegmentDraft[],
+): Record<string, string> {
+  const names: Record<string, string> = {};
+  const first = legs[0];
+  if (!first) return names;
+  const pair =
+    /\bfrom\s+([A-Z][\p{L} .'-]{1,30}?)\s+to\s+([A-Z][\p{L} .'-]{1,30}?)(?=\s+on\b|\s*[|,(]|\s*$)/imu.exec(
+      subject ?? '',
+    );
+  if (pair) {
+    if (first.fromCode) names[first.fromCode] = pair[1]!.trim();
+    if (first.toCode) names[first.toCode] = pair[2]!.trim();
+  }
+  // "… Code TLV … City Tel Aviv": pair each departure/arrival code with the city that follows it.
+  for (const m of text.matchAll(/\b(Departure|Arrival)\s+(?:IATA\s+)?Code:?\s+([A-Z]{3})\b/g)) {
+    const after = text.slice(m.index! + m[0].length, m.index! + m[0].length + 300);
+    const city = new RegExp(`\\b${m[1]}\\s+City:?[ \\t]+([^\\n]{2,40}?)[ \\t]*(?:\\n|$)`).exec(
+      after,
+    )?.[1];
+    if (city) names[m[2]!] ??= city.trim();
+  }
+  return names;
 }
 
 function flightSegments(text: string, dates: string[], times: string[]): SegmentDraft[] {
@@ -128,13 +232,27 @@ function cleanSubject(subject: string | undefined): string | null {
   if (!subject) return null;
   return (
     subject
-      .replace(/^(re|fwd?|fw):\s*/gi, '')
+      .replace(/^((re|fwd?|fw):\s*)+/gi, '')
+      .replace(
+        /\bthank you for (booking|your (booking|order|reservation|purchase))( with us)?\b[\s|:–-]*/i,
+        '',
+      )
+      .replace(/^\s*[|:–-]\s*/, '')
       .replace(
         /^(your\s+)?(booking|reservation|order|ticket)s?\s+(confirmation|confirmed|details)\s*(for|[-:–])?\s*/i,
         '',
       )
       .trim() || null
   );
+}
+
+/** "From Tel Aviv to Rome on 17 November 2026" → "Tel Aviv → Rome". */
+export function routeFromSubject(subject: string | null | undefined): string | null {
+  const m =
+    /\bfrom\s+([A-Z][\p{L} .'-]{1,30}?)\s+to\s+([A-Z][\p{L} .'-]{1,30}?)(?=\s+on\b|\s*[|,(]|\s*$)/imu.exec(
+      subject ?? '',
+    );
+  return m ? `${m[1]!.trim()} → ${m[2]!.trim()}` : null;
 }
 
 /** Words that mark boilerplate lines rather than the name of the thing that was booked. */
@@ -164,7 +282,7 @@ export function titleFromLines(text: string): string | null {
 /** One draft from free text. Returns null when the text clearly isn't a booking. */
 export function draftFromText(
   text: string,
-  opts: { subject?: string; fallbackTitle?: string } = {},
+  opts: { subject?: string; fallbackTitle?: string; sender?: string | null } = {},
 ): Draft | null {
   const haystack = `${opts.subject ?? ''}\n${text}`.slice(0, 50_000);
   const type = guessType(haystack);
@@ -181,7 +299,8 @@ export function draftFromText(
     first?.departLocal ?? (dates[0] ? `${dates[0]}${times[0] ? `T${times[0]}` : ''}` : null);
   const end = type === 'STAY' && dates[1] ? `${dates[1]}${times[1] ? `T${times[1]}` : ''}` : null;
   const title =
-    (first ? `${first.fromCode} → ${segments.at(-1)!.toCode}` : null) ??
+    (first ? flightTitle(segments, cityNames(text, opts.subject, segments)) : null) ??
+    routeFromSubject(opts.subject) ??
     cleanSubject(opts.subject) ??
     (opts.subject ? null : titleFromLines(text)) ??
     opts.fallbackTitle ??
@@ -193,6 +312,9 @@ export function draftFromText(
     confirmationCode: code,
     startLocal: start,
     endLocal: end,
+    provider: findProvider(text, opts.sender),
+    bookingUrl: findManageUrl(text),
+    travellers: findTravellers(haystack),
     price: money?.price ?? null,
     currency: money?.currency ?? null,
     segments,
