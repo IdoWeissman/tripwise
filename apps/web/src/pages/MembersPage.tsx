@@ -1,11 +1,11 @@
-import { useMutation } from '@apollo/client/react';
+import { useApolloClient, useMutation } from '@apollo/client/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Avatar } from '../components/Avatar';
 import { PageHeader } from '../components/Bits';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { CheckIcon, CopyIcon } from '../components/Icons';
+import { CheckIcon, CopyIcon, TrashIcon } from '../components/Icons';
 import { SelectField } from '../components/Fields';
 import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
@@ -25,6 +25,12 @@ const UpdateRoleDocument = graphql(`
     updateMemberRole(tripId: $tripId, userId: $userId, role: $role) {
       role
     }
+  }
+`);
+
+const DeleteTripDocument = graphql(`
+  mutation DeleteTrip($id: ID!) {
+    deleteTrip(id: $id)
   }
 `);
 
@@ -142,7 +148,70 @@ export function MembersPage() {
           onConfirm={() => void confirmRemove()}
         />
       )}
+
+      {isOwner && <DeleteTripCard tripId={trip.id} tripName={trip.name} />}
     </div>
+  );
+}
+
+/** Danger zone (owners only) — design rules §2 · 06. */
+function DeleteTripCard({ tripId, tripName }: { tripId: string; tripName: string }) {
+  const client = useApolloClient();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [deleteTrip, { loading }] = useMutation(DeleteTripDocument);
+
+  const confirm = async () => {
+    try {
+      await deleteTrip({ variables: { id: tripId } });
+    } catch (e) {
+      toast(messageFromError(e), 'error');
+      return;
+    }
+    setConfirming(false);
+    toast(`${tripName} was deleted.`);
+    // Leave the trip first, then drop it from the cache and refresh only the trips list
+    // (refetching the trip's own queries would just answer "no access").
+    void navigate('/', { replace: true });
+    client.cache.evict({ id: client.cache.identify({ __typename: 'Trip', id: tripId }) });
+    client.cache.gc();
+    void client.refetchQueries({ include: ['Trips'] }).catch(() => undefined);
+  };
+
+  return (
+    <section
+      aria-labelledby="danger-zone"
+      className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-attention bg-surface px-6 py-5"
+    >
+      <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-1">
+        <h2 id="danger-zone" className="text-[17px] font-bold">
+          Delete this trip
+        </h2>
+        <p className="text-sm text-ink-muted">
+          Removes the itinerary, ideas, expenses, bookings and uploaded documents for everyone. This
+          can&apos;t be undone.
+        </p>
+      </div>
+      <Button
+        variant="secondary"
+        className="border-negative-ink text-negative-ink hover:bg-tint-orange"
+        onClick={() => setConfirming(true)}
+      >
+        <TrashIcon size={16} />
+        Delete trip
+      </Button>
+      {confirming && (
+        <ConfirmDialog
+          title={`Delete ${tripName}?`}
+          body="Everything in this trip — plans, ideas and votes, expenses, bookings and their documents — is permanently deleted for every member."
+          confirmLabel="Delete trip"
+          busy={loading}
+          onClose={() => setConfirming(false)}
+          onConfirm={() => void confirm()}
+        />
+      )}
+    </section>
   );
 }
 
