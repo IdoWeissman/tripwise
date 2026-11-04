@@ -171,6 +171,7 @@ export const ParseTextDocument = graphql(`
       price
       currency
       travellers
+      notes
       fromSource
       source
       segments {

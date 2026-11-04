@@ -55,7 +55,7 @@ function foundLabel(drafts: BookingDraft[], kind: string) {
     return `${n} ${label}${n === 1 ? '' : 's'}`;
   });
   const people = drafts[0]?.travellers;
-  return `Found ${parts.join(', ')}${people ? ` · ${people} people` : ''}`;
+  return `Found ${parts.join(', ')}${people ? ` · ${people} ${people === 1 ? 'person' : 'people'}` : ''}`;
 }
 
 /** Add booking: upload / paste → review → save. Design canvas "Add booking" + "Review bookings". */

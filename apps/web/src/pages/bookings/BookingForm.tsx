@@ -324,7 +324,7 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
             />
           )}
         </Field>
-        <Field label="Currency">
+        <Field label="Currency" badge={badge('currency')}>
           {(id) => (
             <Select
               id={id}
@@ -373,7 +373,7 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
             />
           )}
         </Field>
-        <Field label="Notes" wide>
+        <Field label="Notes" wide badge={badge('notes')}>
           {(id) => (
             <textarea
               id={id}
@@ -387,13 +387,19 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
         </Field>
       </div>
       <p className="text-[13px] text-ink-muted">
-        Times are local to{' '}
-        {f.timeZone && !/^[+-]/.test(f.timeZone)
-          ? f.timeZone.replace(/_/g, ' ')
-          : f.timeZone
-            ? `UTC${f.timeZone}`
-            : tripTimeZone.replace(/_/g, ' ')}
-        .
+        {showLegs && f.legs.some((l) => l.departTz || l.arriveTz) ? (
+          'Times are local at each airport or station.'
+        ) : (
+          <>
+            Times are local to{' '}
+            {f.timeZone && !/^[+-]/.test(f.timeZone)
+              ? f.timeZone.replace(/_/g, ' ')
+              : f.timeZone
+                ? `UTC${f.timeZone}`
+                : tripTimeZone.replace(/_/g, ' ')}
+            .
+          </>
+        )}
       </p>
     </div>
   );
