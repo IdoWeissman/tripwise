@@ -28,3 +28,6 @@ Thumbs.db
 !.vscode/settings.json
 .idea/
 .neon
+
+# graphify knowledge graph — built locally (graphify update .)
+graphify-out/

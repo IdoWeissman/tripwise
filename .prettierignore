@@ -8,3 +8,5 @@ apps/api/prisma/migrations
 
 # Vendored agent skills (installed by `npx neon skills`)
 .agents
+# Vendored graphify skill (installed by `graphify install --project`)
+.claude/skills
