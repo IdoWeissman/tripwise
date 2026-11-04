@@ -41,3 +41,7 @@ Splits, balances and settle-up run in integer cents (`apps/api/src/lib/money.ts`
 ## 010 — Live updates via lightweight events
 
 Subscriptions publish small `TripEvent`s (kind, activityId, actorId) instead of full payloads. Clients refetch whatever is on screen (debounced) and skip events they caused, which keeps the cache logic trivial and authorization in one place.
+
+## 011 — One service in production
+
+The Express API serves the built React app (`WEB_DIST`). Separate `*.onrender.com` services would be different sites, so browsers would block the session cookie and complicate WebSockets. One origin keeps auth and live updates simple; static assets are served with long-lived immutable caching and client routes fall back to `index.html`.

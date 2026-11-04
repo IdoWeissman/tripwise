@@ -25,7 +25,10 @@ async function main() {
   );
   if (!ido || !maya || !noa || !daniel) throw new Error('Seed users missing');
 
-  await db.trip.deleteMany({ where: { name: 'Lisbon with the crew' } });
+  // Reset only the demo account's own sample trip (never other visitors' trips).
+  await db.trip.deleteMany({
+    where: { name: 'Lisbon with the crew', members: { some: { userId: ido.id, role: 'OWNER' } } },
+  });
 
   const start = new Date(Date.UTC(2027, 4, 14));
   const trip = await db.trip.create({

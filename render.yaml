@@ -1,0 +1,36 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# One web service: the API also serves the built React app (same origin → cookies + WebSockets just work).
+# Database: PostgreSQL on Neon (or Render Postgres) — paste its connection string as DATABASE_URL.
+services:
+  - type: web
+    name: tripwise
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile --prod=false &&
+      pnpm --filter @tripwise/web build &&
+      pnpm --filter @tripwise/api build
+    # Migrations run on start (pre-deploy commands need a paid plan).
+    startCommand: >-
+      pnpm --filter @tripwise/api db:deploy &&
+      if [ "$SEED_DEMO" = "true" ]; then pnpm --filter @tripwise/api db:seed; fi &&
+      pnpm --filter @tripwise/api start
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # paste the Neon connection string when creating the Blueprint
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_DIST
+        value: ../web/dist
+      # Resets the demo account's sample trip on every start, so the public demo stays tidy.
+      - key: SEED_DEMO
+        value: 'true'
