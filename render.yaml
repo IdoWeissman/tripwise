@@ -42,6 +42,9 @@ services:
         generateValue: true
       - key: WEB_DIST
         value: ../web/dist
+      # Optional: Claude reads uploaded bookings (emails, PDFs, photos). Leave empty to use the built-in readers only.
+      - key: ANTHROPIC_API_KEY
+        sync: false
       # Resets the demo account's sample trip on every start, so the public demo stays tidy.
       - key: SEED_DEMO
         value: 'true'

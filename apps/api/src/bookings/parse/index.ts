@@ -1,7 +1,10 @@
-import { simpleParser } from 'mailparser';
+import { simpleParser, type ParsedMail } from 'mailparser';
+import { extractWithAi, type AiConfig } from './ai.js';
+import { draftsFromCalendar, parseCalendar } from './calendar.js';
 import { draftsFromJsonLd } from './schemaOrg.js';
-import { draftFromText } from './text.js';
-import type { Draft } from './types.js';
+import { cityNames, draftFromText } from './text.js';
+import { flightTitle } from './title.js';
+import { withProvenance, type Draft, type SegmentDraft } from './types.js';
 
 export type { Draft, SegmentDraft } from './types.js';
 
@@ -47,21 +50,148 @@ const baseName = (fileName: string) =>
     .replace(/[_-]+/g, ' ')
     .trim();
 
-/** Reads bookings out of an uploaded file. Images are stored but not read (no OCR). */
-export async function parseFile(buf: Buffer, kind: SourceKind, fileName: string): Promise<Draft[]> {
+export interface ParseOptions {
+  /** Set to let Claude read the source; rule-based readers are always used as well. */
+  ai?: AiConfig | null;
+}
+
+/** The AI settings from the environment, or null when AI reading is off. */
+export function aiConfig(env: {
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_MODEL: string;
+}): AiConfig | null {
+  return env.ANTHROPIC_API_KEY
+    ? { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL }
+    : null;
+}
+
+const legKey = (s: SegmentDraft) =>
+  s.number
+    ? s.number.replace(/\s+/g, '').toUpperCase()
+    : `${s.fromCode}-${s.toCode}-${s.departLocal.slice(0, 10)}`;
+
+/**
+ * Combines what the model read with what the rules read. Calendar legs are exact, so their times
+ * win; any field the model left empty is filled from the matching rule-based draft.
+ */
+export function reconcile(ai: Draft[], rules: Draft[], exactLegs: SegmentDraft[]): Draft[] {
+  const exact = new Map(exactLegs.map((l) => [legKey(l), l]));
+  return ai.map((d) => {
+    const match =
+      rules.find((r) => r.type === d.type) ?? (rules.length === 1 ? rules[0] : undefined);
+    const segments = d.segments.map((s) => {
+      const e = exact.get(legKey(s));
+      return e
+        ? {
+            ...s,
+            departLocal: e.departLocal,
+            arriveLocal: e.arriveLocal ?? s.arriveLocal,
+            departTz: s.departTz ?? e.departTz,
+            arriveTz: s.arriveTz ?? e.arriveTz,
+            fromName: s.fromName ?? e.fromName,
+            toName: s.toName ?? e.toName,
+          }
+        : s;
+    });
+    const merged: Omit<Draft, 'fromSource'> = { ...d, segments };
+    if (match) {
+      for (const k of [
+        'provider',
+        'confirmationCode',
+        'bookingUrl',
+        'startLocal',
+        'endLocal',
+        'location',
+        'address',
+        'price',
+        'currency',
+        'travellers',
+      ] as const) {
+        if (merged[k] === null || merged[k] === undefined)
+          (merged as Record<string, unknown>)[k] = match[k] ?? null;
+      }
+      if (!segments.length && match.segments.length) merged.segments = match.segments;
+    }
+    return withProvenance(merged);
+  });
+}
+
+/** Rule-based drafts for an email: structured data, then calendar attachments, then the text. */
+function ruleDrafts(
+  mail: ParsedMail,
+  fileName: string,
+): { drafts: Draft[]; exactLegs: SegmentDraft[]; text: string; calendars: string[] } {
+  const html = typeof mail.html === 'string' ? mail.html : '';
+  const text = mail.text ?? html.replace(/<[^>]+>/g, ' ');
+  const calendars = mail.attachments
+    .filter((a) => /calendar/i.test(a.contentType) || /\.(ics|vcs)$/i.test(a.filename ?? ''))
+    .map((a) => a.content.toString('utf8'));
+  const structured = html ? draftsFromJsonLd(html) : [];
+  if (structured.length) return { drafts: structured, exactLegs: [], text, calendars };
+
+  const sender = mail.from?.value[0]?.name ?? null;
+  const fromText = draftFromText(text, {
+    subject: mail.subject,
+    fallbackTitle: baseName(fileName),
+    sender,
+  });
+  const fromCal = draftsFromCalendar(calendars.flatMap(parseCalendar));
+  const exactLegs = fromCal.flatMap((d) => d.segments);
+  if (!fromCal.length) return { drafts: fromText ? [fromText] : [], exactLegs, text, calendars };
+
+  // Calendar events give exact legs/times; the text adds price, people, links and city names.
+  const drafts = fromCal.map((d) => {
+    if (!fromText) return d;
+    const names = cityNames(text, mail.subject, d.segments);
+    return withProvenance({
+      ...d,
+      title: d.type === 'FLIGHT' ? flightTitle(d.segments, names) : d.title,
+      provider: d.provider ?? fromText.provider ?? null,
+      confirmationCode: d.confirmationCode ?? fromText.confirmationCode ?? null,
+      bookingUrl: fromText.bookingUrl ?? null,
+      price: fromCal.length === 1 ? (fromText.price ?? null) : null,
+      currency: fromCal.length === 1 ? (fromText.currency ?? null) : null,
+      travellers: fromText.travellers ?? null,
+    });
+  });
+  return { drafts, exactLegs, text, calendars };
+}
+
+/** Reads bookings out of an uploaded file. */
+export async function parseFile(
+  buf: Buffer,
+  kind: SourceKind,
+  fileName: string,
+  opts: ParseOptions = {},
+): Promise<Draft[]> {
   try {
     if (kind === 'EMAIL') {
       const mail = await simpleParser(buf);
-      const html = typeof mail.html === 'string' ? mail.html : '';
-      const structured = html ? draftsFromJsonLd(html) : [];
-      if (structured.length) return structured;
-      const text = mail.text ?? html.replace(/<[^>]+>/g, ' ');
-      const d = draftFromText(text, { subject: mail.subject, fallbackTitle: baseName(fileName) });
-      return d ? [d] : [];
+      const rules = ruleDrafts(mail, fileName);
+      if (!opts.ai) return rules.drafts;
+      const ai = await extractWithAi(opts.ai, {
+        subject: mail.subject,
+        text: rules.text,
+        calendars: rules.calendars,
+      });
+      return ai?.length ? reconcile(ai, rules.drafts, rules.exactLegs) : rules.drafts;
     }
     if (kind === 'PDF') {
-      const d = draftFromText(await pdfText(buf), { fallbackTitle: baseName(fileName) });
-      return d ? [d] : [];
+      const text = await pdfText(buf);
+      const d = draftFromText(text, { fallbackTitle: baseName(fileName) });
+      const rules = d ? [d] : [];
+      if (!opts.ai) return rules;
+      // Scanned PDFs have no text layer: let the model look at the pages instead.
+      const scanned = text.replace(/\s+/g, '').length < 40;
+      const ai = await extractWithAi(
+        opts.ai,
+        scanned && buf.length <= 20 * 1024 * 1024 ? { pdf: buf } : { text },
+      );
+      return ai?.length ? reconcile(ai, rules, []) : rules;
+    }
+    if (kind === 'IMAGE' && opts.ai && buf.length <= 5 * 1024 * 1024) {
+      const mediaType = buf[0] === 0x89 ? 'image/png' : 'image/jpeg';
+      return (await extractWithAi(opts.ai, { image: { mediaType, data: buf } })) ?? [];
     }
   } catch (err) {
     console.warn(`Could not read ${fileName}:`, err instanceof Error ? err.message : err);
@@ -70,12 +200,15 @@ export async function parseFile(buf: Buffer, kind: SourceKind, fileName: string)
 }
 
 /** Bookings from pasted email text (HTML with markup also works). */
-export function parseText(text: string): Draft[] {
-  if (/application\/ld\+json/i.test(text)) {
-    const structured = draftsFromJsonLd(text);
-    if (structured.length) return structured;
+export async function parseText(text: string, opts: ParseOptions = {}): Promise<Draft[]> {
+  let rules: Draft[] = [];
+  if (/application\/ld\+json/i.test(text)) rules = draftsFromJsonLd(text);
+  if (!rules.length) {
+    const subject = /^subject:\s*(.+)$/im.exec(text)?.[1];
+    const d = draftFromText(text, { subject });
+    rules = d ? [d] : [];
   }
-  const subject = /^subject:\s*(.+)$/im.exec(text)?.[1];
-  const d = draftFromText(text, { subject });
-  return d ? [d] : [];
+  if (!opts.ai) return rules;
+  const ai = await extractWithAi(opts.ai, { text });
+  return ai?.length ? reconcile(ai, rules, []) : rules;
 }

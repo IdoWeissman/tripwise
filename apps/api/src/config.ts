@@ -22,6 +22,10 @@ const EnvSchema = z.object({
   /** Use an in-memory store instead of S3 (tests only). */
   STORAGE_DRIVER: z.enum(['s3', 'memory']).default('s3'),
 
+  // Optional AI reading of booking emails, PDFs and ticket photos (Claude). Off when unset.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-haiku-5-5'),
+
   // Email reminders (Mailpit in docker-compose for development). Disabled when unset.
   SMTP_URL: z.string().url().optional(),
   MAIL_FROM: z.string().default('Tripwise <reminders@tripwise.local>'),

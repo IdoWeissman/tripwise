@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { GraphQLError } from 'graphql';
-import { parseText } from '../../bookings/parse/index.js';
+import { aiConfig, parseText } from '../../bookings/parse/index.js';
 import { computeReminders, DEFAULT_PREFS, upcoming } from '../../bookings/reminders.js';
 import {
   BookingInputError,
@@ -379,7 +379,7 @@ export const bookingResolvers: Resolvers = {
       await requireTripRole(ctx, tripId, 'EDITOR');
       if (text.length > 200_000)
         throw badInput('That text is too long — paste just the confirmation email.');
-      return parseText(text).map((d) => ({
+      return (await parseText(text, { ai: aiConfig(ctx.env) })).map((d) => ({
         ...d,
         source: 'TEXT' as const,
         attachmentId: null,

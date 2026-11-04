@@ -74,6 +74,15 @@ pnpm dev
 mapped to the app's `S3_*` settings automatically; `S3_BUCKET` defaults to `documents`. The app
 uses the pooled `DATABASE_URL`, and migrations use `DATABASE_URL_UNPOOLED`.
 
+### Smart booking import
+
+Uploaded confirmations are read in layers, and you review everything before it's saved:
+
+1. **schema.org data** that airlines and hotels embed in emails (exact).
+2. **Calendar attachments** (`.ics` / `.vcs`) — one event per flight or reservation, with exact times.
+3. **Text rules** — route titles ("Tel Aviv ⇄ Rome"), labelled totals, travellers, provider and manage-booking link.
+4. **Claude (optional)** — set `ANTHROPIC_API_KEY` and the email, PDF (including scans) or ticket photo is also read by Claude through a strict tool schema. Exact calendar times always win, and anything the model leaves empty is filled from the rules. If the call fails, the rules' result is used. Uploaded content is sent to the Anthropic API only when a key is set.
+
 ## Deploy (Render + Neon, free tiers)
 
 The API serves the built web app, so the whole thing is **one Render web service** (same origin: cookies and WebSockets just work). Config lives in [`render.yaml`](render.yaml).
