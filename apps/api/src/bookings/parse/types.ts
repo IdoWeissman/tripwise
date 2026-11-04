@@ -29,13 +29,17 @@ export interface Draft {
   price?: string | null;
   currency?: string | null;
   travellers?: number | null;
+  notes?: string | null;
   segments: SegmentDraft[];
   /** Field names that came from the source (shown as "Read from file"). */
   fromSource: string[];
 }
 
 /** Marks every non-empty field as read from the source. */
-export function withProvenance(d: Omit<Draft, 'fromSource'>): Draft {
+export function withProvenance(
+  input: Omit<Draft, 'fromSource'> & { fromSource?: string[] },
+): Draft {
+  const { fromSource: _previous, ...d } = input;
   const fromSource = Object.entries(d)
     .filter(
       ([k, v]) => k !== 'type' && k !== 'segments' && v !== null && v !== undefined && v !== '',

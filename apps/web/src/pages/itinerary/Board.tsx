@@ -28,6 +28,8 @@ export interface Column {
   id: string;
   label: string;
   sublabel: string;
+  /** Read-only bookings for the day (stay strip + booking cards), shown above the activities. */
+  extra?: React.ReactNode;
 }
 
 type Items = Record<string, string[]>;
@@ -186,10 +188,11 @@ function DayColumn({
         <h2 className="text-[15px] font-bold">{column.label}</h2>
         <span className="text-[13px] text-ink-muted">{column.sublabel}</span>
       </div>
+      {column.extra}
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
-      {ids.length === 0 && (
+      {ids.length === 0 && !column.extra && (
         <p className="rounded-xl border-[1.5px] border-dashed border-border-input px-3 py-5 text-center text-[13px] text-ink-muted">
           Nothing planned yet
         </p>

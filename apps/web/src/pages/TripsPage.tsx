@@ -102,7 +102,7 @@ export function TripsPage() {
           return (
             <Link
               key={trip.id}
-              to={`/trips/${trip.id}/itinerary`}
+              to={`/trips/${trip.id}`}
               className="flex flex-col overflow-hidden rounded-card border border-border bg-surface text-ink no-underline hover:border-border-input"
             >
               <div

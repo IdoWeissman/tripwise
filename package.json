@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -n api,web -c cyan,magenta --kill-others-on-fail \"pnpm --filter @tripwise/api dev\" \"pnpm --filter @tripwise/web dev\"",
+    "dev": "pnpm codegen && concurrently -n api,web -c cyan,magenta --kill-others-on-fail \"pnpm --filter @tripwise/api dev\" \"pnpm --filter @tripwise/web dev\"",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",

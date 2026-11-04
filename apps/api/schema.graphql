@@ -236,6 +236,7 @@ type BookingDraft {
   price: String
   currency: String
   travellers: Int
+  notes: String
   segments: [SegmentDraft!]!
   "Names of fields that were read from the source."
   fromSource: [String!]!

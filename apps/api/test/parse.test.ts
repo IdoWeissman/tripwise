@@ -5,6 +5,7 @@ import {
   findDates,
   findPrice,
   guessType,
+  titleFromLines,
 } from '../src/bookings/parse/text.js';
 import { flightEmail, hotelEmail, restaurantEmail } from './fixtures/emails.js';
 import { makePdf } from './fixtures/makePdf.js';
@@ -104,12 +105,12 @@ describe('plain text and PDFs', () => {
       startLocal: '2027-05-16T09:30',
       price: '80.00',
       currency: 'EUR',
-      title: 'Pena Palace tickets',
+      title: 'Parques de Sintra - Pena Palace',
     });
   });
 
-  it('parses pasted text and ignores non-bookings', () => {
-    const [d] = parseText(
+  it('parses pasted text and ignores non-bookings', async () => {
+    const [d] = await parseText(
       'Subject: Your booking confirmation for Fado night\n\nTickets x4. Date: 16 May 2027 at 20:00. Order #FD-20491. Total €120.00',
     );
     expect(d).toMatchObject({
@@ -118,12 +119,28 @@ describe('plain text and PDFs', () => {
       startLocal: '2027-05-16T20:00',
       price: '120.00',
     });
-    expect(parseText('hello, see you tomorrow!')).toEqual([]);
+    expect(await parseText('hello, see you tomorrow!')).toEqual([]);
   });
 
   it('returns nothing for images (no OCR)', async () => {
     expect(await parseFile(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'IMAGE', 'IMG_2041.jpg')).toEqual(
       [],
     );
+  });
+});
+
+describe('titles for files without a subject', () => {
+  it('uses the first line that names the booking', () => {
+    expect(
+      titleFromLines(
+        'Lisboa Card - Booking confirmation\nBooking reference: LBC-55120\nOceanario de Lisboa - Timed entry\nDate: 17 May 2027 at 10:00',
+      ),
+    ).toBe('Oceanario de Lisboa');
+    expect(titleFromLines('Booking reference: X1\n17/05/2027 10:00')).toBeNull();
+    expect(
+      titleFromLines(
+        'Your reservation at Cervejaria Ramiro is confirmed.\nTable for 4 on 18 May 2027 at 21:00',
+      ),
+    ).toBe('Cervejaria Ramiro');
   });
 });

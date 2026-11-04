@@ -9,10 +9,19 @@ interface DialogProps {
   children: ReactNode;
   /** Full-screen sheet on phones, centered card from `sm` up. */
   wide?: boolean;
+  /** Two-pane flows (e.g. reviewing imported bookings). */
+  extraWide?: boolean;
 }
 
 /** Native <dialog>: focus trapping, Esc and backdrop come from the browser. */
-export function Dialog({ open, onClose, title, children, wide = false }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  wide = false,
+  extraWide = false,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const [container, setContainer] = useState<HTMLDialogElement | null>(null);
 
@@ -33,7 +42,7 @@ export function Dialog({ open, onClose, title, children, wide = false }: DialogP
       onClick={(e) => e.target === ref.current && onClose()}
       aria-label={title}
       className={`m-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-ink backdrop:bg-ink/40 sm:m-auto sm:h-auto sm:max-h-[90vh] sm:rounded-card sm:border sm:border-border ${
-        wide ? 'sm:max-w-[560px]' : 'sm:max-w-[440px]'
+        extraWide ? 'sm:max-w-[1000px]' : wide ? 'sm:max-w-[560px]' : 'sm:max-w-[440px]'
       }`}
     >
       {open && (

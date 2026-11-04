@@ -12,6 +12,7 @@ import { formatDay } from '../lib/format';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 import { useIsDesktop } from '../lib/useMediaQuery';
 import { AddActivityDialog } from './itinerary/AddActivityDialog';
+import { DayBookings } from './itinerary/DayBookings';
 import { ActivityCard } from './itinerary/ActivityCard';
 import { Board, type Column } from './itinerary/Board';
 import {
@@ -48,7 +49,12 @@ export function ItineraryPage() {
       serverItems[UNPLANNED] = t.unplannedActivities.map((a) => (byId.set(a.id, a), a.id));
     }
     for (const d of t.days) {
-      columns.push({ id: d.id, label: `Day ${d.position + 1}`, sublabel: formatDay(d.date) });
+      columns.push({
+        id: d.id,
+        label: `Day ${d.position + 1}`,
+        sublabel: formatDay(d.date),
+        extra: d.stay || d.bookings.length ? <DayBookings day={d} /> : undefined,
+      });
       serverItems[d.id] = d.activities.map((a) => (byId.set(a.id, a), a.id));
     }
     return { columns, serverItems, byId };
@@ -211,7 +217,8 @@ function MobileDayList({
           {list.length} {list.length === 1 ? 'activity' : 'activities'}
         </span>
       </div>
-      {list.length === 0 && (
+      {column.extra}
+      {list.length === 0 && !column.extra && (
         <EmptyState
           title="Nothing planned yet"
           body="Add an activity or propose an idea for the group to vote on."

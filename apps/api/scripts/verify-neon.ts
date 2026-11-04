@@ -6,6 +6,7 @@
  *
  * Exits non-zero if Postgres or object storage fails.
  */
+import '../src/env.js';
 import { randomUUID } from 'node:crypto';
 import { loadEnv } from '../src/config.js';
 import { createDb } from '../src/db.js';

@@ -13,6 +13,36 @@ export const ItineraryDocument = graphql(`
         activities {
           ...ItineraryActivity
         }
+        bookings {
+          id
+          type
+          title
+          provider
+          startLocal
+          endLocal
+          confirmationCode
+          missingFields
+          segments {
+            id
+            number
+            fromCode
+            toCode
+            departLocal
+            arriveLocal
+          }
+        }
+        stay {
+          night
+          nights
+          isCheckIn
+          isCheckOut
+          booking {
+            id
+            title
+            startLocal
+            endLocal
+          }
+        }
       }
       unplannedActivities {
         ...ItineraryActivity
