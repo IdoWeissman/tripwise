@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
+import { resolve } from 'node:path';
 import { ApolloServer } from '@apollo/server';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import { expressMiddleware } from '@as-integrations/express5';
@@ -59,7 +61,16 @@ export async function createApp(env: Env, db: Db): Promise<App> {
   await apollo.start();
 
   // Apollo Sandbox needs inline scripts in development.
-  app.use(helmet({ contentSecurityPolicy: isProd ? undefined : false }));
+  // Behind Render's (or any) proxy: correct client IPs for rate limiting.
+  app.set('trust proxy', 1);
+  // Apollo Sandbox needs inline scripts in development; production allows same-origin WebSockets.
+  app.use(
+    helmet({
+      contentSecurityPolicy: isProd
+        ? { directives: { connectSrc: ["'self'", 'wss:'], upgradeInsecureRequests: [] } }
+        : false,
+    }),
+  );
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
@@ -85,6 +96,20 @@ export async function createApp(env: Env, db: Db): Promise<App> {
         ),
     }),
   );
+
+  // Single-origin deploys: serve the built web app (cookies and WebSockets stay same-site).
+  if (env.WEB_DIST) {
+    const dist = resolve(process.cwd(), env.WEB_DIST);
+    if (!existsSync(resolve(dist, 'index.html')))
+      throw new Error(`WEB_DIST has no index.html: ${dist}`);
+    app.use('/assets', express.static(resolve(dist, 'assets'), { immutable: true, maxAge: '1y' }));
+    app.use(express.static(dist, { index: false }));
+    // Client-side routes (/trips/…, /join/…) fall back to the app shell.
+    app.get(/^(?!\/(graphql|api|health)).*/, (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(resolve(dist, 'index.html'));
+    });
+  }
 
   return {
     app,

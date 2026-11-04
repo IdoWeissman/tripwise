@@ -54,6 +54,16 @@ pnpm dev                          # api → :4000, web → :5173
 Open http://localhost:5173 and choose **Explore with the demo account**
 (`demo@tripwise.app` / `tripwise-demo`). The GraphQL sandbox is at http://localhost:4000/graphql.
 
+## Deploy (Render + Neon, free tiers)
+
+The API serves the built web app, so the whole thing is **one Render web service** (same origin: cookies and WebSockets just work). Config lives in [`render.yaml`](render.yaml).
+
+1. **Database:** create a free project on [Neon](https://neon.tech) and copy its connection string.
+2. **Render:** _New → Blueprint_, pick this repo, paste the Neon string as `DATABASE_URL`, then **Apply**.
+3. Wait for the first deploy, then open the `*.onrender.com` URL and use **Explore with the demo account**.
+
+On every start the service runs migrations and (with `SEED_DEMO=true`) resets the demo account's sample trip. The free instance sleeps after ~15 minutes idle; the first request then takes ~30–60 s.
+
 ## Scripts
 
 | Command                                        | What it does                              |
