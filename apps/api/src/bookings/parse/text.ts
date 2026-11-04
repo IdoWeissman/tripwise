@@ -137,6 +137,30 @@ function cleanSubject(subject: string | undefined): string | null {
   );
 }
 
+/** Words that mark boilerplate lines rather than the name of the thing that was booked. */
+const BOILERPLATE =
+  /\b(confirm\w*|reference|booking|reservation|order|invoice|receipt|date|time|total|price|paid|tickets?\s*x|dear|hello|hi|thank|passengers?|guests?)\b|@|https?:/i;
+
+/** First line that reads like a name ("Oceanario de Lisboa - Timed entry"), for files without a subject. */
+export function titleFromLines(text: string): string | null {
+  // "Your reservation at Cervejaria Ramiro is confirmed" → the place's name.
+  const at =
+    /\b(?:reservation|booking|table|tickets?|stay)\s+(?:at|for)\s+([A-Z][\p{L}'’&.\- ]{2,40}?)(?=\s+(?:is|has|was|on|for)\b|[.,!\n]|$)/mu.exec(
+      text,
+    );
+  if (at) return at[1]!.trim();
+  for (const raw of text.split(/\r?\n/).slice(0, 15)) {
+    const line = raw.replace(/\s+/g, ' ').trim();
+    if (line.length < 4 || line.length > 80 || !/[a-z]{3}/i.test(line) || BOILERPLATE.test(line))
+      continue;
+    if ((line.match(/\d/g) ?? []).length > line.length / 3) continue;
+    if (/\b\d{1,2}\s+[a-z]{3,9}\s+\d{4}\b|\b\d{4}-\d{2}-\d{2}\b|\btable for\b/i.test(line))
+      continue;
+    return line.replace(/\s+[-–|·]\s+(timed entry|e-?tickets?|tickets?|admission)$/i, '');
+  }
+  return null;
+}
+
 /** One draft from free text. Returns null when the text clearly isn't a booking. */
 export function draftFromText(
   text: string,
@@ -159,6 +183,7 @@ export function draftFromText(
   const title =
     (first ? `${first.fromCode} → ${segments.at(-1)!.toCode}` : null) ??
     cleanSubject(opts.subject) ??
+    (opts.subject ? null : titleFromLines(text)) ??
     opts.fallbackTitle ??
     'Booking';
 

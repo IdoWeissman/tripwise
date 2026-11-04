@@ -325,7 +325,22 @@ export const bookingResolvers: Resolvers = {
       const role = await requireTripRole(ctx, existing.tripId, 'EDITOR');
       if (role !== 'OWNER' && existing.createdById !== ctx.viewerId)
         throw forbidden('Only the person who added it or the owner can delete this booking.');
-      await ctx.db.booking.delete({ where: { id } });
+      // Its documents go with it: remove the rows and the stored files (not just unlink them).
+      const files = await ctx.db.attachment.findMany({
+        where: { bookingId: id },
+        select: { storageKey: true },
+      });
+      await ctx.db.$transaction([
+        ctx.db.attachment.deleteMany({ where: { bookingId: id } }),
+        ctx.db.booking.delete({ where: { id } }),
+      ]);
+      await Promise.all(
+        files.map((f) =>
+          ctx.storage
+            .delete(f.storageKey)
+            .catch((err) => console.warn('Could not delete stored file', f.storageKey, err)),
+        ),
+      );
       await publishTripEvent(existing.tripId, 'BOOKING_CHANGED', { actorId: ctx.viewerId });
       return true;
     },

@@ -5,6 +5,7 @@ import {
   findDates,
   findPrice,
   guessType,
+  titleFromLines,
 } from '../src/bookings/parse/text.js';
 import { flightEmail, hotelEmail, restaurantEmail } from './fixtures/emails.js';
 import { makePdf } from './fixtures/makePdf.js';
@@ -104,7 +105,7 @@ describe('plain text and PDFs', () => {
       startLocal: '2027-05-16T09:30',
       price: '80.00',
       currency: 'EUR',
-      title: 'Pena Palace tickets',
+      title: 'Parques de Sintra - Pena Palace',
     });
   });
 
@@ -125,5 +126,21 @@ describe('plain text and PDFs', () => {
     expect(await parseFile(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 'IMAGE', 'IMG_2041.jpg')).toEqual(
       [],
     );
+  });
+});
+
+describe('titles for files without a subject', () => {
+  it('uses the first line that names the booking', () => {
+    expect(
+      titleFromLines(
+        'Lisboa Card - Booking confirmation\nBooking reference: LBC-55120\nOceanario de Lisboa - Timed entry\nDate: 17 May 2027 at 10:00',
+      ),
+    ).toBe('Oceanario de Lisboa');
+    expect(titleFromLines('Booking reference: X1\n17/05/2027 10:00')).toBeNull();
+    expect(
+      titleFromLines(
+        'Your reservation at Cervejaria Ramiro is confirmed.\nTable for 4 on 18 May 2027 at 21:00',
+      ),
+    ).toBe('Cervejaria Ramiro');
   });
 });

@@ -2,6 +2,17 @@ import type { ReminderPreference } from '../generated/prisma/client.js';
 import type { BookingModel, ReminderModel } from '../graphql/models.js';
 import { instantToLocal, localTime, localToInstant } from '../lib/time.js';
 
+const DAY = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+/** "2027-05-14T06:10" → "Fri, May 14 at 06:10" (the string is already in the place's local time). */
+export const friendlyLocal = (local: string) =>
+  `${DAY.format(new Date(`${local.slice(0, 10)}T00:00:00Z`))} at ${local.slice(11, 16)}`;
+
 const HOUR = 3_600_000;
 export const DEFAULT_PREFS = {
   checkIn: true,
@@ -50,7 +61,7 @@ export function computeReminders(
             key: `${b.id}:${s.id}:checkin`,
             kind: 'CHECK_IN_OPENS',
             title: 'Online check-in opens',
-            body: `${label} · departs ${instantToLocal(s.departsAt, dz).replace('T', ' ')}`,
+            body: `${label} · departs ${friendlyLocal(instantToLocal(s.departsAt, dz))}`,
             fireAt: new Date(s.departsAt.getTime() - 24 * HOUR),
             targetAt: s.departsAt,
             booking: b,
