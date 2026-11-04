@@ -54,12 +54,30 @@ pnpm dev                          # api → :4000, web → :5173
 Open http://localhost:5173 and choose **Explore with the demo account**
 (`demo@tripwise.app` / `tripwise-demo`). The GraphQL sandbox is at http://localhost:4000/graphql.
 
+### Running against Neon
+
+The app can use [Neon](https://neon.com) Postgres and Neon object storage instead of Docker.
+`neon.ts` declares the services (a private `documents` bucket for booking files).
+
+```bash
+npm i -g neon@latest
+neon deploy                       # provisions the services and writes .env.local in the repo root
+pnpm --filter @tripwise/api exec prisma migrate deploy   # uses DATABASE_URL_UNPOOLED
+pnpm db:seed
+pnpm --filter @tripwise/api verify:neon                  # proves Postgres + storage work
+pnpm dev
+```
+
+`apps/api` loads `.env` and then `../../.env.local` (later wins). Neon's `AWS_*` variables are
+mapped to the app's `S3_*` settings automatically; `S3_BUCKET` defaults to `documents`. The app
+uses the pooled `DATABASE_URL`, and migrations use `DATABASE_URL_UNPOOLED`.
+
 ## Deploy (Render + Neon, free tiers)
 
 The API serves the built web app, so the whole thing is **one Render web service** (same origin: cookies and WebSockets just work). Config lives in [`render.yaml`](render.yaml).
 
-1. **Database:** create a free project on [Neon](https://neon.tech) and copy its connection string.
-2. **Render:** _New → Blueprint_, pick this repo, paste the Neon string as `DATABASE_URL`, then **Apply**.
+1. **Neon:** run `neon deploy` (see above) to provision Postgres and the `documents` bucket; the values land in `.env.local`.
+2. **Render:** _New → Blueprint_, pick this repo, fill in `DATABASE_URL`, `DATABASE_URL_UNPOOLED` and the `AWS_*` storage variables from `.env.local`, then **Apply**.
 3. Wait for the first deploy, then open the `*.onrender.com` URL and use **Explore with the demo account**.
 
 On every start the service runs migrations and (with `SEED_DEMO=true`) resets the demo account's sample trip. The free instance sleeps after ~15 minutes idle; the first request then takes ~30–60 s.

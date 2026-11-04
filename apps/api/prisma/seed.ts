@@ -2,12 +2,13 @@
  * Seeds a demo account so portfolio visitors can explore without signing up.
  *   email: demo@tripwise.app   password: tripwise-demo
  */
-import 'dotenv/config';
+import { config } from 'dotenv';
 import { hashPassword } from '../src/auth/passwords.js';
 import { createDb } from '../src/db.js';
 import { toBookingData, type BookingInputLike } from '../src/bookings/service.js';
 import { computeShares, fromCents, toCents } from '../src/lib/money.js';
 
+config({ path: ['../../.env.local', '.env'], quiet: true });
 const db = createDb(process.env.DATABASE_URL!);
 const DAY = 24 * 60 * 60 * 1000;
 

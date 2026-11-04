@@ -11,6 +11,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.14.0(jiti@2.7.0))
+      '@neon/config':
+        specifier: ^1.10.1
+        version: 1.10.1
       concurrently:
         specifier: ^10.0.6
         version: 10.0.6
@@ -1316,6 +1319,14 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
+
+  '@neon/config@1.10.1':
+    resolution: {integrity: sha512-WGjnl+8wg8u/wYsm1VXbGueWJ3HKyzJHYM+OKur8uPjVAZWm6hulhJO/q3PfWJC4UVYZVD1En+Tqip641IYhlQ==}
+    engines: {node: '>=20.19.0'}
+
+  '@neon/sdk@7.8.0':
+    resolution: {integrity: sha512-2deO9IsCuyJH/3+cEN+SgK4QgPnxTO1bOydhSE4P4KUs5ggCNGAUD0u6VWZLvopSXz6AZpexFcYBcFSWFEJj6g==}
+    engines: {node: '>=20.19.0'}
 
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
@@ -5963,6 +5974,14 @@ snapshots:
       keyv: 5.6.0
 
   '@keyv/serialize@1.1.1': {}
+
+  '@neon/config@1.10.1':
+    dependencies:
+      '@neon/sdk': 7.8.0
+      jiti: 2.7.0
+      zod: 4.6.7
+
+  '@neon/sdk@7.8.0': {}
 
   '@noble/hashes@1.8.0': {}
 
