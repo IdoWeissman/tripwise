@@ -138,6 +138,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Each column ends with an "Add activity" ghost button (adds straight to that day). Empty days keep the column visible with a dashed "Nothing planned yet" hint.
 - Scheduled activities without a day appear in a leading **Unplanned** column, only when there are any.
 - A Board / Map view toggle will live in the page header once the map view exists.
+- **Bookings on the board** sit above the day's activities and are read-only (edit them on the booking): a teal **stay strip** (`STAY` · "Check-in 14:00 · …", "Night 2 of 5 · …", "Check-out 11:00 · …") and compact booking cards (type code chip, time range, route or title, number · reference). Both link to the booking. A booking that needs details gets the attention border and "Time missing". A day with bookings but no activities drops the "Nothing planned yet" hint.
 
 ### 04 · Proposals & voting
 
@@ -173,8 +174,47 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Signed in → one primary **Join trip** button; already a member → **Open trip**; signed out → **Create an account to join** (primary) + **I already have an account** (secondary), both carrying `?next=`.
 - Invalid or expired links show the empty-state block with a way back.
 
+### 08 · Bookings (`/trips/:id/bookings`)
+
+- Header: "Bookings" + one-line purpose; actions **Calendar & reminders** (secondary) and **Add booking** (primary, editors only).
+- Filter pills (`role="tab"`, 44px tall, fully rounded): All · Flights · Stays · Things to do · Transport · Dining, each with its count. The active pill is ink-filled.
+- An attention banner (tint-orange, attention border) names the first booking that needs details, says what's missing, and links to it.
+- Bookings are grouped by the local day they start ("Fri, May 14 · Day 1"; no day number outside the trip); undated ones go last under "Date not set".
+- Booking card: 48px type chip (code + color — never color alone; the type is also in visually hidden text), title + provider · number, the "when" line (tabular numerals), reference chip (monospace), document count, status chip (Confirmed / Needs details / Cancelled), price, and an external-link button (44px, labelled) when there's a provider URL. Needs details → attention border and attention-colored "when" line.
+- Type colors: Flight blue, Stay teal, Event purple, Attraction/Tour amber, Transport orange, Dining/Other muted.
+- Empty: "No bookings yet" with **Add your first booking**; a filter with no matches: "No bookings of this type".
+- `?add` and `?calendar` open the dialogs, so other screens can link straight to them.
+
+### 09 · Booking detail (`/trips/:id/bookings/:bookingId`)
+
+- "All bookings" back link; H1 = booking title with its type chip; subtitle "Type · Provider". Actions: **Edit** (secondary) and **Manage on airline site / Manage reservation / Open on provider site** (primary, opens a new tab) when there's a URL.
+- Two columns that wrap on narrow screens. Main: the schedule — flights/trains as a leg card (date · number, big departure and arrival times, codes and names, duration, "+1" for next-day arrivals, a note when the zones differ) with an Outbound/Return segmented control when there are several legs; other types as fact tiles (Starts/Check-in, Ends/Check-out, Where). Address links to maps; notes keep line breaks.
+- Side: **Confirmation** card (monospace code + **Copy**, which says "Copied" for 2s; then Passengers/People, Price, Status, Added by, Source), **Documents** (file chips that open short-lived signed URLs; delete with confirmation; a dashed "Attach boarding passes / Attach a document" button), **Reminders** for this booking with a link to settings, and **Delete booking** (destructive, confirms; documents are deleted with it).
+- Needs details → the attention banner with **Add details**, which opens the edit dialog.
+
+### 10 · Trip overview / Today (`/trips/:id/overview`, the trip's landing screen)
+
+- Greeting in the destination's time of day ("Good morning, Ido") and the trip status: "Day 2 of 6 · Sat, May 15", "Starts in 12 days · 6 days" or "Trip ended". Actions: **Add to calendar** (secondary) and **Add booking** (primary).
+- **Up next** card: a tinted header strip in the booking type's color ("Up next · Flight" + "Departs in 1 h 35 min"), then the leg (times, codes, duration) or the booking's title, date and place, then confirmation code + copy, **Details** and **Manage booking**. With nothing ahead: a dashed card that invites adding a booking.
+- **Today** (or the first/last day outside the trip): one ordered list mixing bookings, check-in/out and planned activities by time — time (accent, tabular), 32px type chip, title and subtitle. Bookings link to their detail.
+- Side column: **Reminders** (next three, with countdowns; link to settings) and four "at a glance" tiles (Bookings, Open ideas, Spent, Your balance) that link to their sections.
+- Mobile: the first reminder shows as a blue banner under Up next; the side reminders card is hidden.
+
+### 11 · Add booking (dialog)
+
+- Step 1, **collect**: a dashed drop zone (drag-and-drop or "choose files"; PDF, EML, PNG, JPG up to 15 MB), **Paste email text** (reveals a labelled textarea + **Read text**), **Take a photo** (phones only, opens the camera) and **Enter manually**. Each file is listed with its type chip, name and what was found ("Found 1 flight · 4 people", "Saved as a photo — add the details", or the error in negative ink), plus a remove button. A privacy line explains that files stay in the trip. Primary: **Review N bookings**.
+- Step 2, **review** (extra-wide; stacks on phones): the found bookings as a selectable list (type chip, title, Ready / Needs …) and the booking form for the selected one. Fields read from the file are tagged "Read from file"; the source line names the file, with **Remove**. The footer summarises ("2 ready · 1 can be finished later"); **Save N bookings** is disabled only while a booking has no title. Missing times don't block saving: the booking is saved as Needs details.
+- Closing the dialog without saving deletes the files uploaded in it. Footers stick to the dialog's bottom edge.
+
+### 12 · Calendar & reminders (dialog)
+
+- **Subscribe in your calendar**: Google Calendar, Apple Calendar and Outlook buttons, and the private `webcal://` link (read-only, select on focus) with **Copy**. "Anyone with this link can see the trip schedule." Owners can **Reset link** (confirms first).
+- **Reminders for you**: switches (`role="switch"`, 44px hit area) for Online check-in opens, Time to leave for the airport, Check-out today, Starting soon and Also email me (disabled when every other reminder is off). Changes apply immediately (optimistic).
+- Footer: **Download .ics** and **Done**.
+
 ### M1–M4 · Mobile
 
+- **Tab bar**: five tabs — Today, Plan, Bookings, Vote, Money. Members moves to a 44px People button beside the trip name. Bookings and Vote show a dot when something needs attention (labelled for screen readers).
 - **Itinerary**: trip name + live indicator, then a horizontally scrolling day picker (segmented control). One day's activities at a time, as a vertical list. Touch replaces drag with a per-card **Move to…** select (44px).
 - **Proposals**: compact cards, 3-segment vote meter, full-width-row "Vote / Voted" button on the right.
 - **Expenses**: balance hero card at top (accent-tint), then Settle up, then Recent. "+ Expense" primary in header.
