@@ -9,6 +9,7 @@ import {
   ChevronLeftIcon,
   CopyIcon,
   ExternalIcon,
+  PinIcon,
   PlusIcon,
   TrashIcon,
 } from '../components/Icons';
@@ -19,6 +20,7 @@ import {
   ACCEPT,
   BOOKING_TYPES,
   bookingPrice,
+  directions,
   dayShift,
   duration,
   fileExt,
@@ -142,6 +144,8 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
   const legLabel = (i: number) =>
     segments.length === 2 ? (i === 0 ? 'Outbound' : 'Return') : `Leg ${i + 1}`;
   const subtitle = [t.label, b.provider].filter(Boolean).join(' · ');
+  // Flights and trains: to the departure airport/station of the leg on screen.
+  const route = directions(b, seg);
 
   async function copyCode() {
     try {
@@ -210,6 +214,17 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
             <Button variant="secondary" onClick={startEditing}>
               Edit
             </Button>
+          )}
+          {route && (
+            <a
+              href={route.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border-input bg-surface px-5 text-[15px] font-semibold text-ink no-underline hover:bg-surface-muted hover:text-ink"
+            >
+              <PinIcon size={16} />
+              {route.label}
+            </a>
           )}
           {b.bookingUrl && (
             <a
@@ -334,12 +349,18 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
                 <p className="text-sm">
                   <span className="font-semibold">Address</span>
                   <br />
+                  {b.address}
+                  <br />
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}`}
+                    href={
+                      directions({ type: b.type, location: b.location, address: b.address })!.url
+                    }
                     target="_blank"
                     rel="noreferrer"
+                    className="inline-flex min-h-11 items-center gap-1.5 font-semibold"
                   >
-                    {b.address}
+                    <PinIcon size={14} />
+                    Get directions
                   </a>
                 </p>
               )}
@@ -359,7 +380,9 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
             <div className="flex items-center justify-between gap-3">
               <span className="flex min-w-0 flex-col">
                 <span className="text-xs text-ink-muted">Confirmation</span>
-                <span className="truncate font-mono text-2xl font-bold tracking-[0.1em]">
+                <span
+                  className={`font-mono font-bold break-all ${(b.confirmationCode?.length ?? 0) > 10 ? 'text-lg tracking-[0.04em]' : 'text-2xl tracking-[0.1em]'}`}
+                >
                   {b.confirmationCode ?? '—'}
                 </span>
               </span>

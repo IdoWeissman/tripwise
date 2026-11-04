@@ -2,12 +2,20 @@ import { useQuery } from '@apollo/client/react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../components/Button';
-import { BellIcon, CopyIcon, PlusIcon } from '../components/Icons';
+import { BellIcon, CopyIcon, PinIcon, PlusIcon } from '../components/Icons';
 import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { graphql } from '../gql';
 import type { DayAgendaQuery, TripOverviewQuery } from '../gql/graphql';
-import { BOOKING_TYPES, countdown, dayShift, duration, localDay, localTime } from '../lib/bookings';
+import {
+  BOOKING_TYPES,
+  countdown,
+  dayShift,
+  directions,
+  duration,
+  localDay,
+  localTime,
+} from '../lib/bookings';
 import { formatMoney, toNumber } from '../lib/format';
 import { useTrip } from '../lib/trip';
 
@@ -32,6 +40,7 @@ const TripOverviewDocument = graphql(`
           startLocal
           endLocal
           location
+          address
           travellers
           attachments {
             id
@@ -377,6 +386,7 @@ function UpNextCard({ upNext, canEdit }: { upNext: Overview['upNext']; canEdit: 
   }
   const { booking: b, segment: s } = upNext;
   const t = BOOKING_TYPES[b.type];
+  const route = directions(b, s);
   const verb = b.type === 'FLIGHT' ? 'Departs' : b.type === 'STAY' ? 'Check-in' : 'Starts';
   const copy = async () => {
     try {
@@ -470,6 +480,17 @@ function UpNextCard({ upNext, canEdit }: { upNext: Overview['upNext']; canEdit: 
           >
             Details
           </Link>
+          {route && (
+            <a
+              href={route.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-11 items-center gap-1.5 text-sm font-semibold"
+            >
+              <PinIcon size={16} />
+              {route.label}
+            </a>
+          )}
           {b.bookingUrl && (
             <Button
               variant="secondary"

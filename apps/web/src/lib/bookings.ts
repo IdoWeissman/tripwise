@@ -297,3 +297,44 @@ export function bookingPrice(
     return `${price} ${currency ?? ''}`.trim();
   }
 }
+
+// --- directions ---
+
+interface PlaceLike {
+  type: BookingType;
+  location?: string | null;
+  address?: string | null;
+}
+interface LegPlace {
+  fromCode?: string | null;
+  fromName?: string | null;
+}
+
+/**
+ * Google Maps directions to where you need to be: the departure airport/station for a leg,
+ * otherwise the venue (name + address, so Maps finds the exact place). Null when unknown.
+ */
+export function directions(
+  b: PlaceLike,
+  leg?: LegPlace | null,
+): { url: string; label: string } | null {
+  let destination: string | null;
+  let label = 'Directions';
+  if (leg && (leg.fromCode || leg.fromName)) {
+    const place = leg.fromName ?? leg.fromCode!;
+    destination =
+      b.type === 'FLIGHT'
+        ? [leg.fromName, leg.fromCode, /airport|arpt|intl/i.test(place) ? null : 'airport']
+            .filter(Boolean)
+            .join(' ')
+        : place;
+    label = `Directions to ${leg.fromCode ?? leg.fromName}`;
+  } else {
+    destination = [b.location, b.address].filter(Boolean).join(', ') || null;
+  }
+  if (!destination) return null;
+  return {
+    url: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`,
+    label,
+  };
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bookingPrice,
+  directions,
   bookingWhen,
   countdown,
   dayHeading,
@@ -60,5 +61,24 @@ describe('booking cards', () => {
   it('formats prices', () => {
     expect(bookingPrice('1248', 'EUR')).toBe('€1,248.00');
     expect(bookingPrice(null, 'EUR')).toBeNull();
+  });
+});
+
+describe('directions', () => {
+  it('goes to the departure airport for flights and the venue otherwise', () => {
+    expect(
+      directions({ type: 'FLIGHT' }, { fromCode: 'TLV', fromName: 'Ben Gurion Intl Arpt' }),
+    ).toEqual({
+      url: 'https://www.google.com/maps/dir/?api=1&destination=Ben%20Gurion%20Intl%20Arpt%20TLV',
+      label: 'Directions to TLV',
+    });
+    expect(directions({ type: 'FLIGHT' }, { fromCode: 'FCO' })!.url).toContain('FCO%20airport');
+    expect(
+      directions({ type: 'TOUR', location: 'Caffe Example', address: 'Piazza Example 5, Roma' })!
+        .url,
+    ).toBe(
+      'https://www.google.com/maps/dir/?api=1&destination=Caffe%20Example%2C%20Piazza%20Example%205%2C%20Roma',
+    );
+    expect(directions({ type: 'EVENT' })).toBeNull();
   });
 });
