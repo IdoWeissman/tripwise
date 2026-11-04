@@ -4,14 +4,21 @@ import { draftsFromCalendar, parseCalendar } from '../src/bookings/parse/calenda
 import { parseFile, reconcile } from '../src/bookings/parse/index.js';
 import {
   findDates,
+  findDurationMinutes,
   findPrice,
   findProvider,
+  findTimeSpan,
   findTravellers,
+  isNoiseSubject,
   labelValue,
   stripForwardHeaders,
 } from '../src/bookings/parse/text.js';
 import { flightTitle } from '../src/bookings/parse/title.js';
-import { forwardedAirlineEmail, forwardedHebrewHotelEmail } from './fixtures/emails.js';
+import {
+  forwardedAirlineEmail,
+  forwardedHebrewHotelEmail,
+  forwardedHebrewTourEmail,
+} from './fixtures/emails.js';
 
 describe('forwarded airline email with calendar attachments', () => {
   it('reads every field without AI', async () => {
@@ -95,6 +102,33 @@ describe('forwarded Hebrew hotel confirmation', () => {
     expect(
       findProvider('no headers', { name: 'Booking.com', address: 'noreply@booking.com' }),
     ).toBe('Booking.com');
+  });
+});
+
+describe('forwarded Hebrew tour ticket', () => {
+  it('reads the product, time span, meeting point and order number', async () => {
+    const [d] = await parseFile(forwardedHebrewTourEmail(), 'EMAIL', 'ticket.eml');
+    expect(d).toMatchObject({
+      type: 'TOUR',
+      title: 'Trastevere street food walk',
+      provider: 'Food Walks',
+      confirmationCode: 'FW-7770001',
+      startLocal: '2026-11-18T10:00',
+      endLocal: '2026-11-18T13:30',
+      location: 'Caffe Example',
+      address: 'Piazza Example 5, 00153 Roma, איטליה',
+      travellers: 4,
+      price: '60.00',
+      currency: 'EUR',
+    });
+  });
+
+  it('knows when a subject is only a date and a code', () => {
+    expect(isNoiseSubject("הזמנה: יום ד׳ 18.נוב׳ '26 @ 10:00 (FW-T5550001)")).toBe(true);
+    expect(isNoiseSubject('Booking confirmed: Wed 18 Nov 2026 at 10:00')).toBe(true);
+    expect(isNoiseSubject('Your tickets for La Traviata')).toBe(false);
+    expect(findDurationMinutes('Duration: 2 hours')).toBe(120);
+    expect(findTimeSpan('Wed 18 Nov, 21:00–00:30')).toEqual({ start: '21:00', end: '00:30' });
   });
 });
 

@@ -289,3 +289,46 @@ export const forwardedHebrewHotelEmail = (): Buffer => {
     ].join('\r\n'),
   );
 };
+
+/**
+ * A Hebrew tour ticket from a booking platform, forwarded: the subject is only a date and a
+ * code, the product line carries the ticket code, and the meeting point has a Maps link.
+ * Modelled on a real email; every detail is invented.
+ */
+export const forwardedHebrewTourEmail = (): Buffer => {
+  const text = [
+    'From: Food Walks <vendor-1234@bokun.test>',
+    'Sent: Sunday, 1 November 2026 10:49',
+    "Subject: הזמנה: יום ד׳ 18.נוב׳ '26 @ 10:00 (FW-T5550001)",
+    'www.foodwalks.test',
+    'תודה על הזמנתך!',
+    'Trastevere street food walk',
+    '4 food walk',
+    'מתי',
+    'יום רביעי 18 נוב׳ 2026',
+    '10:00 - 13:30',
+    'משך 3.5 שעות',
+    'נקודת מפגש  <https://www.google.com/maps/dir/?api=1&destination=41.88,12.47> ניווט ליעד',
+    'Caffe Example',
+    'Piazza Example 5, 00153 Roma, איטליה',
+    'Trastevere street food walk (FW-T5550001)',
+    'food walk (4)',
+    '€15.00',
+    'סה"כ',
+    '\t€60.00',
+    'ראו בזאת אישור להזמנתכם אשר מספרה: FW-7770001',
+  ].join('\r\n');
+  return Buffer.from(
+    [
+      'From: Dana <dana@yahoo.com>',
+      'Subject: =?UTF-8?B?' +
+        Buffer.from("FW: הזמנה: יום ד׳ 18.נוב׳ '26 @ 10:00 (FW-T5550001)").toString('base64') +
+        '?=',
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      Buffer.from(text).toString('base64').replace(/.{76}/g, '$&\r\n'),
+    ].join('\r\n'),
+  );
+};

@@ -26,17 +26,32 @@ const HE_MONTHS = [
 const TYPE_HINTS: [BookingTypeName, RegExp][] = [
   [
     'FLIGHT',
-    /\b(flight|boarding pass|e-?ticket|airline|departure gate|baggage allowance|itinerary receipt)\b/i,
+    /\b(flight|boarding pass|e-?ticket|airline|departure gate|baggage allowance|itinerary receipt)\b|טיסה|טיסות|כרטיס טיסה|כבודה/i,
   ],
   [
     'STAY',
-    /\b(hotel|check-?in|check-?out|\d+\s+nights?|apartment|accommodation|guest ?house|airbnb|room type)\b/i,
+    /\b(hotel|check-?in|check-?out|\d+\s+nights?|apartment|accommodation|guest ?house|airbnb|room type)\b|מלון|לילות|צ[׳']ק-אין|חדר/i,
   ],
-  ['DINING', /\b(restaurant|table for|reservation for \d+ (people|guests)|party of \d+)\b/i],
-  ['TRANSPORT', /\b(train|rail|coach|bus|ferry|car rental|pick-?up|drop-?off|platform)\b/i],
-  ['TOUR', /\b(tour|cruise|sail|excursion|guided)\b/i],
-  ['ATTRACTION', /\b(museum|palace|castle|admission|entry ticket|timed entry|gardens?)\b/i],
-  ['EVENT', /\b(concert|show|theatre|theater|performance|tickets?|seat \w+|row \w+)\b/i],
+  [
+    'DINING',
+    /\b(restaurant|table for|reservation for \d+ (people|guests)|party of \d+)\b|מסעדה|שולחן ל/i,
+  ],
+  [
+    'TRANSPORT',
+    /\b(train|rail|coach|bus|ferry|car rental|pick-?up|drop-?off|platform)\b|רכבת|השכרת רכב|מעבורת/i,
+  ],
+  [
+    'TOUR',
+    /\b(tours?|cruise|sail|excursion|guided|walk|walking|tasting|workshop|cooking class|day trip)\b|סיור|סדנה|טיול מאורגן|שייט/i,
+  ],
+  [
+    'ATTRACTION',
+    /\b(museum|palace|castle|admission|entry ticket|timed entry|gardens?)\b|מוזיאון|כניסה ל|ארמון/i,
+  ],
+  [
+    'EVENT',
+    /\b(concert|show|theatre|theater|performance|tickets?|seat \w+|row \w+)\b|הופעה|קונצרט|הצגה|מופע/i,
+  ],
 ];
 
 export function guessType(text: string): BookingTypeName {
@@ -63,7 +78,15 @@ export function findConfirmationCode(text: string): string | null {
     const code = m[1]!.toUpperCase();
     if (/\d/.test(code)) return code;
   }
-  return null;
+  // Hebrew, mid-sentence: "…אישור להזמנתכם אשר מספרה: FW-7770001", "אסמכתא 55120".
+  const he =
+    /(?:מספר[הו]?|מספר ההזמנה|אסמכתא|קוד אישור)\s*:?\s*#?\s*([A-Z0-9][A-Z0-9-]{3,20})\b/i.exec(
+      text,
+    )?.[1];
+  if (he && /\d/.test(he)) return he.toUpperCase();
+  // A reference in brackets, as many ticket sites put it in the subject: "(FW-T5550001)".
+  const bracketed = /\(([A-Z]{2,5}-?[A-Z0-9]*\d[A-Z0-9-]{3,18})\)/.exec(text)?.[1];
+  return bracketed ?? null;
 }
 
 /** First date in the text as "YYYY-MM-DD". Numeric dates are read day-first (14/05/2027). */
@@ -164,7 +187,10 @@ export function findTravellers(text: string): number | null {
       ),
     ].map((m) => m[1]!.toLowerCase()),
   );
-  return names.size || null;
+  if (names.size) return names.size;
+  // A product line with a quantity: "culinary tour (4)".
+  const qty = /^[ \t]*[^\n()]{3,80}\(([1-9]\d?)\)[ \t]*$/m.exec(text);
+  return qty ? Number(qty[1]) : null;
 }
 
 const PERSONAL_MAIL =
@@ -399,6 +425,92 @@ function listedNames(text: string): number | null {
   return n || null;
 }
 
+/** True when a subject is only "Booking: Wed 18 Nov '26 @ 10:00 (code)" — dates, times and codes. */
+export function isNoiseSubject(subject: string): boolean {
+  const rest = subject
+    .replace(BIDI, '')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(new RegExp(`(?:${HE_MONTHS.join('|')})[\u05d0-\u05ea]*[׳'’]?`, 'g'), ' ')
+    .replace(/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?/gi, ' ')
+    .replace(/\b(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?/gi, ' ')
+    .replace(
+      /(?:^|\s)(?:יום|הזמנה|הזמנתך|אישור|ההזמנה|שלך|אושרה|[\u05d0-\u05ea][׳'])(?=\s|:|$)/g,
+      ' ',
+    )
+    .replace(
+      /\b(?:booking|order|reservation|confirmation|confirmed|your|ticket|tickets|for|on|at)\b/gi,
+      ' ',
+    )
+    .replace(/[\d\s:.,@'’|/#–—-]+/g, '');
+  return rest.length < 4;
+}
+
+/** The product as ticket sites print it next to the reference: "Trastevere food walk (FW-T5550001)". */
+export function findProductLine(text: string): string | null {
+  const m = /^[ \t]*([^\n()]{4,100}?)\s*\(([A-Z]{2,5}-?[A-Z0-9]*\d[A-Z0-9-]{3,18})\)[ \t]*$/m.exec(
+    text,
+  );
+  return m ? m[1]!.trim() : null;
+}
+
+/** "10:00 - 14:00" → start and end; or a start plus "Duration 4 hours" / "משך 4 שעות". */
+export function findTimeSpan(text: string): { start: string; end: string } | null {
+  const range = /\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*[-–—]\s*([01]?\d|2[0-3])[:.]([0-5]\d)\b/.exec(
+    text,
+  );
+  if (range) {
+    const p = (h: string, m: string) => `${h.padStart(2, '0')}:${m}`;
+    return { start: p(range[1]!, range[2]!), end: p(range[3]!, range[4]!) };
+  }
+  return null;
+}
+
+export function findDurationMinutes(text: string): number | null {
+  const m =
+    /(?:duration|length|משך)\s*:?\s*(\d+(?:[.,]\d+)?)\s*(hours?|hrs?|h|שעות|שעה|minutes?|mins?|דקות)\b/i.exec(
+      text,
+    );
+  if (!m) return null;
+  const n = Number(m[1]!.replace(',', '.'));
+  return /^(min|דק)/i.test(m[2]!) ? n : Math.round(n * 60);
+}
+
+/** Link captions that mean "open in Maps", not a place. */
+const MAP_CAPTION =
+  /^(ניווט ליעד|ניווט|הוראות הגעה|get directions|directions|navigate|open (in )?(google )?maps|view (on )?map|map)$/i;
+
+/**
+ * The meeting point / venue under a label: the place name and, on the next line, its address.
+ * "נקודת מפגש <maps> ניווט ליעד\nCaffe Example\nPiazza Example 5, Roma" →
+ * { place: "Caffe Example", address: "Piazza Example 5, Roma" }
+ */
+export function findMeetingPoint(text: string): { place: string | null; address: string | null } {
+  const label =
+    /meeting point|meeting place|venue|location|where|נקודת מפגש|מקום המפגש|מיקום|כתובת/;
+  const m = new RegExp(`^[\\s*•-]*(?:${label.source})\\s*:?[ \\t]*(.*)$`, 'im').exec(text);
+  if (!m) return { place: null, address: null };
+  const values: string[] = [];
+  const same = strip(m[1] ?? '');
+  if (same && !MAP_CAPTION.test(same)) values.push(same);
+  for (const line of text
+    .slice(m.index + m[0].length)
+    .split('\n')
+    .slice(0, 5)) {
+    const v = strip(line);
+    if (!v || MAP_CAPTION.test(v)) continue;
+    values.push(v);
+    if (values.length === 2) break;
+  }
+  const looksLikeAddress = (v: string | undefined) => !!v && /\d/.test(v) && /\p{L}{3}/u.test(v);
+  const [a, b] = values;
+  if (looksLikeAddress(a) && !looksLikeAddress(b))
+    return { place: null, address: a!.slice(0, 200) };
+  return {
+    place: a && a.length <= 120 && !findDates(a).length ? a : null,
+    address: looksLikeAddress(b) ? b!.slice(0, 200) : null,
+  };
+}
+
 /** "From Tel Aviv to Rome on 17 November 2026" → "Tel Aviv → Rome". */
 export function routeFromSubject(subject: string | null | undefined): string | null {
   const m =
@@ -410,7 +522,7 @@ export function routeFromSubject(subject: string | null | undefined): string | n
 
 /** Words that mark boilerplate lines rather than the name of the thing that was booked. */
 const BOILERPLATE =
-  /\b(confirm\w*|reference|booking|reservation|order|invoice|receipt|date|time|total|price|paid|tickets?\s*x|dear|hello|hi|thank|passengers?|guests?)\b|@|https?:/i;
+  /\b(confirm\w*|reference|booking|reservation|order|invoice|receipt|date|time|total|price|paid|tickets?\s*x|dear|hello|hi|thank|passengers?|guests?)\b|@|https?:|\bwww\.|\.(?:com|org|net|io|co\.\w{2})\b/i;
 
 /** First line that reads like a name ("Oceanario de Lisboa - Timed entry"), for files without a subject. */
 export function titleFromLines(text: string): string | null {
@@ -486,10 +598,35 @@ export function draftFromText(
     if (provider) notes = `Booked via ${provider}`;
     provider = stayDetails(text, start, end);
   }
+  let location: string | null = null;
+  let address = findAddress(text);
+  if (type !== 'STAY' && !segments.length) {
+    // "10:00 - 14:00" or "Duration 4 hours" gives the end; the meeting point gives the place.
+    const span = findTimeSpan(text);
+    const day = dates[0];
+    if (span && day) {
+      start = at(day, span.start);
+      const next =
+        span.end < span.start
+          ? new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+          : day;
+      end = at(next, span.end);
+    } else if (start && start.length > 10) {
+      const mins = findDurationMinutes(text);
+      if (mins)
+        end = new Date(Date.parse(`${start}:00Z`) + mins * 60_000).toISOString().slice(0, 16);
+    }
+    const where = findMeetingPoint(text);
+    location = where.place;
+    address = where.address ?? address;
+    title ??= findProductLine(text);
+  }
+  const subject =
+    opts.subject && !isNoiseSubject(cleanSubject(opts.subject) ?? '') ? opts.subject : undefined;
   title ??=
-    routeFromSubject(opts.subject) ??
-    cleanSubject(opts.subject) ??
-    (opts.subject ? null : titleFromLines(text)) ??
+    routeFromSubject(subject) ??
+    cleanSubject(subject) ??
+    titleFromLines(text) ??
     opts.fallbackTitle ??
     'Booking';
 
@@ -500,7 +637,8 @@ export function draftFromText(
     startLocal: start,
     endLocal: end,
     provider,
-    address: findAddress(text),
+    location,
+    address,
     bookingUrl: findManageUrl(text),
     travellers: findTravellers(haystack) ?? listedNames(text),
     price: money?.price ?? null,
