@@ -117,6 +117,14 @@ describe.runIf(run)('API integration', () => {
         d.activities.map((_: unknown, i: number) => i),
       );
     }
+
+    // Put it back so later suites see the seeded itinerary.
+    const back = await gql(
+      owner,
+      'mutation($i: MoveActivityInput!) { moveActivity(input: $i) { id } }',
+      { i: { activityId: fado.id, dayId: days[2].id, position: fado.position } },
+    );
+    expect(back.errors).toBeUndefined();
   });
 
   it('adds and deletes expenses with validated splits', async () => {
