@@ -460,6 +460,8 @@ type Mutation {
   signIn(input: SignInInput!): AuthPayload!
   signOut: Boolean!
   createTrip(input: CreateTripInput!): Trip!
+  "Owner only. Deletes the trip and everything in it, including uploaded documents."
+  deleteTrip(id: ID!): Boolean!
   proposeActivity(input: ProposeActivityInput!): Activity!
   "Toggles the viewer's vote. Proposals reaching the trip's threshold are scheduled."
   toggleVote(activityId: ID!): Activity!
@@ -504,6 +506,7 @@ enum TripEventKind {
   EXPENSE_CHANGED
   MEMBER_CHANGED
   BOOKING_CHANGED
+  TRIP_DELETED
 }
 
 "Lightweight change notification; clients refetch what they display."

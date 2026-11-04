@@ -73,8 +73,9 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
   - **Date field** (`components/DateField.tsx`, react-day-picker): trigger shows "Fri, Nov 20, 2026" with a calendar icon; calendar popover with 44px day cells, selected day = accent fill, today = bold + underline, days before `min` disabled; Clear / Today footer. Opening focuses the selected day (or today) for arrow-key navigation.
   - **Time field** (`components/TimeField.tsx`): a Select of 24h times in 15-minute steps plus "Any time"; opens scrolled to the current value.
   - Menus inside a dialog render inside that dialog (`PortalContainerContext`) so they stay above it.
-- **Dialog**: native `<dialog>`; full-screen sheet on phones, centered card (440px, or 560px for forms with lists) from `sm` up; title + 44px close button in the header.
-- **Confirm dialog**: every destructive action (delete expense, remove member, leave trip) asks first; confirm button uses `negative` colors.
+- **Dialog**: native `<dialog>`; full-screen sheet on phones, centered card (440px, or 560px for forms with lists) from `sm` up, **as tall as its content** up to 90vh — the body scrolls and sticky footers stay visible; title + 44px close button in the header.
+- **Password field** (`components/PasswordInput.tsx`): every password input has a show/hide eye button inside the field's right edge (44px target, `aria-label` "Show password" / "Hide password", `aria-pressed`); it never submits the form and keeps the typed value.
+- **Confirm dialog**: every destructive action (delete expense, remove member, leave trip, delete trip) asks first; confirm button uses `negative` colors.
 - **Toast**: bottom-center, auto-dismiss after 4s, `role="status"` (or `alert` for errors); sits above the mobile tab bar.
 - **Count badge**: `attention` colors, pill, min 22px.
 
@@ -167,6 +168,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Invite card (owners only): role select (Editor / Viewer) → "Create invite link" → read-only link + "Copy link" (shows "Copied" for 2s). Links expire after 7 days. Email invites are planned.
 - Member rows: avatar, name (+ "(you)"), email, role select. Only the owner can change roles; the owner's own role is locked.
 - Owners can **Remove** others; non-owners can **Leave**. Both confirm first; members with an unsettled balance can't be removed.
+- **Delete this trip** (owners only): a last card with an `attention` border, a one-line warning of what is deleted and that it can't be undone, and a secondary **Delete trip** button in negative colors with a trash icon. It confirms first, then returns to My trips with a toast. Members who have the trip open are sent to My trips with "… was deleted by its owner."
 
 ### 07 · Join trip (`/join/:token`)
 

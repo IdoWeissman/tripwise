@@ -1,6 +1,6 @@
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client/react';
 import { useMemo, useRef, type ReactNode } from 'react';
-import { Link, NavLink, Navigate, Outlet } from 'react-router';
+import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router';
 import { formatDateRange } from '../lib/format';
 import {
   buildMemberIndex,
@@ -13,6 +13,7 @@ import { AvatarStack, CountBadge, LiveIndicator } from './Bits';
 import { BulbIcon, CalendarIcon, HomeIcon, SuitcaseIcon, UsersIcon, WalletIcon } from './Icons';
 import { Logo } from './Logo';
 import { EmptyState, ErrorState, Skeleton } from './States';
+import { useToast } from './Toast';
 
 const SECTIONS = [
   { to: 'overview', label: 'Overview', short: 'Today', icon: HomeIcon, mobile: true },
@@ -28,6 +29,8 @@ const SECTIONS = [
 export function TripLayout() {
   const tripId = useTripId();
   const client = useApolloClient();
+  const navigate = useNavigate();
+  const toast = useToast();
   const { data, loading, error, refetch } = useQuery(TripShellDocument, {
     variables: { id: tripId },
   });
@@ -39,6 +42,13 @@ export function TripLayout() {
     skip: !data?.trip,
     onData: ({ data: event }) => {
       if (event.data?.tripEvents.actorId === data?.me?.id) return; // our own change is already applied
+      if (event.data?.tripEvents.kind === 'TRIP_DELETED') {
+        // Someone else (the owner) deleted the trip we're looking at.
+        toast(`${data?.trip?.name ?? 'This trip'} was deleted by its owner.`);
+        void navigate('/', { replace: true });
+        void client.refetchQueries({ include: 'active' });
+        return;
+      }
       clearTimeout(timer.current);
       timer.current = setTimeout(() => void client.refetchQueries({ include: 'active' }), 150);
     },

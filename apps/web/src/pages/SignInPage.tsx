@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
+import { PasswordInput } from '../components/PasswordInput';
 import { graphql } from '../gql';
 import { messageFromError } from '../lib/errors';
 import { MeDocument } from '../lib/session';
@@ -117,8 +118,7 @@ export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) 
           </label>
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
             Password
-            <input
-              type="password"
+            <PasswordInput
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
               required
               value={password}

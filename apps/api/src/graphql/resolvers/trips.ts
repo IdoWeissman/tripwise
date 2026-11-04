@@ -1,6 +1,7 @@
 import type { Resolvers } from '../__generated__/resolvers-types.js';
 import { badInput, requireTripRole, requireViewer } from '../errors.js';
 import { isValidZone } from '../../lib/time.js';
+import { publishTripEvent } from '../pubsub.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -45,6 +46,26 @@ export const tripResolvers: Resolvers = {
           },
         },
       });
+    },
+
+    deleteTrip: async (_p, { id }, ctx) => {
+      await requireTripRole(ctx, id, 'OWNER');
+      // Rows go with the trip (ON DELETE CASCADE); stored files have to be removed explicitly.
+      const files = await ctx.db.attachment.findMany({
+        where: { tripId: id },
+        select: { storageKey: true },
+      });
+      await ctx.db.trip.delete({ where: { id } });
+      await Promise.all(
+        files.map((f) =>
+          ctx.storage
+            .delete(f.storageKey)
+            .catch((err) => console.warn('Could not delete stored file', f.storageKey, err)),
+        ),
+      );
+      // Members looking at the trip are sent back to their trips list.
+      await publishTripEvent(id, 'TRIP_DELETED', { actorId: ctx.viewerId });
+      return true;
     },
   },
 

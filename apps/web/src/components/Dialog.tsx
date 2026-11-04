@@ -41,13 +41,14 @@ export function Dialog({
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
       aria-label={title}
-      className={`m-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-ink backdrop:bg-ink/40 sm:m-auto sm:h-auto sm:max-h-[90vh] sm:rounded-card sm:border sm:border-border ${
+      className={`m-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-ink backdrop:bg-ink/40 sm:m-auto sm:h-fit sm:max-h-[90vh] sm:rounded-card sm:border sm:border-border ${
         extraWide ? 'sm:max-w-[1000px]' : wide ? 'sm:max-w-[560px]' : 'sm:max-w-[440px]'
       }`}
     >
       {open && (
         <PortalContainerContext.Provider value={container}>
-          <div className="flex h-full flex-col">
+          {/* Phones: full-height sheet. From sm: as tall as the content, capped at 90vh; the body scrolls. */}
+          <div className="flex h-full flex-col sm:h-auto sm:max-h-[90vh]">
             <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
               <h2 className="text-[17px] font-bold">{title}</h2>
               <button
@@ -59,7 +60,7 @@ export function Dialog({
                 <CloseIcon />
               </button>
             </header>
-            <div className="flex-1 overflow-y-auto p-5">{children}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
           </div>
         </PortalContainerContext.Provider>
       )}
