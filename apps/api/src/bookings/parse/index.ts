@@ -129,7 +129,7 @@ function ruleDrafts(
   const structured = html ? draftsFromJsonLd(html) : [];
   if (structured.length) return { drafts: structured, exactLegs: [], text, calendars };
 
-  const sender = mail.from?.value[0]?.name ?? null;
+  const sender = mail.from?.value[0] ?? null;
   const fromText = draftFromText(text, {
     subject: mail.subject,
     fallbackTitle: baseName(fileName),

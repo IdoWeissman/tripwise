@@ -2,9 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { draftsFromAi, extractWithAi } from '../src/bookings/parse/ai.js';
 import { draftsFromCalendar, parseCalendar } from '../src/bookings/parse/calendar.js';
 import { parseFile, reconcile } from '../src/bookings/parse/index.js';
-import { findPrice, findTravellers } from '../src/bookings/parse/text.js';
+import {
+  findDates,
+  findPrice,
+  findProvider,
+  findTravellers,
+  labelValue,
+  stripForwardHeaders,
+} from '../src/bookings/parse/text.js';
 import { flightTitle } from '../src/bookings/parse/title.js';
-import { forwardedAirlineEmail } from './fixtures/emails.js';
+import { forwardedAirlineEmail, forwardedHebrewHotelEmail } from './fixtures/emails.js';
 
 describe('forwarded airline email with calendar attachments', () => {
   it('reads every field without AI', async () => {
@@ -39,6 +46,55 @@ describe('forwarded airline email with calendar attachments', () => {
       }),
     ]);
     expect(d!.fromSource).not.toContain('fromSource');
+  });
+});
+
+describe('forwarded Hebrew hotel confirmation', () => {
+  it('reads the stay, not the forwarding headers', async () => {
+    const [d, ...rest] = await parseFile(forwardedHebrewHotelEmail(), 'EMAIL', 'FW booking.eml');
+    expect(rest).toEqual([]);
+    expect(d).toMatchObject({
+      type: 'STAY',
+      title: 'Hotel Aurora',
+      provider: 'Superior Double Room · 2 nights',
+      confirmationCode: '4821-7730',
+      startLocal: '2026-11-17T14:00',
+      endLocal: '2026-11-19T11:00',
+      address: 'Via Example 12, Rome',
+      price: '1396.00',
+      currency: 'ILS',
+      travellers: 2,
+      notes: 'Booked via Sky Travel',
+    });
+  });
+
+  it('understands Hebrew dates, labels on their own line and forward chains', () => {
+    expect(findDates('נוב׳ 17, 2026 · 12 בנוב׳ 2026 · 3 בדצמבר 2026')).toEqual([
+      '2026-11-17',
+      '2026-11-12',
+      '2026-12-03',
+    ]);
+    expect(labelValue('מספר הזמנה:\n\n4821-1111\n', /מספר הזמנה/)).toBe('4821-1111');
+    expect(
+      stripForwardHeaders(
+        'From: Ann <ann@gmail.com>\nSent: Monday, 7 September 2026 14:43\nCheck-in 15:00',
+      ),
+    ).toBe('Check-in 15:00');
+    // A ticket's own "Date:" line is not a forwarding header.
+    expect(stripForwardHeaders('Date: 16 May 2027  Entry: 09:30')).toContain('09:30');
+    expect(
+      findProvider(
+        'From: Ann <ann@gmail.com>\nFrom: Rome Hotels Reservations <noreply@romehotels.test>',
+        {
+          name: 'Ann',
+          address: 'ann@yahoo.com',
+        },
+      ),
+    ).toBe('Rome Hotels');
+    expect(findProvider('no headers', { name: 'Ann', address: 'ann@yahoo.com' })).toBeNull();
+    expect(
+      findProvider('no headers', { name: 'Booking.com', address: 'noreply@booking.com' }),
+    ).toBe('Booking.com');
   });
 });
 

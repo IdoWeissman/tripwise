@@ -7,6 +7,21 @@ import { withProvenance, type BookingTypeName, type Draft, type SegmentDraft } f
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const pad = (n: number | string) => String(n).padStart(2, '0');
+/** Hebrew month stems, in order (ינואר/ינו׳ … דצמבר/דצמ׳). */
+const HE_MONTHS = [
+  'ינו',
+  'פבר',
+  'מרץ',
+  'אפר',
+  'מאי',
+  'יונ',
+  'יול',
+  'אוג',
+  'ספט',
+  'אוק',
+  'נוב',
+  'דצמ',
+];
 
 const TYPE_HINTS: [BookingTypeName, RegExp][] = [
   [
@@ -70,6 +85,12 @@ export function findDates(text: string): string[] {
   }
   for (const m of text.matchAll(/\b(\d{1,2})[/.](\d{1,2})[/.](\d{4})\b/g))
     add(m.index!, +m[3]!, +m[2]!, +m[1]!);
+  // Hebrew: "נוב׳ 17, 2026", "17 בנובמבר 2026", "12 בנוב׳ 2026".
+  const he = `(${HE_MONTHS.join('|')})[\u05d0-\u05ea]*[׳'’]?`;
+  for (const m of text.matchAll(new RegExp(`${he}\\s+(\\d{1,2}),?\\s+(\\d{4})`, 'g')))
+    add(m.index!, +m[3]!, HE_MONTHS.indexOf(m[1]!) + 1, +m[2]!);
+  for (const m of text.matchAll(new RegExp(`(\\d{1,2})\\s+ב?${he}\\s+(\\d{4})`, 'g')))
+    add(m.index!, +m[3]!, HE_MONTHS.indexOf(m[2]!) + 1, +m[1]!);
   return out.sort((a, b) => a.at - b.at).map((x) => x.v);
 }
 
@@ -146,15 +167,33 @@ export function findTravellers(text: string): number | null {
   return names.size || null;
 }
 
+const PERSONAL_MAIL =
+  /@(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|mac|aol|proton(mail)?|walla|gmx|mail)\./i;
 /** "ITA Airways" from "From: ITA Airways Booking <booking@…>" (forwarded headers) or the sender. */
-export function findProvider(text: string, sender?: string | null): string | null {
-  const forwarded = /^\s*From:\s*"?([^<"\n]+?)"?\s*<[^>\n]+>/im.exec(text)?.[1];
+export interface Sender {
+  name?: string | null;
+  address?: string | null;
+}
+
+export function findProvider(text: string, sender?: Sender | null): string | null {
+  // In a forward chain, people forwarding from personal mailboxes aren't the provider:
+  // take the original company sender ("EL AL Travel Bookings <noreply@elal-travel.com>").
+  const senders = [
+    ...text
+      .replace(BIDI, '')
+      .matchAll(/^\s*>?\s*(?:From|מאת)\s*:\s*"?([^<"\n]+?)"?\s*<\s*([^>\s]+)/gim),
+  ]
+    .filter((m) => !PERSONAL_MAIL.test(m[2]!))
+    .map((m) => m[1]!);
+  const forwarded = senders.at(-1);
   const operated = /\boperated by:?\s*([A-Z][^\n,;]{1,40}?)\s*(?:\n|$)/im.exec(text)?.[1];
-  const raw = operated ?? forwarded ?? sender ?? null;
+  // The mail's own sender counts only when it isn't a person forwarding from a personal mailbox.
+  const own = sender?.name && !PERSONAL_MAIL.test(sender.address ?? '') ? sender.name : null;
+  const raw = operated ?? forwarded ?? own;
   if (!raw || /@/.test(raw)) return null;
   const clean = raw
     .replace(
-      /\b(booking|bookings|reservations?|confirmations?|no-?reply|do not reply|team|service|customer care|notifications?)\b/gi,
+      /\b(booking|bookings|reservations?|confirmations?|no-?reply|do not reply|team|service|customer care|notifications?)\b(?![.\w])/gi,
       '',
     )
     .replace(/\s{2,}/g, ' ')
@@ -228,22 +267,136 @@ function flightSegments(text: string, dates: string[], times: string[]): Segment
     .filter((s) => s.departLocal);
 }
 
+/** Subject parts that only say "confirmed / thank you", in English and Hebrew. */
+const SUBJECT_FILLER =
+  /^(?:(?:your\s+)?(?:booking|reservation|order|ticket)s?\s*(?:is\s+)?(?:confirmation|confirmed|details)?|thank you.*|הזמנתך אושרה|ההזמנה (?:שלך )?אושרה|אישור הזמנה|תודה.*)$/i;
+
 function cleanSubject(subject: string | undefined): string | null {
   if (!subject) return null;
-  return (
-    subject
-      .replace(/^((re|fwd?|fw):\s*)+/gi, '')
-      .replace(
-        /\bthank you for (booking|your (booking|order|reservation|purchase))( with us)?\b[\s|:–-]*/i,
-        '',
-      )
-      .replace(/^\s*[|:–-]\s*/, '')
-      .replace(
-        /^(your\s+)?(booking|reservation|order|ticket)s?\s+(confirmation|confirmed|details)\s*(for|[-:–])?\s*/i,
-        '',
-      )
-      .trim() || null
-  );
+  const base = subject
+    .replace(BIDI, '')
+    .replace(/^((re|fwd?|fw|הועבר|השב):\s*)+/gi, '')
+    .replace(
+      /\bthank you for (booking|your (booking|order|reservation|purchase))( with us)?\b[\s|:–-]*/i,
+      '',
+    )
+    .replace(
+      /^(your\s+)?(booking|reservation|order|ticket)s?\s+(confirmation|confirmed|details)\s*(for|[-:–])?\s*/i,
+      '',
+    )
+    .trim();
+  // "הזמנתך אושרה - The Glam" → "The Glam"
+  const parts = base
+    .split(/\s+[|–—-]\s+|\s*\|\s*/)
+    .map((p) => p.trim())
+    .filter((p) => p && !SUBJECT_FILLER.test(p));
+  return (parts.join(' – ') || base).trim() || null;
+}
+
+/** Invisible direction marks that mail clients sprinkle into mixed Hebrew/English text. */
+const BIDI = /[‎‏‪-‮⁦-⁩]/g;
+
+/**
+ * Removes the headers of forwarded messages ("From: … Sent: Monday, 7 September 2026 14:43"),
+ * whose dates and times would otherwise be mistaken for the booking's.
+ */
+export function stripForwardHeaders(text: string): string {
+  const header = /^\s*>?\s*(?:From|Sent|Date|To|Cc|Subject|מאת|נשלח|תאריך|אל|נושא)\s*:/i;
+  const lines = text.replace(BIDI, '').split('\n');
+  const out: string[] = [];
+  for (let i = 0; i < lines.length;) {
+    if (/^\s*-{3,}.*(forwarded|original) message/i.test(lines[i]!)) {
+      i++;
+      continue;
+    }
+    // A header block: 2+ consecutive header lines, one of them From/Sent. A lone "Date:" stays.
+    let j = i;
+    while (j < lines.length && header.test(lines[j]!)) j++;
+    const block = lines.slice(i, j);
+    if (block.length >= 2 && block.some((l) => /^\s*>?\s*(From|Sent|מאת|נשלח)\s*:/i.test(l))) {
+      i = j;
+      continue;
+    }
+    out.push(...(j > i ? block : [lines[i]!]));
+    i = Math.max(j, i + 1);
+  }
+  return out.join('\n');
+}
+
+const strip = (v: string) =>
+  v
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * The value after a label, on the same line ("Booking number: 4821-7730") or the next
+ * non-empty line ("מספר הזמנה:\n4821-7730"). The label must start the line.
+ */
+export function labelValue(text: string, label: RegExp): string | null {
+  const re = new RegExp(`^[\\s*•-]*(?:${label.source})\\s*:?[ \\t]*(.*)$`, 'gim');
+  for (const m of text.matchAll(re)) {
+    const same = strip(m[1] ?? '');
+    if (same) return same;
+    const rest = text.slice(m.index! + m[0].length).split('\n');
+    for (const line of rest.slice(0, 4)) {
+      const v = strip(line);
+      if (v) return v;
+    }
+  }
+  return null;
+}
+
+const CODE_LABELS =
+  /(?:booking|confirmation|reservation|itinerary|order)\s*(?:number|no\.?|code|#|id)|מספר הזמנה|מס[׳'] הזמנה|קוד הזמנה|מספר אישור|אסמכתא/;
+
+/** "The Glam" from "The Glam ★★★★", or a labelled hotel / property name. */
+export function findPlaceName(text: string): string | null {
+  const stars = /^\s*([^\n★☆*]{2,80}?)\s*[★☆]{1,5}\s*$/m.exec(text)?.[1];
+  return strip(stars ?? '') || labelValue(text, /hotel name|property|accommodation|שם המלון|מלון/);
+}
+
+/** "Via Nazionale 82, Rome" — a labelled address, or text that mail clients linked to Maps. */
+export function findAddress(text: string): string | null {
+  const labelled = labelValue(text, /address|location|כתובת|מיקום/);
+  if (labelled && /\d|,/.test(labelled)) return labelled.slice(0, 200);
+  for (const m of text.matchAll(
+    /^[ \t]*([^\n<]{4,120}?)\s*<https?:\/\/(?:www\.)?google\.[a-z.]+\/maps[^>]*>/gim,
+  )) {
+    const v = strip(m[1]!);
+    if (/\p{L}{3}/u.test(v) && /\d|,/.test(v) && !findDates(v).length) return v;
+  }
+  return null;
+}
+
+/** Room type and length for a stay: "Standard Room · 2 nights". */
+function stayDetails(text: string, start: string | null, end: string | null): string | null {
+  const room = labelValue(text, /room type|room|סוג חדר|חדר/);
+  let nights = Number(/(\d{1,2})\s*[- ]?\s*(?:nights?|לילות|לילה)/i.exec(text)?.[1] ?? 0);
+  if (!nights && start && end)
+    nights = Math.round(
+      (Date.parse(end.slice(0, 10)) - Date.parse(start.slice(0, 10))) / 86_400_000,
+    );
+  const parts = [
+    room && room.length <= 60 ? room : null,
+    nights > 0 ? `${nights} night${nights === 1 ? '' : 's'}` : null,
+  ];
+  return parts.filter(Boolean).join(' · ') || null;
+}
+
+/** Names listed under a "Guests" / "Passengers" heading. */
+function listedNames(text: string): number | null {
+  const m = /^\s*(?:guests?|passengers?|travell?ers?|נוסעים|אורחים)\s*:?\s*$/im.exec(text);
+  if (!m) return null;
+  let n = 0;
+  for (const line of text.slice(m.index + m[0].length).split('\n')) {
+    const v = line.trim();
+    if (!v) continue;
+    if (!/^(?:(?:Mr|Mrs|Ms|Miss|Dr)\.?\s+)?[A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+){1,3}$/.test(v))
+      break;
+    n++;
+  }
+  return n || null;
 }
 
 /** "From Tel Aviv to Rome on 17 November 2026" → "Tel Aviv → Rome". */
@@ -281,12 +434,17 @@ export function titleFromLines(text: string): string | null {
 
 /** One draft from free text. Returns null when the text clearly isn't a booking. */
 export function draftFromText(
-  text: string,
-  opts: { subject?: string; fallbackTitle?: string; sender?: string | null } = {},
+  raw: string,
+  opts: { subject?: string; fallbackTitle?: string; sender?: Sender | null } = {},
 ): Draft | null {
-  const haystack = `${opts.subject ?? ''}\n${text}`.slice(0, 50_000);
+  // Dates, times, codes and amounts come from the message itself, not forwarding headers.
+  const text = stripForwardHeaders(raw);
+  const haystack = `${(opts.subject ?? '').replace(BIDI, '')}\n${text}`.slice(0, 50_000);
   const type = guessType(haystack);
-  const code = findConfirmationCode(haystack);
+  const labelledCode = labelValue(text, CODE_LABELS)
+    ?.match(/^#?\s*([A-Z0-9][A-Z0-9-]{3,20})\b/i)?.[1]
+    ?.toUpperCase();
+  const code = labelledCode ?? findConfirmationCode(haystack);
   const dates = findDates(haystack);
   const times = findTimes(haystack);
   const money = findPrice(haystack);
@@ -295,11 +453,40 @@ export function draftFromText(
   const segments =
     type === 'FLIGHT' || type === 'TRANSPORT' ? flightSegments(haystack, dates, times) : [];
   const first = segments[0];
-  const start =
-    first?.departLocal ?? (dates[0] ? `${dates[0]}${times[0] ? `T${times[0]}` : ''}` : null);
-  const end = type === 'STAY' && dates[1] ? `${dates[1]}${times[1] ? `T${times[1]}` : ''}` : null;
-  const title =
-    (first ? flightTitle(segments, cityNames(text, opts.subject, segments)) : null) ??
+  const at = (date: string | undefined, time: string | undefined) =>
+    date ? `${date}${time ? `T${time}` : ''}` : null;
+
+  let start = first?.departLocal ?? at(dates[0], times[0]);
+  let end: string | null = null;
+  let provider = findProvider(raw, opts.sender);
+  let notes: string | null = null;
+  let title: string | null = first
+    ? flightTitle(segments, cityNames(text, opts.subject, segments))
+    : null;
+  if (type === 'STAY') {
+    // Prefer labelled values ("Check-in: Nov 17, 2026", "Check-in time: from 14:00").
+    const inDate =
+      findDates(
+        labelValue(text, /check-?in(?: date)?|arrival(?: date)?|צ[׳']ק-אין|תאריך הגעה/) ?? '',
+      )[0] ?? dates[0];
+    const outDate =
+      findDates(
+        labelValue(text, /check-?out(?: date)?|departure(?: date)?|צ[׳']ק-אאוט|תאריך עזיבה/) ?? '',
+      )[0] ?? dates[1];
+    const inTime =
+      findTimes(labelValue(text, /check-?in time|check-?in from|שעת צ[׳']ק-אין/) ?? '')[0] ??
+      times[0];
+    const outTime =
+      findTimes(labelValue(text, /check-?out time|check-?out until|שעת צ[׳']ק-אאוט/) ?? '')[0] ??
+      times[1];
+    start = at(inDate, inTime);
+    end = at(outDate, outTime);
+    title = findPlaceName(text);
+    // For stays the card shows what was booked; the agency goes into the notes.
+    if (provider) notes = `Booked via ${provider}`;
+    provider = stayDetails(text, start, end);
+  }
+  title ??=
     routeFromSubject(opts.subject) ??
     cleanSubject(opts.subject) ??
     (opts.subject ? null : titleFromLines(text)) ??
@@ -312,11 +499,13 @@ export function draftFromText(
     confirmationCode: code,
     startLocal: start,
     endLocal: end,
-    provider: findProvider(text, opts.sender),
+    provider,
+    address: findAddress(text),
     bookingUrl: findManageUrl(text),
-    travellers: findTravellers(haystack),
+    travellers: findTravellers(haystack) ?? listedNames(text),
     price: money?.price ?? null,
     currency: money?.currency ?? null,
+    notes,
     segments,
   });
 }

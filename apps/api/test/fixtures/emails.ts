@@ -232,3 +232,60 @@ export const forwardedAirlineEmail = (): Buffer => {
     ].join('\r\n'),
   );
 };
+
+/**
+ * A Hebrew hotel confirmation from a travel agency, forwarded twice (the forward headers carry
+ * their own dates and times). Modelled on a real email; every detail is invented.
+ */
+export const forwardedHebrewHotelEmail = (): Buffer => {
+  const maps = (q: string) =>
+    `<https://www.google.com/maps/search/${encodeURIComponent(q)}?entry=gmail&source=g>`;
+  const text = [
+    'From: Noa Levi <noa.levi@gmail.com>',
+    'Sent: Monday, 7 September 2026 14:43',
+    'Subject: Fwd: הזמנתך אושרה - Hotel Aurora',
+    '---------- Forwarded message ---------',
+    'From: Sky Travel Bookings <noreply@sky-travel.test <mailto:noreply@sky-travel.test> >',
+    'Date: Mon, 7 Sept 2026, 14:28',
+    '‪Subject: הזמנתך אושרה - Hotel Aurora',
+    'שלום Dan, תודה שביצעת הזמנה דרך Sky Travel. ההזמנה שלך אושרה.',
+    'Hotel Aurora ★★★★',
+    `Via Example 12, Rome ${maps('Via Example 12, Rome')}`,
+    'מספר הזמנה:',
+    '4821-7730',
+    'צ׳ק-אין:',
+    ` ${maps('נוב׳ 17, 2026')} נוב׳ 17, 2026`,
+    'צ׳ק-אאוט:',
+    ` ${maps('נוב׳ 19, 2026')} נוב׳ 19, 2026 (2-לילות)`,
+    'שעת צ׳ק-אין:',
+    'החל מהשעה 14:00 (זמן מקומי)',
+    'שעת צ׳ק-אאוט:',
+    'עד השעה 11:00 (זמן מקומי)',
+    'מספר חדרים:',
+    '1',
+    'חדר:',
+    'Superior Double Room',
+    'סה״כ:',
+    '1396 ILS',
+    'תשלום במלון:',
+    '€15',
+    'נוסעים',
+    'Dan Levi',
+    'Noa Levi',
+    'תנאי ביטול',
+    'ביטול בחינם לפני 12 בנוב׳ 2026 23:59 (GMT).',
+  ].join('\r\n');
+  return Buffer.from(
+    [
+      'From: Noa Levi <noa.levi@yahoo.com>',
+      'Subject: =?UTF-8?B?' +
+        Buffer.from('FW: הזמנתך אושרה - Hotel Aurora').toString('base64') +
+        '?=',
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      Buffer.from(text).toString('base64').replace(/.{76}/g, '$&\r\n'),
+    ].join('\r\n'),
+  );
+};
