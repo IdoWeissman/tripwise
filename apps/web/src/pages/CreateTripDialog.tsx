@@ -1,5 +1,5 @@
 import { useMutation } from '@apollo/client/react';
-import { useState, type FormEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -27,7 +27,7 @@ export function CreateTripDialog({ onClose }: { onClose: () => void }) {
   });
   const datesInvalid = !!startDate && !!endDate && endDate < startDate;
 
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: ChangeEvent) => {
     e.preventDefault();
     const res = await create({
       variables: { input: { name, destination, startDate, endDate, currency } },
