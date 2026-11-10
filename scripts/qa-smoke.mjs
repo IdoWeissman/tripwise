@@ -9,14 +9,14 @@
  * Needs `pnpm dev` running and a seeded database (signs in with the demo account
  * unless QA_EMAIL / QA_PASSWORD are set). `:trip` in a path is the first trip.
  * Fails (exit 1) on page errors, console errors, failed API calls, GraphQL errors
- * or horizontal overflow. Screenshots and report.json go to qa-output/.
+ * horizontal overflow or tiny double-scrollbar overflow. Screenshots (with scrollbars visible) and
+ * report.json go to qa-output/.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { chromium } from 'playwright';
+import { BASE, launch, scrollGlitches, signIn } from './qa-lib.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name) => args.flatMap((a, i) => (a === `--${name}` ? [args[i + 1]] : []));
-const BASE = (process.env.QA_BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 const OUT = 'qa-output';
 const VIEWPORTS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } };
 const only = flag('only')[0];
@@ -32,18 +32,6 @@ const DEFAULT_PATHS = [
   '/trips/:trip/expenses',
   '/trips/:trip/members',
 ];
-
-async function signIn(page) {
-  await page.goto(`${BASE}/sign-in`);
-  if (process.env.QA_EMAIL && process.env.QA_PASSWORD) {
-    await page.getByLabel('Email').fill(process.env.QA_EMAIL);
-    await page.locator('input[autocomplete="current-password"]').fill(process.env.QA_PASSWORD);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  } else {
-    await page.getByRole('button', { name: /demo account/i }).click();
-  }
-  await page.waitForURL((u) => !u.pathname.startsWith('/sign-in'), { timeout: 15_000 });
-}
 
 /** First trip id and one booking id, so paths can use :trip and :booking. */
 async function discover(page) {
@@ -89,6 +77,7 @@ async function check(page, path, vpName) {
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   if (overflow > 1) problems.push(`horizontal overflow: ${overflow}px wider than the viewport`);
+  for (const g of await scrollGlitches(page)) problems.push(g);
   const heading = await page
     .locator('h1')
     .first()
@@ -102,7 +91,7 @@ async function check(page, path, vpName) {
   return { viewport: vpName, path, heading: heading?.trim() ?? null, screenshot: shot, problems };
 }
 
-const browser = await chromium.launch();
+const browser = await launch();
 mkdirSync(OUT, { recursive: true });
 const results = [];
 try {

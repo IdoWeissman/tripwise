@@ -61,6 +61,7 @@ jobs:
           git checkout -b "$BRANCH"
 
       - name: Claude Code works on the issue
+        id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -84,22 +85,51 @@ jobs:
                - qa-output/pr-body.md — what was wrong or requested, the cause/approach, the evidence (tests that
                  failed then passed, `pnpm verify`, QA verdict), and anything left undone.
             4. If you can't complete the task (unclear, too large, can't reproduce), commit nothing and explain why
-               in qa-output/blocked.md, with the questions the maintainer should answer.
+               in qa-output/blocked.md: what you tried, what you measured, and the questions the maintainer should
+               answer.
+            5. You must end in exactly one of two states: at least one commit on this branch, or qa-output/blocked.md.
+               Never finish with neither. For UI bugs, reproduce with scripts/qa-lib.mjs (launch() shows scrollbars;
+               headless browsers hide them) and measure instead of trusting screenshots.
+            6. Finish with a two-line summary of what you did — the workflow posts it on the issue.
           claude_args: |
             --max-turns 80
             --allowedTools "Bash,Read,Edit,Write,Glob,Grep,Agent,Skill,TodoWrite"
             --disallowedTools "Bash(git push *),Bash(gh *)"
 
+      - name: Keep the agent's transcript (for debugging, 7 days)
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: agent-transcript-issue-${{ github.event.issue.number }}-${{ github.run_number }}
+          path: |
+            ${{ steps.claude.outputs.execution_file }}
+            qa-output/
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Publish the branch and open the PR
         if: always()
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
+          # The agent's own closing summary, from its transcript.
+          summary=$(jq -r '[.[] | select(.type == "result")] | last | .result // empty' "$EXECUTION_FILE" 2>/dev/null || true)
           commits=$(git rev-list --count origin/main..HEAD)
           if [ "$commits" -eq 0 ]; then
-            if [ -f qa-output/blocked.md ]; then
-              { echo "🤖 The agent stopped without changes:"; echo; cat qa-output/blocked.md; } > qa-output/comment.md
-            else
-              echo "🤖 The agent finished without changes. See [the run]($RUN_URL)." > qa-output/comment.md
-            fi
+            {
+              if [ "$CLAUDE_OUTCOME" != "success" ]; then
+                echo "🤖 The agent run failed before finishing ([run]($RUN_URL))."
+              elif [ -f qa-output/blocked.md ]; then
+                echo "🤖 The agent stopped without changes:"; echo; cat qa-output/blocked.md
+              else
+                echo "🤖 The agent finished without changes ([run]($RUN_URL))."
+              fi
+              if [ -n "$summary" ] && [ ! -f qa-output/blocked.md ]; then
+                echo; echo "**Agent's summary:**"; echo; echo "$summary"
+              fi
+              echo; echo "Its transcript is attached to [the run]($RUN_URL) as an artifact. Edit the issue and re-add the \`agent\` label to retry."
+            } > qa-output/comment.md
             gh issue comment "$ISSUE" --body-file qa-output/comment.md
             exit 0
           fi

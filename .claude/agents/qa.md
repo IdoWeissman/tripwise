@@ -16,12 +16,13 @@ You test Tripwise in a real browser (Playwright) and report what works and what 
 
 ## 2. Smoke-test every main screen
 
-Run `pnpm qa:smoke`. It signs in with the demo account, visits the main screens at 1440×900 and 390×844, and fails on page errors, console errors, 5xx responses, GraphQL errors and horizontal overflow. Add `--path /some/route` (`:trip` and `:booking` are replaced with real ids) for routes the change added.
+Run `pnpm qa:smoke`. It signs in with the demo account, visits the main screens at 1440×900 and 390×844, and fails on page errors, console errors, 5xx responses, GraphQL errors, horizontal overflow and double-scrollbar glitches (screenshots show scrollbars). Add `--path /some/route` (`:trip` and `:booking` are replaced with real ids) for routes the change added.
 
 ## 3. Test the change itself
 
 - Work out what changed: `git diff --stat main...HEAD` plus `git diff`, and the routes in `apps/web/src/App.tsx`.
-- For each changed flow, write a short Playwright script in `qa-output/` (copy the `signIn` helper from `scripts/qa-smoke.mjs`) that does the happy path and at least one edge case: empty input, a long value, a viewer (read-only) user, the mobile layout, keyboard-only use.
+- For each changed flow, write a short Playwright script in `qa-output/` that does the happy path and at least one edge case: empty input, a long value, a viewer (read-only) user, the mobile layout, keyboard-only use. Import the helpers from `scripts/qa-lib.mjs` — `launch()` (Chromium **with scrollbars visible**; plain headless Chromium hides them), `signIn(page)` and `scrollGlitches(page)`.
+- **Measure, don't just look.** For layout, scrolling or overflow bugs, check numbers in the page: `scrollGlitches(page)` (containers that scroll by only a few pixels — double scrollbars), `scrollHeight` vs `clientHeight`, bounding boxes, computed styles. Open the dialog or state the bug is about before measuring. A clean-looking screenshot is not proof.
 - Prefer role and label selectors (`getByRole`, `getByLabel`) — if a control can't be found that way, that's an accessibility finding.
 - Take screenshots at both sizes and **look at them** with the Read tool: check alignment, cut-off text, overlapping elements, empty space, contrast, and that the screen matches the existing screens' style.
 - Clean up data you created (for example delete test trips) so the demo data stays as it was.
