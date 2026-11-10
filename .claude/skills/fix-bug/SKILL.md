@@ -20,9 +20,9 @@ Pick the cheapest reproduction that shows the bug:
 
 - **Pure logic** (parsers, money, time, formatting): a unit test in `apps/api/test/*.test.ts` or `apps/web/src/**/*.test.ts`.
 - **API behaviour** (permissions, resolvers, uploads): an integration test in `apps/api/test/*.integration.test.ts` (needs the seeded DB: `pnpm db:seed`, then `pnpm --filter @tripwise/api test:integration`). Leave seeded data as you found it.
-- **UI**: a Playwright script in `qa-output/` (see `scripts/qa-smoke.mjs` for the sign-in helper), or `pnpm qa:smoke --path <route>`.
+- **UI**: a Playwright script in `qa-output/` using `scripts/qa-lib.mjs` (`launch()` shows scrollbars, `signIn`, `scrollGlitches`), or `pnpm qa:smoke --path <route>`. Assert on measured values (element sizes, `scrollHeight` vs `clientHeight`, `scrollGlitches(page)`), not on how a screenshot looks — headless browsers hide scrollbars unless launched with `launch()`.
 
-Run it and confirm it **fails for the reported reason**. If you can't reproduce it, stop and tell the user what you tried and what you need (steps, screenshot, data).
+Run it and confirm it **fails for the reported reason**. Reproduce in the exact state the report describes (open the dialog, use the stated viewport, add the data). If you still can't reproduce it, stop and write down what you tried, what you measured and what you need (steps, screenshot, data) — never end without either a fix or that explanation.
 
 ## 3. Fix the root cause
 
