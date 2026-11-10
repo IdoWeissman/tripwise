@@ -95,19 +95,27 @@ jobs:
             Do not push, do not run `gh`, and do not modify anything under .github/ — the workflow pushes your commit.
             If you can't fix it, commit nothing and explain why in qa-output/blocked.md. You must end with either a
             commit or qa-output/blocked.md — never neither.
+            This is a non-interactive run that ends when you stop: run subagents in the foreground and wait for their
+            result (never run_in_background), and commit before you finish.
           claude_args: |
             --max-turns 60
             --allowedTools "Bash,Read,Edit,Write,Glob,Grep,Agent,Skill,TodoWrite"
             --disallowedTools "Bash(git push *),Bash(gh *)"
 
-      - name: Keep the agent's transcript (for debugging, 7 days)
+      - name: Collect the agent's transcript
+        if: always() && steps.gate.outputs.go == 'true'
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          mkdir -p qa-output
+          if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then cp "$EXECUTION_FILE" qa-output/transcript.json; fi
+
+      - name: Keep the transcript and QA output (for debugging, 7 days)
         if: always() && steps.gate.outputs.go == 'true'
         uses: actions/upload-artifact@v5
         with:
           name: agent-ci-fix-transcript-${{ github.run_number }}
-          path: |
-            ${{ steps.claude.outputs.execution_file }}
-            qa-output/
+          path: qa-output/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -118,6 +126,11 @@ jobs:
           ATTEMPT: ${{ steps.gate.outputs.attempt }}
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
+          # Safety net: uncommitted work is committed (as this attempt) rather than lost; CI will judge it.
+          if [ "$(git rev-parse HEAD)" = "$FAILED_SHA" ] && [ ! -f qa-output/blocked.md ] && [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -q -m "fix(ci): unfinished agent changes" -m "The agent stopped before committing; saved by the workflow." -m "Agent-CI-Fix: $ATTEMPT"
+          fi
           if [ "$(git rev-parse HEAD)" = "$FAILED_SHA" ]; then
             gh label create needs-human --color D93F0B --description "The agent needs a person" --force
             gh pr edit "$PR" --add-label needs-human
