@@ -41,14 +41,14 @@ export function Dialog({
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
       aria-label={title}
-      className={`m-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-ink backdrop:bg-ink/40 sm:m-auto sm:h-fit sm:max-h-[90vh] sm:rounded-card sm:border sm:border-border ${
+      className={`m-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-ink backdrop:bg-ink/40 sm:m-auto sm:h-fit sm:max-h-[90vh] sm:overflow-hidden sm:rounded-card sm:border sm:border-border ${
         extraWide ? 'sm:max-w-[1000px]' : wide ? 'sm:max-w-[560px]' : 'sm:max-w-[440px]'
       }`}
     >
       {open && (
         <PortalContainerContext.Provider value={container}>
-          {/* Phones: full-height sheet. From sm: as tall as the content, capped at 90vh; the body scrolls. */}
-          <div className="flex h-full flex-col sm:h-auto sm:max-h-[90vh]">
+          {/* Phones: full-height sheet. From sm: as tall as the content, capped at 90vh minus the 2px border so the dialog itself never scrolls; only the body does. */}
+          <div className="flex h-full flex-col sm:h-auto sm:max-h-[calc(90vh-2px)]">
             <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
               <h2 className="text-[17px] font-bold">{title}</h2>
               <button
