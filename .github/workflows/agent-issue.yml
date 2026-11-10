@@ -90,20 +90,29 @@ jobs:
             5. You must end in exactly one of two states: at least one commit on this branch, or qa-output/blocked.md.
                Never finish with neither. For UI bugs, reproduce with scripts/qa-lib.mjs (launch() shows scrollbars;
                headless browsers hide them) and measure instead of trusting screenshots.
-            6. Finish with a two-line summary of what you did — the workflow posts it on the issue.
+            6. This is a non-interactive run: it ends the moment you stop. Run subagents (reviewer, qa) in the
+               foreground and wait for their result in the same turn — never use run_in_background, and never end
+               your turn "waiting for a notification". Commit before you finish.
+            7. Finish with a two-line summary of what you did — the workflow posts it on the issue.
           claude_args: |
             --max-turns 80
             --allowedTools "Bash,Read,Edit,Write,Glob,Grep,Agent,Skill,TodoWrite"
             --disallowedTools "Bash(git push *),Bash(gh *)"
 
-      - name: Keep the agent's transcript (for debugging, 7 days)
+      - name: Collect the agent's transcript
+        if: always()
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          mkdir -p qa-output
+          if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then cp "$EXECUTION_FILE" qa-output/transcript.json; fi
+
+      - name: Keep the transcript and QA output (for debugging, 7 days)
         if: always()
         uses: actions/upload-artifact@v5
         with:
           name: agent-transcript-issue-${{ github.event.issue.number }}-${{ github.run_number }}
-          path: |
-            ${{ steps.claude.outputs.execution_file }}
-            qa-output/
+          path: qa-output/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -115,6 +124,13 @@ jobs:
         run: |
           # The agent's own closing summary, from its transcript.
           summary=$(jq -r '[.[] | select(.type == "result")] | last | .result // empty' "$EXECUTION_FILE" 2>/dev/null || true)
+          # Safety net: the agent stopped with uncommitted work → keep it as a draft PR instead of losing it.
+          draft=""
+          if [ "$(git rev-list --count origin/main..HEAD)" -eq 0 ] && [ ! -f qa-output/blocked.md ] && [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -q -m "wip(agent): unfinished changes for #$ISSUE" -m "The agent stopped before committing; saved by the workflow."
+            draft="--draft"
+          fi
           commits=$(git rev-list --count origin/main..HEAD)
           if [ "$commits" -eq 0 ]; then
             {
@@ -137,6 +153,11 @@ jobs:
           title=$(head -n1 qa-output/pr-title.txt 2>/dev/null || true)
           [ -n "$title" ] || title="Agent: issue #$ISSUE"
           {
+            if [ -n "$draft" ]; then
+              echo "> ⚠️ **Unfinished:** the agent stopped before committing, so the workflow saved its changes as a draft. Check them carefully — the agent's own checks or review may not have finished."
+              echo
+              if [ -n "$summary" ]; then echo "**Agent's last message:** $summary"; echo; fi
+            fi
             cat qa-output/pr-body.md 2>/dev/null || echo "Changes for issue #$ISSUE."
             echo
             echo "Fixes #$ISSUE"
@@ -146,7 +167,11 @@ jobs:
             echo
             echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
           } > qa-output/pr-body-final.md
-          pr_url=$(gh pr create --base main --head "$BRANCH" --title "$title" --body-file qa-output/pr-body-final.md)
+          pr_url=$(gh pr create $draft --base main --head "$BRANCH" --title "$title" --body-file qa-output/pr-body-final.md)
           # PRs opened with the workflow token don't trigger CI on their own; start it explicitly.
           gh workflow run ci.yml --ref "$BRANCH"
-          gh issue comment "$ISSUE" --body "🤖 Opened $pr_url — CI is running. Review and merge when you're happy."
+          if [ -n "$draft" ]; then
+            gh issue comment "$ISSUE" --body "🤖 The agent stopped before finishing; its changes are saved as draft $pr_url. CI is running."
+          else
+            gh issue comment "$ISSUE" --body "🤖 Opened $pr_url — CI is running. Review and merge when you're happy."
+          fi
