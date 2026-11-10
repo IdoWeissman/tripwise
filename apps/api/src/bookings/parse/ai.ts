@@ -11,6 +11,15 @@ export interface AiConfig {
   model: string;
   /** Override for tests. */
   fetch?: typeof fetch;
+  /** Called after each API call with token usage and latency (used by the evals). */
+  onUsage?: (usage: AiUsage) => void;
+}
+
+export interface AiUsage {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  ms: number;
 }
 
 export interface AiInput {
@@ -232,6 +241,7 @@ export async function extractWithAi(cfg: AiConfig, input: AiInput): Promise<Draf
     text: parts.join('\n\n') || 'Read the booking in the attached file.',
   });
 
+  const started = Date.now();
   try {
     const res = await (cfg.fetch ?? fetch)('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -256,7 +266,14 @@ export async function extractWithAi(cfg: AiConfig, input: AiInput): Promise<Draf
     }
     const json = (await res.json()) as {
       content?: { type: string; name?: string; input?: unknown }[];
+      usage?: { input_tokens?: number; output_tokens?: number };
     };
+    cfg.onUsage?.({
+      model: cfg.model,
+      inputTokens: json.usage?.input_tokens ?? 0,
+      outputTokens: json.usage?.output_tokens ?? 0,
+      ms: Date.now() - started,
+    });
     const call = json.content?.find((c) => c.type === 'tool_use' && c.name === TOOL.name);
     return call ? draftsFromAi(call.input) : null;
   } catch (err) {

@@ -24,6 +24,7 @@ The file is the user's real booking. **Never** commit it or copy its real values
 
 - Add a fixture to `test/fixtures/emails.ts` that reproduces the **structure** of the real file — language, label wording, line layout, forwarded headers, attachments (e.g. `.ics`), the tricky parts — with invented values.
 - Add a test in `test/import.test.ts` asserting every field from the table. Run `pnpm --filter @tripwise/api test` and confirm it fails for the right reasons.
+- Add the same invented example as an eval case in `apps/api/evals/importer/cases.ts` (`group: 'unseen'` until the parser supports it) with the correct answers.
 
 ## 4. Fix the parser — generally
 
@@ -36,6 +37,7 @@ The file is the user's real booking. **Never** commit it or copy its real values
 - `pnpm --filter @tripwise/api test` — the new test and **all** existing import tests pass.
 - Re-run `import:inspect` on the real file: every field from the table is now right.
 - If the user has other sample files available, re-run them too.
+- `pnpm --filter @tripwise/api eval:import --check` — no case may score lower than the baseline. When scores improved, run with `--update` and commit `evals/importer/baseline.json`.
 - `pnpm verify`.
 
 ## 6. Leak check, review, commit

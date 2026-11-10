@@ -20,7 +20,7 @@ Read this before making any change.
 
 ## Before you finish
 
-Run `pnpm lint && pnpm typecheck && pnpm test`. Keep commits small and conventional (`feat:`, `fix:`, `docs:`, `chore:`).
+Run `pnpm lint && pnpm typecheck && pnpm test` (or `pnpm verify`). If you touched the booking importer (`apps/api/src/bookings/parse/`), also run `pnpm --filter @tripwise/api eval:import --check`, and `--update` the baseline when scores improved. Keep commits small and conventional (`feat:`, `fix:`, `docs:`, `chore:`).
 
 ## graphify
 

@@ -1,0 +1,71 @@
+{
+  "mode": "rules",
+  "passed": 135,
+  "total": 146,
+  "cases": {
+    "flight-jsonld": {
+      "passed": 12,
+      "total": 12
+    },
+    "hotel-jsonld": {
+      "passed": 10,
+      "total": 10
+    },
+    "restaurant-jsonld": {
+      "passed": 7,
+      "total": 7
+    },
+    "flight-forwarded-calendar": {
+      "passed": 12,
+      "total": 12
+    },
+    "hotel-hebrew-forwarded": {
+      "passed": 11,
+      "total": 11
+    },
+    "tour-hebrew-forwarded": {
+      "passed": 12,
+      "total": 12
+    },
+    "attraction-pdf": {
+      "passed": 8,
+      "total": 8
+    },
+    "event-pasted": {
+      "passed": 8,
+      "total": 8
+    },
+    "tour-discounted-total": {
+      "passed": 8,
+      "total": 8
+    },
+    "not-a-booking": {
+      "passed": 1,
+      "total": 1
+    },
+    "train-pdf": {
+      "passed": 7,
+      "total": 9
+    },
+    "concert-email": {
+      "passed": 7,
+      "total": 12
+    },
+    "car-rental-email": {
+      "passed": 7,
+      "total": 9
+    },
+    "hotel-english-text": {
+      "passed": 9,
+      "total": 11
+    },
+    "flight-connection-text": {
+      "passed": 10,
+      "total": 10
+    },
+    "restaurant-pasted-english": {
+      "passed": 6,
+      "total": 6
+    }
+  }
+}

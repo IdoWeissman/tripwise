@@ -156,12 +156,12 @@ export function findPrice(text: string): { price: string; currency: string } | n
     const line = text.slice(lineStart, text.indexOf('\n', m.index!) >>> 0);
     if (/\b(share capital|capital stock|registered|company no|vat (no|number)|iban)\b/i.test(line))
       continue;
-    // The label may sit on the previous line ("Final price\nUSD 324.97").
-    const before = text
-      .slice(Math.max(0, m.index! - 60), m.index!)
-      .split('\n')
-      .slice(-2)
-      .join(' ');
+    // The label is on the amount's own line ("Total paid: €120.00"), or on the previous line when
+    // the amount stands alone ("Final price\nUSD 324.97"). Never borrow the previous line's label
+    // for an amount that has its own text ("…\nInsurance covers up to €500.00").
+    const lines = text.slice(Math.max(0, m.index! - 80), m.index!).split('\n');
+    const ownLine = lines.at(-1) ?? '';
+    const before = /\p{L}/u.test(ownLine) ? ownLine : lines.slice(-2).join(' ');
     const label = PRICE_LABELS.find(([l]) => l.test(before))?.[1] ?? 0;
     const weight = label * 1_000_000_000 + value; // labelled totals first, then the largest amount
     if (!best || weight > best.weight)
