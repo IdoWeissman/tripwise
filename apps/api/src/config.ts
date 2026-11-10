@@ -33,7 +33,12 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>;
 
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+export function loadEnv(raw: NodeJS.ProcessEnv = process.env): Env {
+  // An empty variable means "not set": CI runners and hosts often export KEY="" (for example
+  // claude-code-action sets ANTHROPIC_API_KEY=""), which would otherwise fail validation.
+  const source: NodeJS.ProcessEnv = Object.fromEntries(
+    Object.entries(raw).filter(([, value]) => value !== undefined && value.trim() !== ''),
+  );
   // On Render the public URL is provided automatically; use it unless set explicitly.
   // Neon Object Storage provides AWS-standard variables (`neon deploy` / `neon env pull`);
   // explicit S3_* settings (e.g. MinIO in docker-compose) take precedence.
