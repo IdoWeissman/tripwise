@@ -6,7 +6,7 @@ import type { Env } from '../config.js';
 import type { Db } from '../db.js';
 import { publishTripEvent } from '../graphql/pubsub.js';
 import type { Storage } from '../storage.js';
-import { aiConfig, parseFile, sniff } from './parse/index.js';
+import { aiConfig, documentText, parseFile, sniff } from './parse/index.js';
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -66,6 +66,7 @@ export function uploadRouter(env: Env, db: Db, storage: Storage) {
         mimeType: detected.mime,
         sizeBytes: file.size,
         storageKey,
+        extractedText: await documentText(file.buffer, detected.kind),
       },
     });
     const drafts = await parseFile(file.buffer, detected.kind, fileName, { ai: aiConfig(env) });

@@ -15,6 +15,7 @@
 - **Shared expenses**: equal / percent / exact splits and a minimal "settle up" plan
 - **Live updates** over GraphQL subscriptions
 - **Roles**: owner, editor, viewer
+- **Trip assistant**: ask about the trip in the app; answers cite bookings, plans and uploaded documents (RAG with pgvector), and can suggest additions you confirm
 - **MCP server**: ask Claude, Cursor or any MCP client about your trips, and let it add bookings, ideas and expenses
 
 ## Tech stack
@@ -99,6 +100,37 @@ pnpm --filter @tripwise/api eval:import --update   # accept improved scores as t
 
 CI runs `eval:import --check` and fails if any case scores below `evals/importer/baseline.json`, so a parser or
 prompt change can't make extraction worse unnoticed. Current rules-only score: seen formats 100%, unseen 81%.
+
+### Trip assistant (RAG)
+
+An **Ask** panel on every trip screen answers questions like "what's the key box code?" or "who owes whom?",
+with numbered citations that link to the booking, plan or expense they came from. It can also suggest an
+expense, an activity idea or a booking as a card — nothing is saved until you press **Confirm**.
+
+```
+question ─► index sync (only changed chunks are re-embedded)
+         ─► Claude agent loop (streamed over SSE)
+              ├─ search_trip: pgvector (Voyage embeddings) + Postgres full-text, fused with RRF
+              ├─ get_trip / get_itinerary / list_bookings / get_expenses …  (the MCP tools, as you)
+              └─ suggest_expense / suggest_activity / suggest_booking → confirm cards
+```
+
+- **What's indexed**: bookings (with legs, codes, notes), activities and proposals, expenses, and the text
+  of uploaded confirmation emails and PDFs, split into overlapping chunks (`TripChunk`, `vector(1024)`).
+- **Hybrid search**: semantic search finds meaning ("where do we sleep?", Hebrew questions over English
+  documents); keyword search finds exact codes and names ("TP 1357"). Without `VOYAGE_API_KEY` it runs on
+  keyword search alone.
+- **Safe by design**: the same tools and role checks as the app; writes only through a confirm by the
+  user; daily caps per user and per site (`ASSISTANT_DAILY_QUESTIONS`, `ASSISTANT_SITE_DAILY_QUESTIONS`)
+  for the public demo.
+- **Measured**: `pnpm --filter @tripwise/api eval:assistant` builds an invented trip and reports
+  hit@1 / hit@5 / MRR per search mode and question type (exact, paraphrase, document, Hebrew).
+  Keyword-only today: 67% hit@5, 100% on exact codes and names. Add `VOYAGE_API_KEY` to compare
+  semantic and hybrid.
+- **Tested**: `test/assistant.integration.test.ts` runs the full flow against Postgres + pgvector with
+  scripted Claude and Voyage responses in their real wire formats.
+
+Local Postgres needs pgvector: `docker-compose.yml` uses the `pgvector/pgvector:pg17` image (Neon has it built in).
 
 ### Connect an AI assistant (MCP)
 

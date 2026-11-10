@@ -224,6 +224,16 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Create token** dialog: Name field (with hint), then the token is shown **once** in an attention notice ("Copy it now — you won't be able to see it again") with **Copy** and **Done**.
 - Copy buttons say "Copied" for 2s. Labels name only their input — the Copy button sits outside the `<label>`.
 
+### 14 · Trip assistant (panel on every trip screen)
+
+- Opened by **Ask** (sparkle icon, secondary style, `aria-expanded`) at the start of the trip top bar. The conversation is kept while the panel is closed or the section changes.
+- Desktop (`md`+): a non-modal panel docked right, 420px wide, full height, `border-l` + `shadow-popover`; the page reserves the width so nothing is hidden beneath it. Phones: a full-screen sheet above the tab bar. Esc and the 44px close button close it and return focus to **Ask**.
+- Empty: one line on what it can do + starter chips (pills, 44px). Loading: a skeleton. Not configured: the dashed empty block. Error: the inline error with **Try again**.
+- Messages: the user's in an `accent-tint` bubble on the right; answers as plain text (paragraphs, bullets, **bold**) on the surface. A status line with a pulsing accent dot ("Checking bookings…") shows while tools run; text streams in.
+- Citations: small inline number chips (`surface-muted`, `accent-strong`, linking to the source) plus a **Sources** row of 44px chips under the answer — the row is the touch target; the inline chips are a shortcut.
+- Suggestion cards (`accent-tint` with `accent-tint-border`): "Add expense" / "Propose an activity" / "Add booking", a summary line and detail line, then **Confirm** (primary) and **Dismiss**. Confirmed → "Added to the trip" with a check. Viewers see a note instead of buttons. Nothing is saved without a confirm.
+- Composer: auto-growing textarea (Enter sends, Shift+Enter new line), icon-only **Send** with `aria-label`, and a caption with questions left today and "Answers can be wrong; check the source."
+
 ### M1–M4 · Mobile
 
 - **Tab bar**: five tabs — Today, Plan, Bookings, Vote, Money. Members moves to a 44px People button beside the trip name. Bookings and Vote show a dot when something needs attention (labelled for screen readers).

@@ -6,17 +6,15 @@ import { rateLimit } from 'express-rate-limit';
 import { readBearer, verifyApiToken } from '../auth/apiTokens.js';
 import type { Env } from '../config.js';
 import type { Db } from '../db.js';
-import { buildContext, type Context } from '../graphql/context.js';
+import type { Context } from '../graphql/context.js';
+import { graphqlAs } from '../graphql/run.js';
 import type { Storage } from '../storage.js';
-import { registerTools, ToolError, type RunGraphQL } from './tools.js';
+import { registerTools } from './tools.js';
 
 const INSTRUCTIONS = `Tripwise is a group trip planner. Start with list_trips to find the trip, then read with get_trip, get_itinerary, list_bookings, get_booking, list_proposals and get_expenses.
 Times are local wall-clock times at the destination. Money is a decimal string in the trip's currency.
 Writes act as the signed-in user and respect their trip role (viewers can only read). Nothing can be deleted through this server.
 Before saving an imported confirmation (import_booking_text with save: true), show the user what was found.`;
-
-/** Error codes a user can act on; anything else is an internal error and stays hidden. */
-const USER_CODES = new Set(['BAD_USER_INPUT', 'FORBIDDEN', 'NOT_FOUND', 'UNAUTHENTICATED']);
 
 function rpcError(res: Response, status: number, message: string) {
   res.status(status).json({ jsonrpc: '2.0', error: { code: -32000, message }, id: null });
@@ -54,19 +52,7 @@ export function mcpRouter(opts: {
       return;
     }
 
-    const gql: RunGraphQL = async (query, variables) => {
-      // A fresh context per operation keeps DataLoader caches from serving data a write just changed.
-      const contextValue = buildContext({ db, env, storage, viewerId, auth: 'token' });
-      const response = await apollo.executeOperation({ query, variables }, { contextValue });
-      if (response.body.kind !== 'single') throw new Error('Unexpected incremental response');
-      const { data, errors } = response.body.singleResult;
-      if (errors?.length) {
-        const usable = errors.find((e) => USER_CODES.has(String(e.extensions?.code)));
-        if (usable) throw new ToolError(usable.message);
-        if (data == null) throw new Error(errors[0]?.message ?? 'GraphQL error');
-      }
-      return data as never;
-    };
+    const gql = graphqlAs({ apollo, db, env, storage, viewerId, auth: 'token' });
 
     const server = new McpServer(
       { name: 'tripwise', title: 'Tripwise', version: opts.version },
