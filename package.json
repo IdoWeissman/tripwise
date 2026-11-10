@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Collaborative group trip planner — itinerary, voting and shared expenses with live updates.",
+  "description": "Collaborative group trip planner \u2014 itinerary, voting and shared expenses with live updates.",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -16,6 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "qa:smoke": "node scripts/qa-smoke.mjs",
     "codegen": "pnpm -r codegen",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
@@ -31,6 +33,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.14.0",
+    "playwright": "1.63.0",
     "prettier": "^3.9.10",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1"

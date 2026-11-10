@@ -31,3 +31,6 @@ Thumbs.db
 
 # graphify knowledge graph — built locally (graphify update .)
 graphify-out/
+
+# Browser QA output (pnpm qa:smoke)
+qa-output/

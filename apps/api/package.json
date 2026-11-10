@@ -16,7 +16,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "verify:neon": "node --import tsx scripts/verify-neon.ts"
+    "verify:neon": "node --import tsx scripts/verify-neon.ts",
+    "import:inspect": "node --import tsx scripts/inspect-import.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",

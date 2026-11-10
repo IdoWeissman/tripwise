@@ -12,6 +12,7 @@ export default tseslint.config(
       'apps/api/src/generated/**',
       'apps/api/src/graphql/__generated__/**',
       'apps/web/src/gql/**',
+      'qa-output/**',
     ],
   },
   js.configs.recommended,
@@ -19,6 +20,11 @@ export default tseslint.config(
   {
     files: ['apps/api/**/*.ts'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Repo scripts run in Node; Playwright scripts also run code in the page (page.evaluate).
+    files: ['scripts/**/*.mjs', '.claude/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],
