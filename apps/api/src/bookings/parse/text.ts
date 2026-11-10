@@ -239,6 +239,11 @@ export function findManageUrl(text: string): string | null {
     )
       return url;
   }
+  // A link captioned "View your tickets: https://…" / "Manage booking https://…".
+  for (const m of text.matchAll(
+    /\b(?:view|manage|access|see|open)\b[^\n]{0,40}?\b(?:tickets?|booking|order|reservation|trip)\b[^\n]{0,20}?(https?:\/\/[^\s<>"')\]]+)/gi,
+  ))
+    return m[1]!.replace(/[.,;]+$/, '');
   return null;
 }
 
@@ -297,8 +302,39 @@ function flightSegments(text: string, dates: string[], times: string[]): Segment
 const SUBJECT_FILLER =
   /^(?:(?:your\s+)?(?:booking|reservation|order|ticket)s?\s*(?:is\s+)?(?:confirmation|confirmed|details)?|thank you.*|הזמנתך אושרה|ההזמנה (?:שלך )?אושרה|אישור הזמנה|תודה.*)$/i;
 
+/**
+ * The thing named in a boilerplate subject: "Your booking is confirmed at Casa Rooms" → "Casa Rooms",
+ * "Your tickets for The Quartet" → "The Quartet", "Your car rental is confirmed" → "Car rental".
+ */
+export function placeFromSubject(subject: string): string | null {
+  const named =
+    /^(?:(?:re|fwd?):\s*)*(?:your\s+)?(?:booking|reservation|order|tickets?|stay)s?(?:\s+(?:is|are|has been|was))?(?:\s+(?:confirmed|complete|received))?\s+(?:at|for)\s+(\S.{1,80}?)\s*[.!]?$/i.exec(
+      subject.trim(),
+    );
+  if (named) {
+    const name = named[1]!
+      .replace(/\s+(?:is|are|has been|was)\s+(?:confirmed|booked|complete|received)$/i, '')
+      .trim();
+    if (/^[\d#]/.test(name) || !/\p{L}{3}/u.test(name)) return null;
+    return name;
+  }
+  const bare =
+    /^(?:your\s+)?(.{3,40}?)\s+(?:is|has been|was)\s+(?:confirmed|booked|complete)\s*[.!]?$/i.exec(
+      subject.trim(),
+    );
+  if (
+    bare &&
+    !/\d|\b(?:ref|reference|number|code|id)\b/i.test(bare[1]!) &&
+    !/^(?:booking|reservation|order|tickets?|payment|stay)s?$/i.test(bare[1]!)
+  )
+    return bare[1]!.charAt(0).toUpperCase() + bare[1]!.slice(1);
+  return null;
+}
+
 function cleanSubject(subject: string | undefined): string | null {
   if (!subject) return null;
+  const subjectName = placeFromSubject(subject.replace(BIDI, ''));
+  if (subjectName) return subjectName;
   const base = subject
     .replace(BIDI, '')
     .replace(/^((re|fwd?|fw|הועבר|השב):\s*)+/gi, '')
@@ -544,6 +580,83 @@ export function titleFromLines(text: string): string | null {
   return null;
 }
 
+/** "Roma Termini - Firenze S. M. Novella" on a line of its own → "Roma Termini → Firenze S. M. Novella". */
+const FARE_WORDS =
+  /\b(?:economy|business|first|class|flexible|standard|basic|adult|child|infant|passenger|fare|ticket|e-?ticket|total|price|seat|coach)\b/i;
+
+export function routeFromLines(text: string): string | null {
+  const re = /^\p{Lu}[\p{L}.'’ ]{1,40}?\s+(?:→|->|–|—|-)\s+\p{Lu}[\p{L}.'’ ]{1,40}$/u;
+  for (const raw of text.split(/\r?\n/).slice(0, 25)) {
+    const line = raw.replace(/\s+/g, ' ').trim();
+    if (!re.test(line) || /\d/.test(line)) continue;
+    const [a, b] = line.split(/\s+(?:→|->|–|—|-)\s+/);
+    if (FARE_WORDS.test(a!) || FARE_WORDS.test(b!) || (!/\s/.test(a!) && !/\s/.test(b!))) continue;
+    return `${a} → ${b}`;
+  }
+  return null;
+}
+
+/** Date and time after an arrival / drop-off / return label: "Arrival 18/11/2026 10:51". */
+export function findEndLabelled(text: string, fallbackDate?: string): string | null {
+  for (const m of text.matchAll(
+    /(?:^|\s)(?:arrival|arrives|drop-?off|return)\b[ \t]*:?(?![ \t]*(?:policy|by|before|until|early|within))([^\n]*)/gim,
+  )) {
+    const time = findTimes(m[1]!)[0];
+    if (!time) continue;
+    const date = findDates(m[1]!)[0] ?? fallbackDate;
+    if (date) return `${date}T${time}`;
+  }
+  return null;
+}
+
+/** The time labelled as the start of the show, not the doors: "Doors 19:30 · Show 20:30". */
+export function findShowTime(text: string): string | null {
+  const m =
+    /\b(?:show|start|starts|begins?|performance|kick-?off|curtain)\b\s*(?:time)?\s*:?\s*((?:[01]?\d|2[0-3])[:.][0-5]\d(?:\s*[ap]m)?)/i.exec(
+      text,
+    );
+  return m ? (findTimes(m[1]!)[0] ?? null) : null;
+}
+
+const STREET = /^\p{Lu}[\p{L}.'’ -]{2,40}\s\d{1,4}[A-Za-z]?,\s*(?:.*\b\d{4,5}\b.*|.*\p{L}{3}.*)$/u;
+const NOT_ADDRESS =
+  /^(?:room|floor|terminal|gate|adults?|children|seats?|row|section|coach|platform|flight|train|table|guests?|nights?)\b/i;
+const BOILER_ABOVE = /\b(?:thank|thanks|confirm\w*|booking|reservation|order|dear|hello|hi)\b/i;
+
+/** An unlabelled street address line ("Via Example 8, 50123 Florence") and the line above it. */
+export function findStreetLine(text: string): { address: string; above: string | null } | null {
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim());
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (
+      l.length > 120 ||
+      !STREET.test(l) ||
+      NOT_ADDRESS.test(l) ||
+      !(
+        /\b\d{4,5}\b/.test(l) ||
+        /^(?:via|viale|piazza|rue|calle|strasse|straße|avenue|av|plaza|platz|corso|largo)\b/i.test(
+          l,
+        )
+      ) ||
+      findDates(l).length ||
+      /https?:|@/.test(l)
+    )
+      continue;
+    const prev = lines[i - 1] ?? '';
+    const above =
+      prev &&
+      prev.length <= 80 &&
+      !BOILER_ABOVE.test(prev) &&
+      !/\d/.test(prev) &&
+      !/[:?!]/.test(prev) &&
+      /\p{L}{3}/u.test(prev)
+        ? prev
+        : null;
+    return { address: l, above };
+  }
+  return null;
+}
+
 /** One draft from free text. Returns null when the text clearly isn't a booking. */
 export function draftFromText(
   raw: string,
@@ -593,13 +706,14 @@ export function draftFromText(
       times[1];
     start = at(inDate, inTime);
     end = at(outDate, outTime);
-    title = findPlaceName(text);
+    title = findPlaceName(text) ?? findStreetLine(text)?.above ?? null;
     // For stays the card shows what was booked; the agency goes into the notes.
     if (provider) notes = `Booked via ${provider}`;
     provider = stayDetails(text, start, end);
   }
   let location: string | null = null;
-  let address = findAddress(text);
+  let address =
+    findAddress(text) ?? (type === 'STAY' ? (findStreetLine(text)?.address ?? null) : null);
   if (type !== 'STAY' && !segments.length) {
     // "10:00 - 14:00" or "Duration 4 hours" gives the end; the meeting point gives the place.
     const span = findTimeSpan(text);
@@ -620,6 +734,18 @@ export function draftFromText(
     location = where.place;
     address = where.address ?? address;
     title ??= findProductLine(text);
+  }
+  if (type !== 'STAY' && !segments.length) {
+    const showTime = type === 'EVENT' ? findShowTime(text) : null;
+    if (showTime && dates[0]) start = at(dates[0], showTime);
+    end ??= findEndLabelled(text, dates[0] ?? undefined);
+    if (end && start && end <= start) end = null;
+    const street = findStreetLine(text);
+    if (street && !location) {
+      address ??= street.address;
+      if (address === street.address) location = street.above;
+    }
+    if (type === 'TRANSPORT') title ??= routeFromLines(text);
   }
   const subject =
     opts.subject && !isNoiseSubject(cleanSubject(opts.subject) ?? '') ? opts.subject : undefined;
