@@ -16,6 +16,7 @@ const config: CodegenConfig = {
         scalars: { DateTime: 'Date', Date: 'Date' },
         mappers: {
           User: `${prisma}#User as UserModel`,
+          ApiToken: `${prisma}#ApiToken as ApiTokenModel`,
           Trip: `${prisma}#Trip as TripModel`,
           TripMember: `${prisma}#TripMember as TripMemberModel`,
           Day: `${prisma}#Day as DayModel`,

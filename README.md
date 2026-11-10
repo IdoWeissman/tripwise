@@ -15,6 +15,7 @@
 - **Shared expenses**: equal / percent / exact splits and a minimal "settle up" plan
 - **Live updates** over GraphQL subscriptions
 - **Roles**: owner, editor, viewer
+- **MCP server**: ask Claude, Cursor or any MCP client about your trips, and let it add bookings, ideas and expenses
 
 ## Tech stack
 
@@ -98,6 +99,33 @@ pnpm --filter @tripwise/api eval:import --update   # accept improved scores as t
 
 CI runs `eval:import --check` and fails if any case scores below `evals/importer/baseline.json`, so a parser or
 prompt change can't make extraction worse unnoticed. Current rules-only score: seen formats 100%, unseen 81%.
+
+### Connect an AI assistant (MCP)
+
+Tripwise is an [MCP](https://modelcontextprotocol.io) server at `/mcp` (Streamable HTTP, stateless). Sign in, open
+**AI assistants** in the header, create a token, and copy the setup for Claude Code, Claude Desktop or Cursor:
+
+```bash
+claude mcp add --transport http tripwise https://<your-host>/mcp --header "Authorization: Bearer tw_pat_…"
+claude "What's next on my Lisbon trip, and who owes whom?"
+```
+
+| Tools |                                                                                                                                                                   |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read  | `list_trips`, `get_trip`, `get_itinerary`, `list_bookings`, `get_booking`, `list_proposals`, `get_expenses`                                                       |
+| Add   | `add_booking`, `import_booking_text` (preview first, `save: true` to save), `propose_activity`, `vote` (idempotent), `add_expense` (equal split, members by name) |
+
+How it's built:
+
+- **Same rules as the app.** Every tool runs a GraphQL operation through Apollo as the token's user, so
+  `requireTripRole`, validation and live updates are shared: an assistant can do exactly what its user can, and
+  changes appear instantly for everyone who has the trip open.
+- **Personal access tokens** (`tw_pat_…`): stored only as a SHA-256 hash, shown once, revocable, per-assistant
+  names and "last used". Tokens can't create or list tokens; that needs a browser session.
+- **Safe by design**: no delete tools; read tools are annotated `readOnlyHint`, writes `destructiveHint: false`.
+  Member emails are never returned.
+- **Tested with a real MCP client**: `test/mcp.integration.test.ts` drives `/mcp` with the official SDK client
+  (auth, tool list, reads, writes, viewer role, revocation).
 
 ## Deploy (Render + Neon, free tiers)
 

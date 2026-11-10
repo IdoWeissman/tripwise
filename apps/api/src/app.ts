@@ -19,6 +19,7 @@ import { uploadRouter } from './bookings/upload.js';
 import { createStorage, type Storage } from './storage.js';
 import { buildContext, type Context } from './graphql/context.js';
 import { schema } from './graphql/schema.js';
+import { mcpRouter } from './mcp/server.js';
 
 export interface App {
   app: Express;
@@ -91,6 +92,9 @@ export async function createApp(
   );
   app.use(uploadRouter(env, db, storage));
 
+  // AI assistants (MCP): bearer-token auth, no cookies, no CORS (clients aren't browsers).
+  app.use(mcpRouter({ env, db, storage, apollo, version: '0.1.0' }));
+
   app.use(
     '/graphql',
     cors<cors.CorsRequest>({ origin: env.WEB_ORIGIN, credentials: true }),
@@ -122,7 +126,7 @@ export async function createApp(
     app.use('/assets', express.static(resolve(dist, 'assets'), { immutable: true, maxAge: '1y' }));
     app.use(express.static(dist, { index: false }));
     // Client-side routes (/trips/…, /join/…) fall back to the app shell.
-    app.get(/^(?!\/(graphql|api|health)).*/, (_req, res) => {
+    app.get(/^(?!\/(graphql|api|health|mcp)).*/, (_req, res) => {
       res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(resolve(dist, 'index.html'));
     });

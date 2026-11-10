@@ -214,6 +214,16 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Reminders for you**: switches (`role="switch"`, 44px hit area) for Online check-in opens, Time to leave for the airport, Check-out today, Starting soon and Also email me (disabled when every other reminder is off). Changes apply immediately (optimistic).
 - Footer: **Download .ics** and **Done**.
 
+### 13 · AI assistants (`/settings/ai`)
+
+- Reached from **AI assistants** in the dashboard header (`aria-current` when open). "Your trips" back link; H1 "Connect an AI assistant" + one line on what an assistant can do. Content max width 880px.
+- Three cards, numbered as steps:
+  1. **Create a token**: token rows (name, monospace prefix chip "tw_pat_ab12…", "Created … · Last used …/Never used", **Revoke** as a destructive text button that confirms first). One primary **Create token**; with no tokens, the dashed empty block holds it instead.
+  2. **Add Tripwise to your assistant**: read-only **Server URL** + **Copy**, a segmented control (Claude Code · Claude Desktop · Cursor) and the setup snippet for that client in a monospace, horizontally scrolling block with **Copy**. A just-created token is filled into the snippets; otherwise they show `<your token>`.
+  3. **What your assistant can do**: Read and Add lists, and "It can't delete anything, and on trips where you're a viewer it can only read."
+- **Create token** dialog: Name field (with hint), then the token is shown **once** in an attention notice ("Copy it now — you won't be able to see it again") with **Copy** and **Done**.
+- Copy buttons say "Copied" for 2s. Labels name only their input — the Copy button sits outside the `<label>`.
+
 ### M1–M4 · Mobile
 
 - **Tab bar**: five tabs — Today, Plan, Bookings, Vote, Money. Members moves to a 44px People button beside the trip name. Bookings and Vote show a dot when something needs attention (labelled for screen readers).

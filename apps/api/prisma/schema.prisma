@@ -68,6 +68,7 @@ model User {
   bookings            Booking[]
   attachments         Attachment[]
   reminderPreferences ReminderPreference[]
+  apiTokens           ApiToken[]
 }
 
 model Trip {
@@ -280,4 +281,22 @@ model ReminderLog {
   sentAt DateTime @default(now())
 
   @@id([userId, key])
+}
+
+/// Personal access token for AI assistants (MCP). Only a SHA-256 hash of the token is stored.
+model ApiToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  name       String
+  /// SHA-256 (hex) of the full token; the token itself is shown to the user once and never stored.
+  tokenHash  String    @unique
+  /// First characters of the token ("tw_pat_ab12"), so people can tell their tokens apart.
+  prefix     String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

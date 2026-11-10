@@ -53,6 +53,22 @@ type User {
   name: String!
 }
 
+"A personal access token for connecting an AI assistant (MCP). The token itself is never returned again after creation."
+type ApiToken {
+  id: ID!
+  name: String!
+  "First characters of the token, e.g. \"tw_pat_ab12\", to tell tokens apart."
+  prefix: String!
+  createdAt: DateTime!
+  lastUsedAt: DateTime
+}
+
+type CreatedApiToken {
+  "The full token. Shown once; only a hash is stored."
+  token: String!
+  apiToken: ApiToken!
+}
+
 type TripMember {
   user: User!
   role: TripRole!
@@ -453,6 +469,8 @@ type Query {
   trips: [Trip!]!
   trip(id: ID!): Trip
   invitePreview(token: String!): InvitePreview
+  "The viewer's active (not revoked) AI assistant tokens, newest first."
+  myApiTokens: [ApiToken!]!
 }
 
 type Mutation {
@@ -496,6 +514,10 @@ type Mutation {
   updateReminderPreferences(tripId: ID!, input: ReminderPreferencesInput!): ReminderPreferences!
   "Owner only. Invalidates the old calendar link."
   resetCalendarLink(tripId: ID!): String!
+  "Creates a personal access token for an AI assistant. Signed-in browser sessions only."
+  createApiToken(name: String!): CreatedApiToken!
+  "Revokes one of the viewer's tokens. Assistants using it lose access immediately."
+  revokeApiToken(id: ID!): Boolean!
 }
 
 enum TripEventKind {
