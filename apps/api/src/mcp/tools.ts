@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
 /**
@@ -39,21 +39,14 @@ const BOOKING_TYPES = [
   'OTHER',
 ] as const;
 
-const json = (data: unknown): CallToolResult => ({
-  content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
-});
-
-/** Wraps a handler so expected failures come back as a tool error, not a protocol error. */
-function tool<A>(fn: (args: A) => Promise<unknown>) {
-  return async (args: A): Promise<CallToolResult> => {
-    try {
-      return json(await fn(args));
-    } catch (err) {
-      if (err instanceof ToolError)
-        return { isError: true, content: [{ type: 'text', text: err.message }] };
-      throw err;
-    }
-  };
+export interface TripwiseTool {
+  name: string;
+  title: string;
+  description: string;
+  /** Zod shape of the arguments (MCP turns it into JSON Schema; the assistant validates with it). */
+  inputSchema: z.ZodRawShape;
+  annotations: ToolAnnotations;
+  run: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
 // --- GraphQL selections. Member emails are deliberately never selected. ---
@@ -79,7 +72,30 @@ interface TripBasics {
   } | null;
 }
 
-export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: string): void {
+/**
+ * Every Tripwise tool, bound to one user. Shared by the MCP server and the in-app assistant,
+ * so both answer from the same queries and obey the same role checks.
+ */
+export function defineTools(gql: RunGraphQL, viewerId: string): TripwiseTool[] {
+  const tools: TripwiseTool[] = [];
+  function add<S extends z.ZodRawShape>(
+    name: string,
+    config: {
+      title: string;
+      description: string;
+      inputSchema?: S;
+      annotations: ToolAnnotations;
+    },
+    run: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>,
+  ) {
+    tools.push({
+      name,
+      ...config,
+      inputSchema: config.inputSchema ?? {},
+      run: run as TripwiseTool['run'],
+    });
+  }
+
   /** Members and days, used to turn names and dates into ids. */
   async function basics(id: string) {
     const { trip } = await gql<TripBasics>(
@@ -119,7 +135,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
 
   // ---------------------------------------------------------------- read tools
 
-  server.registerTool(
+  add(
     'list_trips',
     {
       title: 'List trips',
@@ -127,14 +143,13 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
         "Lists the user's trips with dates, destination, their role and the members. Start here to get trip ids.",
       annotations: READ,
     },
-    tool(async () =>
+    async () =>
       gql(
         `{ trips { id name destination startDate endDate currency timeZone myRole members { role user { name } } } }`,
       ),
-    ),
   );
 
-  server.registerTool(
+  add(
     'get_trip',
     {
       title: 'Trip overview',
@@ -143,7 +158,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       inputSchema: { tripId },
       annotations: READ,
     },
-    tool(async ({ tripId }) => {
+    async ({ tripId }) => {
       const { trip } = await gql<{ trip: unknown }>(
         `query($id: ID!) { trip(id: $id) {
           id name destination startDate endDate currency timeZone voteThreshold myRole
@@ -159,10 +174,10 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       );
       if (!trip) throw new ToolError('Trip not found.');
       return trip;
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'get_itinerary',
     {
       title: 'Itinerary',
@@ -178,7 +193,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: READ,
     },
-    tool(async ({ tripId, date }) => {
+    async ({ tripId, date }) => {
       const trip = await basics(tripId);
       const days = date ? [{ id: dayId(trip, date)!, date }] : trip.days;
       const out = [];
@@ -192,10 +207,10 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
         out.push({ date: day.date.slice(0, 10), items: t.agenda });
       }
       return { timeZone: trip.timeZone, days: out };
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'list_bookings',
     {
       title: 'List bookings',
@@ -204,17 +219,17 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       inputSchema: { tripId, type: z.enum(BOOKING_TYPES).optional().describe('Only this type') },
       annotations: READ,
     },
-    tool(async ({ tripId, type }) => {
+    async ({ tripId, type }) => {
       const { trip } = await gql<{ trip: { bookings: { type: string }[] } | null }>(
         `query($id: ID!) { trip(id: $id) { bookings { ${BOOKING_SUMMARY} } } }`,
         { id: tripId },
       );
       if (!trip) throw new ToolError('Trip not found.');
       return type ? trip.bookings.filter((b) => b.type === type) : trip.bookings;
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'get_booking',
     {
       title: 'Booking details',
@@ -223,17 +238,17 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       inputSchema: { tripId, bookingId: id('Booking') },
       annotations: READ,
     },
-    tool(async ({ tripId, bookingId }) => {
+    async ({ tripId, bookingId }) => {
       const { trip } = await gql<{ trip: { booking: unknown } | null }>(
         `query($id: ID!, $b: ID!) { trip(id: $id) { booking(id: $b) { ${BOOKING_FULL} } } }`,
         { id: tripId, b: bookingId },
       );
       if (!trip?.booking) throw new ToolError('Booking not found on this trip.');
       return trip.booking;
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'list_proposals',
     {
       title: 'List proposals',
@@ -245,17 +260,17 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: READ,
     },
-    tool(async ({ tripId, status }) => {
+    async ({ tripId, status }) => {
       const { trip } = await gql<{ trip: unknown }>(
         `query($id: ID!, $s: ActivityStatus) { trip(id: $id) { voteThreshold proposals(status: $s) { ${ACTIVITY} } } }`,
         { id: tripId, s: status },
       );
       if (!trip) throw new ToolError('Trip not found.');
       return trip;
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'get_expenses',
     {
       title: 'Expenses and balances',
@@ -267,7 +282,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: READ,
     },
-    tool(async ({ tripId, limit }) => {
+    async ({ tripId, limit }) => {
       const { trip } = await gql<{ trip: { currency: string; expenses: unknown[] } | null }>(
         `query($id: ID!) { trip(id: $id) {
           currency
@@ -280,7 +295,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       );
       if (!trip) throw new ToolError('Trip not found.');
       return { ...trip, expenses: trip.expenses.slice(0, limit) };
-    }),
+    },
   );
 
   // ---------------------------------------------------------------- safe writes (no deletes)
@@ -298,7 +313,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
     arriveTz: z.string().optional(),
   });
 
-  server.registerTool(
+  add(
     'add_booking',
     {
       title: 'Add a booking',
@@ -324,16 +339,16 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: WRITE,
     },
-    tool(async ({ tripId, ...input }) => {
+    async ({ tripId, ...input }) => {
       const { createBooking } = await gql<{ createBooking: unknown }>(
         `mutation($t: ID!, $i: BookingInput!) { createBooking(tripId: $t, input: $i, source: MANUAL) { ${BOOKING_SUMMARY} } }`,
         { t: tripId, i: input },
       );
       return { saved: createBooking };
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'import_booking_text',
     {
       title: 'Import a confirmation',
@@ -346,7 +361,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: { ...WRITE, idempotentHint: false },
     },
-    tool(async ({ tripId, text, save }) => {
+    async ({ tripId, text, save }) => {
       const { parseBookingText: drafts } = await gql<{
         parseBookingText: (Record<string, unknown> & { source: string })[];
       }>(
@@ -368,10 +383,10 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
         saved.push(res.createBooking);
       }
       return { saved: true, bookings: saved };
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'propose_activity',
     {
       title: 'Propose an activity',
@@ -396,17 +411,17 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: WRITE,
     },
-    tool(async ({ tripId, date, ...rest }) => {
+    async ({ tripId, date, ...rest }) => {
       const trip = await basics(tripId);
       const { proposeActivity } = await gql<{ proposeActivity: unknown }>(
         `mutation($i: ProposeActivityInput!) { proposeActivity(input: $i) { ${ACTIVITY} } }`,
         { i: { tripId, ...rest, dayId: dayId(trip, date), scheduleNow: false } },
       );
       return { proposed: proposeActivity };
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'vote',
     {
       title: 'Vote on a proposal',
@@ -419,7 +434,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: { ...WRITE, idempotentHint: true },
     },
-    tool(async ({ tripId, activityId, vote }) => {
+    async ({ tripId, activityId, vote }) => {
       const { trip } = await gql<{
         trip: { proposals: { id: string; viewerHasVoted: boolean }[] } | null;
       }>(
@@ -440,10 +455,10 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
         { a: activityId },
       );
       return { changed: true, activity: toggleVote };
-    }),
+    },
   );
 
-  server.registerTool(
+  add(
     'add_expense',
     {
       title: 'Add an expense',
@@ -464,7 +479,7 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
       },
       annotations: WRITE,
     },
-    tool(async ({ tripId, description, amount, category, paidBy, splitBetween, spentAt }) => {
+    async ({ tripId, description, amount, category, paidBy, splitBetween, spentAt }) => {
       const trip = await basics(tripId);
       const ids = splitBetween
         ? [...new Set(splitBetween.map((who) => memberId(trip, who)))]
@@ -487,6 +502,35 @@ export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: stri
         },
       );
       return { added: addExpense, currency: trip.currency };
-    }),
+    },
   );
+  return tools;
+}
+
+const json = (data: unknown): CallToolResult => ({
+  content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+});
+
+/** Registers the tools on an MCP server. Expected failures become tool errors, not protocol errors. */
+export function registerTools(server: McpServer, gql: RunGraphQL, viewerId: string): void {
+  for (const t of defineTools(gql, viewerId)) {
+    server.registerTool(
+      t.name,
+      {
+        title: t.title,
+        description: t.description,
+        inputSchema: t.inputSchema,
+        annotations: t.annotations,
+      },
+      async (args: Record<string, unknown>): Promise<CallToolResult> => {
+        try {
+          return json(await t.run(args));
+        } catch (err) {
+          if (err instanceof ToolError)
+            return { isError: true, content: [{ type: 'text', text: err.message }] };
+          throw err;
+        }
+      },
+    );
+  }
 }

@@ -45,6 +45,14 @@ services:
       # Optional: Claude reads uploaded bookings (emails, PDFs, photos). Leave empty to use the built-in readers only.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Optional: semantic search for the trip assistant (Voyage AI). Without it, keyword search only.
+      - key: VOYAGE_API_KEY
+        sync: false
+      # Trip assistant caps for the public demo: questions per user and for the whole site, per day.
+      - key: ASSISTANT_DAILY_QUESTIONS
+        value: '20'
+      - key: ASSISTANT_SITE_DAILY_QUESTIONS
+        value: '300'
       # Resets the demo account's sample trip on every start, so the public demo stays tidy.
       - key: SEED_DEMO
         value: 'true'

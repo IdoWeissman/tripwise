@@ -12,7 +12,7 @@ export default tseslint.config(
       'apps/api/src/generated/**',
       'apps/api/src/graphql/__generated__/**',
       'apps/web/src/gql/**',
-      'qa-output/**',
+      '**/qa-output/**',
     ],
   },
   js.configs.recommended,

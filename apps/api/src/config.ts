@@ -26,6 +26,16 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_MODEL: z.string().default('claude-haiku-5-5'),
 
+  // Trip assistant (RAG chat on trip screens). Needs ANTHROPIC_API_KEY; VOYAGE_API_KEY adds
+  // semantic search (pgvector) on top of keyword search.
+  ASSISTANT_MODEL: z.string().optional(),
+  VOYAGE_API_KEY: z.string().min(1).optional(),
+  VOYAGE_MODEL: z.string().default('voyage-4-lite'),
+  /** Questions per user per day (UTC). */
+  ASSISTANT_DAILY_QUESTIONS: z.coerce.number().int().min(0).default(20),
+  /** Questions for the whole site per day (UTC): a hard ceiling on spend for public demos. */
+  ASSISTANT_SITE_DAILY_QUESTIONS: z.coerce.number().int().min(0).default(300),
+
   // Email reminders (Mailpit in docker-compose for development). Disabled when unset.
   SMTP_URL: z.string().url().optional(),
   MAIL_FROM: z.string().default('Tripwise <reminders@tripwise.local>'),

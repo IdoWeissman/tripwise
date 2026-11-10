@@ -157,6 +157,22 @@ function ruleDrafts(
   return { drafts, exactLegs, text, calendars };
 }
 
+/** Plain text of an email or PDF, kept with the file so the trip assistant can search it. */
+export async function documentText(buf: Buffer, kind: SourceKind): Promise<string | null> {
+  try {
+    if (kind === 'EMAIL') {
+      const mail = await simpleParser(buf);
+      const html = typeof mail.html === 'string' ? mail.html : '';
+      const body = mail.text ?? html.replace(/<[^>]+>/g, ' ');
+      return [mail.subject, body].filter(Boolean).join('\n\n').slice(0, 100_000) || null;
+    }
+    if (kind === 'PDF') return (await pdfText(buf)).slice(0, 100_000) || null;
+  } catch {
+    // Unreadable files are still stored; they just aren't searchable.
+  }
+  return null;
+}
+
 /** Reads bookings out of an uploaded file. */
 export async function parseFile(
   buf: Buffer,

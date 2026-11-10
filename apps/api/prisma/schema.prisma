@@ -69,6 +69,7 @@ model User {
   attachments         Attachment[]
   reminderPreferences ReminderPreference[]
   apiTokens           ApiToken[]
+  assistantUsage      AssistantUsage[]
 }
 
 model Trip {
@@ -93,6 +94,7 @@ model Trip {
   bookings      Booking[]
   attachments   Attachment[]
   reminderPrefs ReminderPreference[]
+  chunks        TripChunk[]
 }
 
 model TripMember {
@@ -240,15 +242,17 @@ model BookingSegment {
 }
 
 model Attachment {
-  id           String   @id @default(uuid()) @db.Uuid
-  tripId       String   @db.Uuid
-  bookingId    String?  @db.Uuid
-  uploadedById String   @db.Uuid
-  fileName     String
-  mimeType     String
-  sizeBytes    Int
-  storageKey   String   @unique
-  createdAt    DateTime @default(now())
+  id            String   @id @default(uuid()) @db.Uuid
+  tripId        String   @db.Uuid
+  bookingId     String?  @db.Uuid
+  uploadedById  String   @db.Uuid
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  storageKey    String   @unique
+  /// Plain text read from the file at upload (emails and PDFs), searched by the trip assistant.
+  extractedText String?
+  createdAt     DateTime @default(now())
 
   trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
@@ -299,4 +303,40 @@ model ApiToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Searchable pieces of a trip (bookings, plans, documents) for the trip assistant (RAG).
+/// `embedding` is a Voyage vector (pgvector); full-text search uses an expression index
+/// created in the migration. Rows are kept in sync lazily by content hash.
+model TripChunk {
+  id        String                       @id @default(uuid()) @db.Uuid
+  tripId    String                       @db.Uuid
+  /// Stable per trip, e.g. "booking:<id>" or "doc:<attachmentId>#2".
+  key       String
+  kind      String
+  /// The booking / activity / attachment the chunk came from, for citations.
+  sourceId  String?
+  title     String
+  content   String
+  /// SHA-256 of title + content + embedding model: unchanged chunks are never re-embedded.
+  hash      String
+  embedding Unsupported("vector(1024)")?
+  updatedAt DateTime                     @updatedAt
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, key])
+}
+
+/// Questions and tokens per user per day, for the assistant's daily caps.
+model AssistantUsage {
+  day          DateTime @db.Date
+  userId       String   @db.Uuid
+  questions    Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([day, userId])
 }

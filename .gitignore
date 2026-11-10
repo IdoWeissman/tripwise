@@ -36,4 +36,4 @@ graphify-out/
 qa-output/
 
 # Eval reports (regenerated on every run)
-apps/api/evals/importer/report*.md
+apps/api/evals/*/report*.md

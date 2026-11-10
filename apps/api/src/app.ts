@@ -20,6 +20,7 @@ import { createStorage, type Storage } from './storage.js';
 import { buildContext, type Context } from './graphql/context.js';
 import { schema } from './graphql/schema.js';
 import { mcpRouter } from './mcp/server.js';
+import { assistantRouter } from './assistant/route.js';
 
 export interface App {
   app: Express;
@@ -31,6 +32,8 @@ export async function createApp(
   env: Env,
   db: Db,
   storage: Storage = createStorage(env),
+  /** Test seam: replaces fetch for outgoing AI calls (Claude, Voyage). */
+  options: { fetch?: typeof fetch } = {},
 ): Promise<App> {
   const app = express();
   const httpServer = createServer(app);
@@ -91,6 +94,7 @@ export async function createApp(
     cookieParser(),
   );
   app.use(uploadRouter(env, db, storage));
+  app.use(assistantRouter({ env, db, storage, apollo, fetch: options.fetch }));
 
   // AI assistants (MCP): bearer-token auth, no cookies, no CORS (clients aren't browsers).
   app.use(mcpRouter({ env, db, storage, apollo, version: '0.1.0' }));

@@ -1,6 +1,6 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client/react';
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router';
 import { formatDateRange } from '../lib/format';
 import {
@@ -10,8 +10,17 @@ import {
   useTripId,
   type TripContext,
 } from '../lib/trip';
+import { AssistantPanel, type ChatMessage } from './AssistantPanel';
 import { AvatarStack, CountBadge, LiveIndicator } from './Bits';
-import { BulbIcon, CalendarIcon, HomeIcon, SuitcaseIcon, UsersIcon, WalletIcon } from './Icons';
+import {
+  BulbIcon,
+  CalendarIcon,
+  HomeIcon,
+  SuitcaseIcon,
+  UsersIcon,
+  WalletIcon,
+  SparkleIcon,
+} from './Icons';
 import { Logo } from './Logo';
 import { EmptyState, ErrorState, Skeleton } from './States';
 import { useToast } from './Toast';
@@ -32,6 +41,10 @@ export function TripLayout() {
   const client = useApolloClient();
   const navigate = useNavigate();
   const toast = useToast();
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  // Kept here so closing the panel (or changing section) doesn't lose the conversation.
+  const [assistantMessages, setAssistantMessages] = useState<ChatMessage[]>([]);
+  const assistantButton = useRef<HTMLButtonElement>(null);
   const { data, loading, error, refetch } = useQuery(TripShellDocument, {
     variables: { id: tripId },
   });
@@ -100,10 +113,14 @@ export function TripLayout() {
   }
 
   const { trip } = ctx;
+  const closeAssistant = () => {
+    setAssistantOpen(false);
+    assistantButton.current?.focus();
+  };
   const people = trip.members.map((m, index) => ({ id: m.user.id, name: m.user.name, index }));
 
   return (
-    <div className="min-h-screen bg-bg pb-24 md:pb-0">
+    <div className={`min-h-screen bg-bg pb-24 md:pb-0 ${assistantOpen ? 'md:pr-[420px]' : ''}`}>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3.5 sm:px-8">
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-3 text-sm">
           <Logo />
@@ -119,6 +136,17 @@ export function TripLayout() {
           <span className="hidden truncate font-semibold sm:inline">{trip.name}</span>
         </nav>
         <div className="flex flex-wrap items-center gap-4">
+          <button
+            ref={assistantButton}
+            type="button"
+            aria-expanded={assistantOpen}
+            aria-controls="trip-assistant"
+            onClick={() => (assistantOpen ? closeAssistant() : setAssistantOpen(true))}
+            className="flex min-h-11 items-center gap-2 rounded-control border border-border-input bg-surface px-4 text-sm font-semibold text-ink hover:bg-surface-muted aria-expanded:border-accent aria-expanded:text-accent-strong"
+          >
+            <SparkleIcon size={16} className="text-accent" />
+            Ask
+          </button>
           <LiveIndicator online={!liveError} />
           <div className="hidden sm:block">
             <AvatarStack people={people} />
@@ -187,6 +215,19 @@ export function TripLayout() {
           <Outlet context={ctx} />
         </main>
       </div>
+
+      {assistantOpen && (
+        <div id="trip-assistant">
+          <AssistantPanel
+            tripId={tripId}
+            currency={trip.currency}
+            canEdit={ctx.canEdit}
+            messages={assistantMessages}
+            setMessages={setAssistantMessages}
+            onClose={closeAssistant}
+          />
+        </div>
+      )}
 
       {/* Mobile bottom tab bar — M1–M7 */}
       <nav
