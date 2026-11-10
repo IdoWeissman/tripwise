@@ -1,3 +1,4 @@
+import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client/react';
 import { useMemo, useRef, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router';
@@ -66,22 +67,30 @@ export function TripLayout() {
   }, [data]);
 
   if (loading && !data) return <ShellSkeleton />;
-  if (!data?.me) return <Navigate to="/sign-in" replace />;
-  if (error) {
+  // The API answers FORBIDDEN for trips that are deleted or that we're not a member of — that is
+  // "not found", not "signed out". Only an UNAUTHENTICATED error (or no viewer) means sign in.
+  const errorCodes = CombinedGraphQLErrors.is(error)
+    ? error.errors.map((e) => e.extensions?.code)
+    : [];
+  const noAccess = errorCodes.includes('FORBIDDEN');
+  if (errorCodes.includes('UNAUTHENTICATED') || (!error && !data?.me)) {
+    return <Navigate to="/sign-in" replace />;
+  }
+  if (error && !noAccess) {
     return (
       <Centered>
         <ErrorState message="We couldn't load this trip." onRetry={() => void refetch()} />
       </Centered>
     );
   }
-  if (!ctx) {
+  if (!ctx || noAccess) {
     return (
       <Centered>
         <EmptyState
           title="Trip not found"
           body="It may have been deleted, or you're not a member."
           action={
-            <Link to="/" className="font-semibold text-accent">
+            <Link to="/" className="inline-flex min-h-11 items-center font-semibold text-accent">
               Back to your trips
             </Link>
           }
