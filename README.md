@@ -124,6 +124,25 @@ before raw reads (`.claude/settings.json`), and the rules in `CLAUDE.md`. Useful
 `graphify explain "BookingsPage"`, `graphify path "parseFile" "createBooking"`, and `graphify-out/graph.html` to browse.
 The hooks only add a hint and never block a read. Without graphify installed, Claude Code shows a non-blocking "command not found" hook notice and works as before.
 
+### Skills and sub-agents
+
+Development workflows are packaged for Claude Code, so an agent can take a task from report to reviewed commit:
+
+| Command / agent             | What it does                                                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `/fix-bug <description>`    | Reproduce → failing test → fix the root cause → `pnpm verify` + browser QA → review → commit                                            |
+| `/fix-ci [PR or error]`     | Run the CI steps locally in order (`.claude/skills/fix-ci/ci-local.sh`), fix the first failure, prove it green                          |
+| `/new-screen <purpose>`     | API, route, data and every state for a new screen, its design-rules section, QA and review                                              |
+| `/add-import-format <file>` | Compare what the importer reads with the file, add an invented fixture + failing test, fix the parser generally, keep personal data out |
+| `reviewer` (sub-agent)      | Read-only review of the branch against `CLAUDE.md`, the design rules and known pitfalls                                                 |
+| `qa` (sub-agent)            | Drives the running app at 390px and 1440px, tests the changed flows, looks at screenshots                                               |
+
+Shared tooling the agents (and people) use: `pnpm verify` (format, lint, typecheck, tests), `pnpm qa:smoke` (browser
+check of every main screen; first run `pnpm exec playwright install chromium`), and
+`pnpm --filter @tripwise/api import:inspect <file> --text` (what the importer reads from an email, PDF or photo).
+`.claude/settings.json` pre-approves these safe commands and blocks force-pushes and reading `.env` files; accept
+Claude Code's workspace-trust prompt once for it to apply.
+
 ## Design
 
 All UI follows [`docs/design-rules.md`](docs/design-rules.md). Architecture choices are explained in [`docs/decisions.md`](docs/decisions.md).

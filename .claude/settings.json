@@ -1,4 +1,34 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pnpm verify)",
+      "Bash(pnpm qa:smoke *)",
+      "Bash(pnpm qa:smoke)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm test)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm codegen)",
+      "Bash(pnpm --filter @tripwise/api test *)",
+      "Bash(pnpm --filter @tripwise/web test *)",
+      "Bash(pnpm --filter @tripwise/api import:inspect *)",
+      "Bash(bash .claude/skills/fix-ci/ci-local.sh)",
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git diff)",
+      "Bash(git log *)",
+      "Bash(graphify *)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./apps/api/.env)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
