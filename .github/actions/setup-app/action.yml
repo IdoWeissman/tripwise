@@ -1,0 +1,30 @@
+name: Set up Tripwise for an agent
+description: >
+  Installs dependencies, migrates and seeds the job's Postgres service and installs the Playwright
+  browser, so a coding agent can run tests, start the app and do browser QA. Expects DATABASE_URL
+  and JWT_SECRET in the job environment.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v5
+    - uses: actions/setup-node@v5
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    - name: Install dependencies (also generates Prisma client and GraphQL types)
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Migrate and seed the database
+      shell: bash
+      run: |
+        pnpm --filter @tripwise/api db:deploy
+        pnpm db:seed
+    - name: Install the Playwright browser (for pnpm qa:smoke)
+      shell: bash
+      run: pnpm exec playwright install --with-deps chromium
+    - name: Git identity for the agent's commits
+      shell: bash
+      run: |
+        git config user.name "Claude"
+        git config user.email "noreply@anthropic.com"

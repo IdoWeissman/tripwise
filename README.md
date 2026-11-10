@@ -143,6 +143,29 @@ check of every main screen; first run `pnpm exec playwright install chromium`), 
 `.claude/settings.json` pre-approves these safe commands and blocks force-pushes and reading `.env` files; accept
 Claude Code's workspace-trust prompt once for it to apply.
 
+### Autonomous agent on GitHub
+
+Two workflows run the same skills in GitHub Actions, so work happens without a laptop:
+
+- **Issue → PR** (`agent-issue.yml`): add the label **`agent`** to an issue. Claude Code works on branch
+  `agent/issue-<n>-<run>` with the project skills (`/fix-bug`, `/new-screen`, …) against a seeded Postgres, runs the
+  checks and browser QA, and commits. The workflow then opens a PR that says `Fixes #<n>`, starts CI on it and comments
+  on the issue. If the agent can't do it, it explains why on the issue instead.
+- **Self-fixing CI** (`agent-ci-fix.yml`): when CI fails on an `agent/*` branch, Claude Code runs `/fix-ci` with the
+  failed log and pushes a fix — at most 2 attempts, then the PR gets the `needs-human` label.
+
+Guard rails: only people who can add labels can start it; the issue text reaches the agent as a file, never as shell
+input; the agent can't push, can't use `gh` and must not touch `.github/` (the workflow publishes its work); a human
+reviews and merges every PR.
+
+**Setup (once):**
+
+1. In Claude Code on your machine, run `claude setup-token` (uses your Claude Pro/Max subscription) and copy the token.
+2. GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**: `CLAUDE_CODE_OAUTH_TOKEN`.
+3. GitHub → **Settings → Actions → General → Workflow permissions**: "Read and write permissions" and
+   "Allow GitHub Actions to create and approve pull requests".
+4. Create the label: `gh label create agent --color 5319E7 --description "Let the Claude agent work on this"`.
+
 ## Design
 
 All UI follows [`docs/design-rules.md`](docs/design-rules.md). Architecture choices are explained in [`docs/decisions.md`](docs/decisions.md).

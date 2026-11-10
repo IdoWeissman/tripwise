@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The agent workflows start CI on their branches explicitly (pushes made with the workflow token
+  # don't trigger it on their own).
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
