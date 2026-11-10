@@ -83,6 +83,22 @@ Uploaded confirmations are read in layers, and you review everything before it's
 3. **Text rules** — route titles ("Tel Aviv ⇄ Rome"), labelled totals, travellers, provider and manage-booking link.
 4. **Claude (optional)** — set `ANTHROPIC_API_KEY` and the email, PDF (including scans) or ticket photo is also read by Claude through a strict tool schema. Exact calendar times always win, and anything the model leaves empty is filled from the rules. If the call fails, the rules' result is used. Uploaded content is sent to the Anthropic API only when a key is set.
 
+### Importer evals
+
+The importer is measured, not just unit-tested: `apps/api/evals/importer/` holds invented confirmations (JSON-LD,
+calendar attachments, Hebrew, PDFs, pasted text) with their correct answers, split into **seen** formats and
+**unseen** ones it wasn't built for. Every field is scored — type, title, code, start/end, flight legs, people,
+price, place, link.
+
+```bash
+pnpm --filter @tripwise/api eval:import            # rules only: per-case and per-field accuracy
+pnpm --filter @tripwise/api eval:import --ai       # rules + Claude: accuracy, latency and tokens per file
+pnpm --filter @tripwise/api eval:import --update   # accept improved scores as the new baseline
+```
+
+CI runs `eval:import --check` and fails if any case scores below `evals/importer/baseline.json`, so a parser or
+prompt change can't make extraction worse unnoticed. Current rules-only score: seen formats 100%, unseen 81%.
+
 ## Deploy (Render + Neon, free tiers)
 
 The API serves the built web app, so the whole thing is **one Render web service** (same origin: cookies and WebSockets just work). Config lives in [`render.yaml`](render.yaml).

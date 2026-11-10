@@ -34,3 +34,6 @@ graphify-out/
 
 # Browser QA output (pnpm qa:smoke)
 qa-output/
+
+# Eval reports (regenerated on every run)
+apps/api/evals/importer/report*.md

@@ -132,6 +132,26 @@ describe('forwarded Hebrew tour ticket', () => {
   });
 });
 
+describe('AI usage reporting', () => {
+  it('reports tokens and latency for each call (used by the evals)', async () => {
+    const seen: { inputTokens: number; outputTokens: number; model: string }[] = [];
+    const fake = (async () =>
+      new Response(
+        JSON.stringify({
+          content: [{ type: 'tool_use', name: 'record_bookings', input: { bookings: [] } }],
+          usage: { input_tokens: 1200, output_tokens: 90 },
+        }),
+      )) as unknown as typeof fetch;
+    await extractWithAi(
+      { apiKey: 'k', model: 'test-model', fetch: fake, onUsage: (u) => seen.push(u) },
+      { text: 'x' },
+    );
+    expect(seen).toEqual([
+      expect.objectContaining({ model: 'test-model', inputTokens: 1200, outputTokens: 90 }),
+    ]);
+  });
+});
+
 describe('calendar files', () => {
   it('keeps zoned times and turns other events into their own bookings', () => {
     const events = parseCalendar(
@@ -187,6 +207,13 @@ describe('text details', () => {
       price: '324.97',
       currency: 'USD',
     });
+  });
+  it("doesn't borrow the previous line's label for an amount with its own text", () => {
+    expect(
+      findPrice(
+        'Original price: €150.00\nTotal paid: €120.00\nCancellation insurance covers up to €500.00',
+      ),
+    ).toEqual({ price: '120.00', currency: 'EUR' });
   });
   it('counts travellers without reading across lines', () => {
     expect(findTravellers('USD 130.00\n\nTicket number: 1')).toBeNull();

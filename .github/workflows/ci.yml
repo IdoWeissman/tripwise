@@ -27,4 +27,6 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # Booking-importer evals: fails if any case scores below evals/importer/baseline.json
+      - run: pnpm --filter @tripwise/api eval:import --check
       - run: pnpm build

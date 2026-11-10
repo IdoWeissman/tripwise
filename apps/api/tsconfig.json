@@ -9,6 +9,7 @@
   },
   "include": [
     "scripts",
+    "evals",
     "src",
     "prisma",
     "test",
