@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/graphql': { target: 'http://localhost:4000', changeOrigin: true, ws: true },
       '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      '/mcp': { target: 'http://localhost:4000', changeOrigin: true },
     },
   },
   test: {

@@ -9,6 +9,8 @@ export interface Context {
   env: Env;
   storage: Storage;
   viewerId: string | null;
+  /** How the viewer signed in: browser cookie, or an AI assistant's personal access token (MCP). */
+  auth: 'session' | 'token';
   loaders: Loaders;
   /** Present for HTTP operations; absent over WebSocket. */
   req?: Request;
@@ -16,8 +18,8 @@ export interface Context {
 }
 
 export function buildContext(
-  base: { db: Db; env: Env; storage: Storage; viewerId: string | null },
+  base: { db: Db; env: Env; storage: Storage; viewerId: string | null; auth?: Context['auth'] },
   http?: { req: Request; res: Response },
 ): Context {
-  return { ...base, ...http, loaders: createLoaders(base.db, base.viewerId) };
+  return { auth: 'session', ...base, ...http, loaders: createLoaders(base.db, base.viewerId) };
 }

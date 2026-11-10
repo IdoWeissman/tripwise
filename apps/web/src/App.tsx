@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import { AppLayout, RequireAuth } from './components/AppLayout';
 import { TripLayout } from './components/TripLayout';
+import { AiAssistantsPage } from './pages/AiAssistantsPage';
 import { BookingDetailPage } from './pages/BookingDetailPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { ExpensesPage } from './pages/ExpensesPage';
@@ -20,7 +21,13 @@ const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
-      { element: <AppLayout />, children: [{ index: true, element: <TripsPage /> }] },
+      {
+        element: <AppLayout />,
+        children: [
+          { index: true, element: <TripsPage /> },
+          { path: '/settings/ai', element: <AiAssistantsPage /> },
+        ],
+      },
       {
         path: '/trips/:tripId',
         element: <TripLayout />,
