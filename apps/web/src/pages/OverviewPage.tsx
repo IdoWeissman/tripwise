@@ -1,12 +1,21 @@
 import { useQuery } from '@apollo/client/react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { BellIcon, CalendarIcon, CopyIcon, PinIcon, PlusIcon } from '../components/Icons';
+import { Button } from '../components/Button';
+import {
+  BellIcon,
+  CalendarIcon,
+  CheckIcon,
+  CopyIcon,
+  PinIcon,
+  PlusIcon,
+} from '../components/Icons';
 import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { graphql } from '../gql';
 import type { DayAgendaQuery, TripOverviewQuery } from '../gql/graphql';
 import {
+  agendaStates,
   BOOKING_TYPES,
   countdown,
   dayShift,
@@ -15,9 +24,12 @@ import {
   leaveBy,
   localDay,
   localTime,
+  untilTime,
+  type AgendaState,
 } from '../lib/bookings';
 import { formatMoney, nowHHMM, todayIn, toNumber } from '../lib/format';
 import { useTrip } from '../lib/trip';
+import { useNow } from '../lib/useNow';
 
 const TripOverviewDocument = graphql(`
   query TripOverview($id: ID!) {
@@ -64,6 +76,7 @@ const TripOverviewDocument = graphql(`
         title
         body
         fireAt
+        targetAt
         booking {
           id
         }
@@ -118,7 +131,8 @@ function greeting(timeZone: string) {
 export function OverviewPage() {
   const { trip, viewerId, canEdit } = useTrip();
   const me = trip.members.find((m) => m.user.id === viewerId)?.user.name.split(' ')[0] ?? '';
-  const today = todayIn(trip.timeZone);
+  const nowMs = useNow();
+  const today = todayIn(trip.timeZone, new Date(nowMs));
 
   const { data, loading, error, refetch } = useQuery(TripOverviewDocument, {
     variables: { id: trip.id },
@@ -145,35 +159,37 @@ export function OverviewPage() {
         ? `Starts ${countdown(`${days[0].date.slice(0, 10)}T00:00:00Z`)} · ${days.length} days · ${trip.destination}`
         : `Trip ended · ${days.length} days · ${trip.destination}`;
 
+  // On phones the first screen belongs to the day: one-line greeting, one row of the two
+  // actions people take mid-trip. Add to calendar lives with the reminders.
   const header = (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[26px] font-extrabold tracking-[-0.02em] md:text-[34px]">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="truncate text-headline-sm font-extrabold tracking-[-0.02em] md:text-headline">
           {greeting(trip.timeZone)}
           {me && `, ${me}`}
         </h1>
-        <p className="text-[15px] text-ink-muted">{view ? status : trip.destination}</p>
+        <p className="text-sm text-ink-muted md:text-[15px]">{view ? status : trip.destination}</p>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <Link
-          to="../bookings?calendar"
-          relative="path"
-          className="inline-flex min-h-11 items-center gap-2 rounded-control border-[1.5px] border-border bg-surface px-5 text-[15px] font-bold text-ink no-underline hover:border-border-input hover:text-ink"
-        >
-          <CalendarIcon />
-          Add to calendar
-        </Link>
-        {canEdit && (
+      {canEdit && (
+        <div className="flex w-full gap-3 sm:w-auto">
+          <Link
+            to="../expenses?add"
+            relative="path"
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control bg-sign px-5 text-[15px] font-bold text-white no-underline hover:bg-sign-raised hover:text-white sm:flex-none"
+          >
+            <PlusIcon />
+            Add expense
+          </Link>
           <Link
             to="../bookings?add"
             relative="path"
-            className="inline-flex min-h-11 items-center gap-2 rounded-control bg-sign px-5 text-[15px] font-bold text-white no-underline hover:bg-sign-raised hover:text-white"
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control border-[1.5px] border-border bg-surface px-5 text-[15px] font-bold text-ink no-underline hover:border-border-input hover:text-ink sm:flex-none"
           >
             <PlusIcon />
             Add booking
           </Link>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 
@@ -205,33 +221,65 @@ export function OverviewPage() {
 
   const t = view.trip;
   const balance = toNumber(t.expenseSummary.viewerBalance);
+  // The server already drops spent reminders; a page left open must too.
+  const reminders = t.reminders.filter((r) => Date.parse(r.targetAt) > nowMs);
   // Phones show one reminder: leaving for the airport outranks the rest.
-  const phoneReminder = t.reminders.find((r) => r.key.endsWith(':leave')) ?? t.reminders[0];
+  const phoneReminder = reminders.find((r) => r.key.endsWith(':leave')) ?? reminders[0];
+
+  // One "next" for the whole screen: the next thing today (plan or booking). When today has
+  // nothing left, the board falls back to the next booking, labelled with its day.
+  const agenda = agendaQuery.data?.trip?.agenda ?? [];
+  const isToday = dayDate === today;
+  const now = isToday
+    ? nowHHMM(trip.timeZone, new Date(nowMs))
+    : dayDate && dayDate < today
+      ? 'past'
+      : '';
+  const states = agendaStates(
+    agenda.map((a) => a.time),
+    now,
+  );
+  const nextIdx = isToday ? states.indexOf('next') : -1;
+  const nextToday = nextIdx >= 0 ? agenda[nextIdx]! : null;
+  const upNext = t.upNext && Date.parse(t.upNext.startsAt) > nowMs ? t.upNext : null;
+  const board: BoardContent = nextToday
+    ? nextToday.booking && upNext && nextToday.booking.id === upNext.booking.id
+      ? { kind: 'booking', upNext, label: 'Up next' }
+      : { kind: 'plan', item: nextToday, until: untilTime(now, nextToday.time!) }
+    : upNext
+      ? {
+          kind: 'booking',
+          upNext,
+          label: `Next booking · ${localDay(upNext.segment?.departLocal ?? upNext.booking.startLocal) ?? ''}`,
+        }
+      : { kind: 'none', todayDone: isToday && agenda.length > 0 };
+
   return (
     <div className="flex flex-col gap-6">
       {header}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
         <div className="flex min-w-0 flex-col gap-6">
-          <DepartureBoard upNext={t.upNext} canEdit={canEdit} />
+          <DepartureBoard board={board} canEdit={canEdit} nowMs={nowMs} />
           {phoneReminder && (
-            <div
-              role="status"
-              className="flex items-start gap-3 rounded-card bg-signal-tint px-4 py-3 lg:hidden"
+            <Link
+              to={`../bookings/${phoneReminder.booking.id}`}
+              relative="path"
+              className="flex items-start gap-3 rounded-card bg-signal-tint px-4 py-3 text-ink no-underline hover:text-ink md:hidden"
             >
               <BellIcon size={18} className="mt-0.5 shrink-0 text-signal-ink" />
               <span className="text-sm">
                 <strong>{phoneReminder.title}.</strong> {phoneReminder.body}
               </span>
-            </div>
+            </Link>
           )}
           <Timetable
             loading={agendaQuery.loading && !agendaQuery.data}
-            agenda={agendaQuery.data?.trip?.agenda ?? []}
-            now={
-              dayDate === today ? nowHHMM(trip.timeZone) : dayDate && dayDate < today ? '99:99' : ''
-            }
+            error={!!agendaQuery.error && !agendaQuery.data}
+            onRetry={() => void agendaQuery.refetch()}
+            agenda={agenda}
+            states={states}
             heading={
-              dayDate === today
+              isToday
                 ? `Today · ${localDay(today)}`
                 : day
                   ? `Day ${day.position + 1} · ${localDay(dayDate)}`
@@ -240,7 +288,8 @@ export function OverviewPage() {
           />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        {/* tablets: the side panels sit two-up under the day; desktop: a column beside it */}
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:flex lg:flex-col">
           <Link
             to="../expenses"
             relative="path"
@@ -248,8 +297,9 @@ export function OverviewPage() {
               balance < 0 ? 'bg-negative-ink' : 'bg-money'
             }`}
           >
+            {/* one short name for the link; the figures read as its description */}
             <span className="text-[15px] font-bold">Your balance</span>
-            <span className="figures text-[44px] leading-[1.1] font-extrabold tracking-[-0.02em] md:text-[48px]">
+            <span className="figures text-board-sm leading-[1.1] font-extrabold tracking-[-0.02em] lg:text-display">
               {formatMoney(balance, trip.currency, true)}
             </span>
             <span className="text-sm text-white/90">
@@ -259,9 +309,12 @@ export function OverviewPage() {
           </Link>
 
           <section
-            aria-label="Waiting on the group"
-            className="flex flex-col rounded-card bg-surface px-5 py-2"
+            aria-labelledby="ov-wait"
+            className="flex flex-col rounded-card bg-surface px-5 pt-3 pb-1"
           >
+            <h2 id="ov-wait" className="text-base font-extrabold">
+              Waiting on the group
+            </h2>
             <Waiting
               to="../proposals"
               mark="bg-vote"
@@ -270,43 +323,50 @@ export function OverviewPage() {
               count={trip.proposalCounts.proposed}
               countClass="text-vote"
             />
-            <Waiting
-              to="../bookings"
-              mark="bg-accent"
-              label="Bookings"
-              note={
-                trip.bookingStats.needsDetails
-                  ? `${trip.bookingStats.needsDetails} ${trip.bookingStats.needsDetails === 1 ? 'needs' : 'need'} details`
-                  : `${trip.bookingStats.total} confirmed`
-              }
-              count={trip.bookingStats.needsDetails || trip.bookingStats.total}
-              countClass="text-accent-strong"
-            />
+            {trip.bookingStats.needsDetails > 0 ? (
+              <Waiting
+                to="../bookings"
+                mark="bg-negative"
+                label="Bookings"
+                note="Missing details"
+                count={trip.bookingStats.needsDetails}
+                countClass="text-negative-ink"
+              />
+            ) : (
+              <Waiting
+                to="../bookings"
+                mark="bg-accent"
+                label="Bookings"
+                note="All confirmed"
+                count={trip.bookingStats.total}
+                countClass="text-accent-strong"
+              />
+            )}
           </section>
 
           <section
             aria-labelledby="ov-rem"
-            className="hidden flex-col rounded-card bg-surface px-5 pt-3 pb-2 lg:flex"
+            className="hidden flex-col rounded-card bg-surface px-5 pt-3 pb-2 md:flex"
           >
-            <div className="flex items-center justify-between">
-              <h2 id="ov-rem" className="flex items-center gap-2 text-base font-extrabold">
-                <span aria-hidden="true" className="size-3 rounded-[3px] bg-signal" />
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="ov-rem" className="text-base font-extrabold">
                 Reminders
               </h2>
               <Link
                 to="../bookings?calendar"
                 relative="path"
-                className="flex min-h-11 items-center text-sm font-bold"
+                className="flex min-h-11 items-center gap-1.5 text-sm font-bold"
               >
-                Settings
+                <CalendarIcon size={16} />
+                Add to calendar
               </Link>
             </div>
-            {t.reminders.length === 0 ? (
+            {reminders.length === 0 ? (
               <p className="pb-3 text-sm text-ink-muted">
                 Nothing coming up. Reminders appear here before flights, check-outs and shows.
               </p>
             ) : (
-              t.reminders.map((r) => (
+              reminders.map((r) => (
                 <Link
                   key={r.key}
                   to={`../bookings/${r.booking.id}`}
@@ -315,17 +375,32 @@ export function OverviewPage() {
                 >
                   <span className="text-sm font-bold">{r.title}</span>
                   <span className="text-[13px] text-ink-muted">
-                    {countdown(r.fireAt)} · {r.body}
+                    {countdown(r.fireAt, nowMs)} · {r.body}
                   </span>
                 </Link>
               ))
             )}
           </section>
+          {/* phones: the reminders panel is hidden, so the calendar link moves here */}
+          <Link
+            to="../bookings?calendar"
+            relative="path"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-card border-[1.5px] border-border bg-surface text-sm font-bold text-ink no-underline hover:text-ink md:hidden"
+          >
+            <CalendarIcon size={16} />
+            Calendar &amp; reminders
+          </Link>
         </div>
       </div>
     </div>
   );
 }
+
+type AgendaItem = Agenda[number];
+type BoardContent =
+  | { kind: 'booking'; upNext: NonNullable<Overview['upNext']>; label: string }
+  | { kind: 'plan'; item: AgendaItem; until: string }
+  | { kind: 'none'; todayDone: boolean };
 
 function Waiting({
   to,
@@ -346,34 +421,42 @@ function Waiting({
     <Link
       to={to}
       relative="path"
-      className="flex min-h-16 items-center gap-3 border-t border-border py-3 text-ink no-underline first:border-t-0 hover:text-ink"
+      className="flex min-h-16 items-center gap-3 border-t border-border py-3 text-ink no-underline first-of-type:border-t-0 hover:text-ink"
     >
       <span aria-hidden="true" className={`size-3 shrink-0 rounded-[3px] ${mark}`} />
       <span className="flex flex-1 flex-col">
         <span className="text-base font-extrabold">{label}</span>
         <span className="text-[13px] text-ink-muted">{note}</span>
       </span>
-      <span className={`figures text-[36px] leading-none font-extrabold ${countClass}`}>
+      <span className={`figures text-count leading-none font-extrabold ${countClass}`}>
         {count}
       </span>
     </Link>
   );
 }
 
-function DepartureBoard({ upNext, canEdit }: { upNext: Overview['upNext']; canEdit: boolean }) {
-  const toast = useToast();
-  const [copied, setCopied] = useState(false);
-  if (!upNext) {
+function DepartureBoard({
+  board,
+  canEdit,
+  nowMs,
+}: {
+  board: BoardContent;
+  canEdit: boolean;
+  nowMs: number;
+}) {
+  if (board.kind === 'none') {
     return (
       <section
         aria-labelledby="ov-next"
         className="flex flex-col items-start gap-2 rounded-card bg-sign px-6 py-5 text-white"
       >
         <h2 id="ov-next" className="text-[22px] font-extrabold">
-          No departures yet
+          {board.todayDone ? "That's everything for today" : 'No departures yet'}
         </h2>
         <p className="text-sm text-sign-ink-soft">
-          Add flights, stays and tickets to see what's next here and get reminders before each one.
+          {board.todayDone
+            ? 'Nothing else is planned or booked ahead. Add the next stop when you have it.'
+            : "Add flights, stays and tickets to see what's next here and get reminders before each one."}
         </p>
         {canEdit && (
           <Link
@@ -388,13 +471,71 @@ function DepartureBoard({ upNext, canEdit }: { upNext: Overview['upNext']; canEd
       </section>
     );
   }
+  if (board.kind === 'plan') return <PlanBoard item={board.item} until={board.until} />;
+  return <BookingBoard upNext={board.upNext} label={board.label} nowMs={nowMs} />;
+}
+
+/** The board when the next thing today is a plan (or a booking without leg details). */
+function PlanBoard({ item: a, until }: { item: AgendaItem; until: string }) {
+  const type = a.booking ? BOOKING_TYPES[a.booking.type] : null;
+  return (
+    <section
+      aria-labelledby="ov-next"
+      className="overflow-hidden rounded-card bg-sign text-white [perspective:800px]"
+    >
+      <div className="flex flex-wrap justify-between gap-2 border-b border-white/15 px-5 py-3 text-[13px] font-bold md:px-6">
+        <h2 id="ov-next" className="text-sign-ink-soft">
+          Up next · {type?.label ?? 'Plan'}
+        </h2>
+        <span className="text-signal">Starts {until}</span>
+      </div>
+      <div
+        key={`${a.kind}-${a.booking?.id ?? a.activity?.id ?? a.title}`}
+        className="grid origin-top grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 px-5 py-5 motion-safe:animate-flap-in md:px-6"
+      >
+        <span className="figures text-board-sm leading-none font-extrabold text-signal md:text-board">
+          {a.time}
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className="text-[22px] leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-headline-sm">
+            {a.title}
+          </span>
+          {a.subtitle && <span className="text-sm text-sign-ink-soft">{a.subtitle}</span>}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-x-4 border-t border-white/15 px-5 py-1.5 md:px-6">
+        <Link
+          to={a.booking ? `../bookings/${a.booking.id}` : '../itinerary'}
+          relative="path"
+          className="flex min-h-11 items-center text-sm font-bold text-white hover:text-signal"
+        >
+          {a.booking ? 'Details' : 'Open itinerary'}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function BookingBoard({
+  upNext,
+  label,
+  nowMs,
+}: {
+  upNext: NonNullable<Overview['upNext']>;
+  label: string;
+  nowMs: number;
+}) {
+  const toast = useToast();
+  const [copied, setCopied] = useState(false);
   const { booking: b, segment: s } = upNext;
   const t = BOOKING_TYPES[b.type];
   const route = directions(b, s);
   const verb = b.type === 'FLIGHT' ? 'Departs' : b.type === 'STAY' ? 'Check-in' : 'Starts';
   const time = s ? localTime(s.departLocal) : localTime(b.startLocal);
   const flightTime = s?.arrivesAt ? duration(s.departsAt, s.arrivesAt) : null;
-  const leave = b.type === 'FLIGHT' && s ? leaveBy(s.departLocal) : null;
+  // Leave by goes once it has passed: a missed time is not an instruction.
+  const leaveStillAhead = s ? Date.parse(s.departsAt) - LEAVE_BEFORE_MS > nowMs : false;
+  const leave = b.type === 'FLIGHT' && s && leaveStillAhead ? leaveBy(s.departLocal) : null;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(b.confirmationCode ?? '');
@@ -411,21 +552,21 @@ function DepartureBoard({ upNext, canEdit }: { upNext: Overview['upNext']; canEd
     >
       <div className="flex flex-wrap justify-between gap-2 border-b border-white/15 px-5 py-3 text-[13px] font-bold md:px-6">
         <h2 id="ov-next" className="text-sign-ink-soft">
-          Up next · {t.label}
+          {label} · {t.label}
         </h2>
         <span className="text-signal">
-          {verb} {countdown(upNext.startsAt)}
+          {verb} {countdown(upNext.startsAt, nowMs)}
         </span>
       </div>
       <div
         key={b.id}
-        className="grid origin-top motion-safe:animate-flap-in grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-4 px-5 py-5 md:grid-cols-[auto_minmax(0,1fr)_auto_auto] md:px-6"
+        className="grid origin-top grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-4 px-5 py-5 motion-safe:animate-flap-in md:grid-cols-[auto_minmax(0,1fr)_auto_auto] md:px-6"
       >
-        <span className="figures text-[44px] leading-none font-extrabold text-signal md:text-[56px]">
+        <span className="figures text-board-sm leading-none font-extrabold text-signal md:text-board">
           {time ?? '—'}
         </span>
         <span className="flex min-w-0 flex-col gap-1">
-          <span className="text-[22px] leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-[26px]">
+          <span className="text-[22px] leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-headline-sm">
             {s ? `${s.fromName ?? s.fromCode ?? ''} → ${s.toName ?? s.toCode ?? ''}` : b.title}
           </span>
           <span className="text-sm text-sign-ink-soft">
@@ -444,41 +585,40 @@ function DepartureBoard({ upNext, canEdit }: { upNext: Overview['upNext']; canEd
         </span>
         <span className="col-span-2 flex items-center justify-between gap-4 md:contents">
           {b.confirmationCode && (
-            <span className="flex items-center gap-1">
-              <span className="rounded-chip bg-white px-3 py-2 font-mono text-lg font-extrabold tracking-[0.1em] text-sign">
-                <span className="sr-only">Confirmation </span>
-                {b.confirmationCode}
-              </span>
-              <button
-                type="button"
-                aria-label="Copy confirmation code"
-                onClick={() => void copy()}
-                className="flex size-11 items-center justify-center rounded-control text-sign-ink-soft hover:bg-white/10 hover:text-white"
-              >
-                <CopyIcon size={18} />
-              </button>
-              <span className="sr-only" aria-live="polite">
-                {copied ? 'Copied' : ''}
-              </span>
-            </span>
+            <button
+              type="button"
+              aria-label={`Copy confirmation code ${b.confirmationCode}`}
+              onClick={() => void copy()}
+              className="flex min-h-11 items-center gap-2 rounded-chip bg-white px-3 font-mono text-lg font-extrabold tracking-[0.1em] text-sign hover:bg-signal-tint"
+            >
+              {b.confirmationCode}
+              {copied ? (
+                <span className="flex items-center gap-1 font-sans text-xs font-extrabold tracking-normal text-money">
+                  <CheckIcon size={16} />
+                  Copied
+                </span>
+              ) : (
+                <CopyIcon size={16} className="text-ink-muted" />
+              )}
+            </button>
           )}
+          <span className="sr-only" aria-live="polite">
+            {copied ? 'Copied' : ''}
+          </span>
           {leave && (
             <span className="flex flex-col items-end md:items-center md:pl-2">
               <span className="text-xs font-bold text-sign-ink-soft">Leave by</span>
-              <span className="figures text-[26px] leading-tight font-extrabold md:text-[28px]">
-                {leave}
-              </span>
+              <span className="figures text-headline-sm leading-tight font-extrabold">{leave}</span>
             </span>
           )}
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/15 px-5 py-1.5 md:px-6">
+      <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-white/15 px-5 py-1.5 md:px-6">
         {b.attachments.length > 0 && (
-          <span className="text-[13px] text-sign-ink-soft">
+          <span className="mr-auto text-[13px] text-sign-ink-soft">
             {b.attachments.length} document{b.attachments.length === 1 ? '' : 's'}
           </span>
         )}
-        <span className="hidden flex-1 md:block" />
         <Link
           to={`../bookings/${b.id}`}
           relative="path"
@@ -513,17 +653,31 @@ function DepartureBoard({ upNext, canEdit }: { upNext: Overview['upNext']; canEd
   );
 }
 
+/** The server's "leave for the airport" rule: 2 h 30 min before departure. */
+const LEAVE_BEFORE_MS = 150 * 60_000;
+
+const STATE_SR: Record<AgendaState, string> = {
+  done: 'Done',
+  now: 'Happening now',
+  next: 'Next',
+  ahead: '',
+  untimed: '',
+};
+
 function Timetable({
   agenda,
+  states,
   heading,
   loading,
-  now,
+  error,
+  onRetry,
 }: {
   agenda: Agenda;
+  states: AgendaState[];
   heading: string;
   loading: boolean;
-  /** "HH:MM" — rows before it have departed; '' when the day is ahead. */
-  now: string;
+  error: boolean;
+  onRetry: () => void;
 }) {
   return (
     <section aria-labelledby="ov-today" className="rounded-card bg-surface py-1">
@@ -543,6 +697,14 @@ function Timetable({
         <div className="px-5 pb-4 md:px-6">
           <Skeleton className="h-48" />
         </div>
+      ) : error ? (
+        // Never let a failed load pass for an empty day.
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 md:px-6">
+          <p className="text-sm text-negative-ink">We couldn't load this day's plan.</p>
+          <Button variant="secondary" onClick={onRetry}>
+            Try again
+          </Button>
+        </div>
       ) : agenda.length === 0 ? (
         <p className="border-t border-border px-5 py-5 text-sm text-ink-muted md:px-6">
           Nothing scheduled this day yet.
@@ -550,9 +712,7 @@ function Timetable({
       ) : (
         <ol>
           {agenda.map((a, i) => {
-            // The next departure lifts: the first timed row still ahead today.
-            const isNext =
-              !!now && now !== '99:99' && i === agenda.findIndex((x) => !!x.time && x.time >= now);
+            const state = states[i] ?? 'untimed';
             const type = a.booking ? BOOKING_TYPES[a.booking.type] : null;
             const code =
               a.kind === 'CHECK_IN'
@@ -566,34 +726,51 @@ function Timetable({
                 : a.kind === 'CHECK_OUT'
                   ? 'Check-out'
                   : (type?.label ?? 'Plan, not booked');
-            const departed = !!now && !!a.time && a.time < now;
-            // Booked = solid sign; a plan nobody has booked yet = dashed.
-            const chip = type
-              ? type.chip
-              : 'border-[1.5px] border-dashed border-ink-muted text-ink-secondary';
+            const done = state === 'done';
+            // Booked = solid chip; a plan nobody has booked yet = dashed.
+            const chip = done
+              ? 'bg-surface-muted text-ink-muted'
+              : type
+                ? type.chip
+                : 'border-[1.5px] border-dashed border-ink-muted text-ink-secondary';
+            const sr = [STATE_SR[state], a.time ?? 'Any time', label].filter(Boolean).join(', ');
             const inner = (
               <>
                 <span
-                  className={`figures text-[22px] font-extrabold ${departed ? 'text-ink-muted' : isNext ? 'text-accent-strong' : 'text-ink'}`}
+                  aria-hidden="true"
+                  className={`figures text-timetable font-extrabold ${
+                    done ? 'text-ink-muted' : state === 'next' ? 'text-accent-strong' : 'text-ink'
+                  }`}
                 >
                   {a.time ?? <span className="text-xs font-bold text-ink-muted">Any time</span>}
                 </span>
                 <span
+                  aria-hidden="true"
                   className={`flex h-7 items-center justify-center rounded-chip text-xs font-extrabold tracking-[0.06em] ${chip}`}
                 >
-                  <span className="sr-only">{label}: </span>
-                  <span aria-hidden="true">{code}</span>
+                  {code}
                 </span>
                 <span className="flex min-w-0 flex-col">
-                  <span className="flex min-w-0 items-center gap-2">
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex-nowrap">
                     <span
-                      className={`truncate text-base font-bold ${departed ? 'text-ink-muted line-through decoration-1' : ''}`}
+                      className={`min-w-0 text-base md:truncate font-bold ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
                     >
-                      {departed && <span className="sr-only">Done: </span>}
+                      <span className="sr-only">{sr}: </span>
                       {a.title}
                     </span>
-                    {isNext && (
-                      <span className="shrink-0 rounded-full bg-signal px-2 py-0.5 text-xs font-extrabold text-sign">
+                    {state === 'now' && (
+                      <span
+                        aria-hidden="true"
+                        className="shrink-0 rounded-full bg-signal px-2 py-0.5 text-xs font-extrabold text-sign"
+                      >
+                        Now
+                      </span>
+                    )}
+                    {state === 'next' && (
+                      <span
+                        aria-hidden="true"
+                        className="shrink-0 rounded-full border-[1.5px] border-sign px-2 py-px text-xs font-extrabold text-sign"
+                      >
                         Next
                       </span>
                     )}
@@ -604,20 +781,19 @@ function Timetable({
                 </span>
               </>
             );
-            const cls = `grid min-h-16 grid-cols-[64px_56px_minmax(0,1fr)] items-center gap-3 border-t border-border px-5 py-3 text-ink no-underline md:grid-cols-[88px_64px_minmax(0,1fr)] md:gap-4 md:px-6`;
+            const cls = `grid min-h-16 grid-cols-[64px_56px_minmax(0,1fr)] items-center gap-3 border-t border-border px-5 py-3 text-ink no-underline hover:bg-bg hover:text-ink md:grid-cols-[88px_64px_minmax(0,1fr)] md:gap-4 md:px-6 ${
+              state === 'now' ? 'bg-signal-tint/60' : ''
+            }`;
             return (
               <li key={`${a.kind}-${a.booking?.id ?? a.activity?.id ?? i}`}>
-                {a.booking ? (
-                  <Link
-                    to={`../bookings/${a.booking.id}`}
-                    relative="path"
-                    className={`${cls} hover:bg-bg hover:text-ink`}
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div className={cls}>{inner}</div>
-                )}
+                {/* bookings open their detail; plans open the itinerary */}
+                <Link
+                  to={a.booking ? `../bookings/${a.booking.id}` : '../itinerary'}
+                  relative="path"
+                  className={cls}
+                >
+                  {inner}
+                </Link>
               </li>
             );
           })}

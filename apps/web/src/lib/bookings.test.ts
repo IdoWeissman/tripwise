@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bookingPrice,
   directions,
+  agendaStates,
   bookingRows,
   bookingWhen,
   countdown,
@@ -11,6 +12,7 @@ import {
   fileExt,
   groupByDay,
   groupRowsByDay,
+  untilTime,
   localDayTime,
 } from './bookings';
 
@@ -25,6 +27,7 @@ describe('booking formatting', () => {
     const now = Date.parse('2027-05-14T01:35:00Z');
     expect(countdown('2027-05-14T03:10:00Z', now)).toBe('in 1 h 35 min');
     expect(countdown('2027-05-20T03:10:00Z', now)).toBe('in 6 days');
+    expect(countdown('2027-05-14T01:00:00Z', now)).toBe('passed');
   });
   it('labels files', () => {
     expect(fileExt('TAP e-ticket.pdf', 'application/pdf')).toBe('PDF');
@@ -84,6 +87,18 @@ describe('booking cards', () => {
       ['2027-05-19', 1],
       [null, 1],
     ]);
+  });
+  it('reads a day as done / now / next', () => {
+    const times = ['09:00', '09:30', null, '13:00', '20:00'];
+    // 10:00: Pena Palace (09:30) is in progress, not done; lunch is next.
+    expect(agendaStates(times, '10:00')).toEqual(['done', 'now', 'untimed', 'next', 'ahead']);
+    // 21:00: the last item stays in progress for a while, then counts as done.
+    expect(agendaStates(times, '21:00').at(-1)).toBe('now');
+    expect(agendaStates(times, '23:30').at(-1)).toBe('done');
+    expect(agendaStates(times, '08:00')).toEqual(['next', 'ahead', 'untimed', 'ahead', 'ahead']);
+    expect(agendaStates(times, 'past')).toEqual(['done', 'done', 'untimed', 'done', 'done']);
+    expect(untilTime('10:00', '13:00')).toBe('in 3 h');
+    expect(untilTime('12:20', '13:00')).toBe('in 40 min');
   });
   it('formats prices', () => {
     expect(bookingPrice('1248', 'EUR')).toBe('€1,248.00');

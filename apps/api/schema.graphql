@@ -226,6 +226,8 @@ type Reminder {
   title: String!
   body: String!
   fireAt: DateTime!
+  "When the thing it reminds about happens (departure, check-out, start). Past it, the reminder is moot."
+  targetAt: DateTime!
   booking: Booking!
 }
 

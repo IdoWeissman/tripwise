@@ -141,10 +141,12 @@ export function duration(fromIso: string, toIso: string) {
   return [h && `${h} h`, m && `${m} min`].filter(Boolean).join(' ');
 }
 
-/** "in 45 min", "in 3 h 20 min", "in 2 days", "tomorrow". */
+/** "in 45 min", "in 3 h 20 min", "in 2 days"; "now" this minute, "passed" after. */
 export function countdown(iso: string, now = Date.now()) {
   const mins = Math.round((Date.parse(iso) - now) / 60_000);
-  if (mins <= 0) return 'now';
+  // A past time is never "now": a stale item must not read as urgent.
+  if (mins < 0) return 'passed';
+  if (mins === 0) return 'now';
   if (mins < 60) return `in ${mins} min`;
   if (mins < 48 * 60) {
     const h = Math.floor(mins / 60);
@@ -415,4 +417,46 @@ export function directions(
     url: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`,
     label,
   };
+}
+
+// --- the shape of a day: what is done, what is happening now, what is next ---
+
+export type AgendaState = 'done' | 'now' | 'next' | 'ahead' | 'untimed';
+
+const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+/** A last item of the day with nothing after it counts as in progress for this long. */
+const LAST_ITEM_MINUTES = 180;
+
+/**
+ * State of each agenda row (rows are in time order). `now` is "HH:MM" on that day, 'past' for a
+ * day that is over, '' for one still ahead. A started row is **in progress** until the next one
+ * starts, and only then done; the first row not yet started is next.
+ */
+export function agendaStates(
+  times: readonly (string | null | undefined)[],
+  now: string,
+): AgendaState[] {
+  if (now === 'past') return times.map((t) => (t ? 'done' : 'untimed'));
+  if (!now) return times.map((t) => (t ? 'ahead' : 'untimed'));
+  const started = times.flatMap((t, i) => (t && t <= now ? [i] : []));
+  const nextIdx = times.findIndex((t) => !!t && t > now);
+  const current = started.at(-1);
+  return times.map((t, i) => {
+    if (!t) return 'untimed';
+    if (i === nextIdx) return 'next';
+    if (t > now) return 'ahead';
+    if (i !== current) return 'done';
+    // The latest started row: in progress until the next row starts (or for a while, if last).
+    return nextIdx !== -1 || toMinutes(now) - toMinutes(t) < LAST_ITEM_MINUTES ? 'now' : 'done';
+  });
+}
+
+/** "in 45 min" / "in 3 h 20 min" between two "HH:MM" times on the same day. */
+export function untilTime(now: string, time: string): string {
+  const mins = toMinutes(time) - toMinutes(now);
+  if (mins <= 0) return 'now';
+  if (mins < 60) return `in ${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `in ${h} h${m ? ` ${m} min` : ''}`;
 }

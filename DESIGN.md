@@ -51,6 +51,25 @@ typography:
     letterSpacing: "-0.02em"
     fontFeature: "\"tnum\""
     fontVariation: "\"wdth\" 82"
+  board-time-sm:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
+    fontSize: "44px"
+    fontWeight: 800
+    lineHeight: 1
+    fontFeature: "\"tnum\""
+    fontVariation: "\"wdth\" 82"
+  count:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
+    fontSize: "36px"
+    fontWeight: 800
+    lineHeight: 1
+    fontFeature: "\"tnum\""
+    fontVariation: "\"wdth\" 82"
+  headline-sm:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
+    fontSize: "26px"
+    fontWeight: 800
+    letterSpacing: "-0.02em"
   headline:
     fontFamily: "Archivo Variable, system-ui, sans-serif"
     fontSize: "34px"
