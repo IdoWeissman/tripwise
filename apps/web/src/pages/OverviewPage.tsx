@@ -30,6 +30,7 @@ import {
 import { formatMoney, nowHHMM, todayIn, toNumber } from '../lib/format';
 import { useTrip } from '../lib/trip';
 import { useNow } from '../lib/useNow';
+import { SetupChecklist } from './overview/SetupChecklist';
 
 const TripOverviewDocument = graphql(`
   query TripOverview($id: ID!) {
@@ -81,6 +82,12 @@ const TripOverviewDocument = graphql(`
           id
         }
       }
+      setup {
+        hasBookings
+        hasInvited
+        hasExpenses
+        hidden
+      }
       expenseSummary {
         total
         viewerBalance
@@ -129,13 +136,15 @@ function greeting(timeZone: string) {
 
 /** Trip overview / Today — the station: departure board, timetable, money panel. Rules §2 · 10. */
 export function OverviewPage() {
-  const { trip, viewerId, canEdit } = useTrip();
+  const { trip, viewerId, canEdit, isOwner } = useTrip();
   const me = trip.members.find((m) => m.user.id === viewerId)?.user.name.split(' ')[0] ?? '';
   const nowMs = useNow();
   const today = todayIn(trip.timeZone, new Date(nowMs));
 
   const { data, loading, error, refetch } = useQuery(TripOverviewDocument, {
     variables: { id: trip.id },
+    // Always revalidate on arrival: coming back from a setup step must show its tick.
+    fetchPolicy: 'cache-and-network',
   });
   const days = useMemo(() => data?.trip?.days ?? [], [data]);
   // The day that matters: today during the trip, otherwise the first (before) or last (after) day.
@@ -221,6 +230,7 @@ export function OverviewPage() {
 
   const t = view.trip;
   const balance = toNumber(t.expenseSummary.viewerBalance);
+  const showSetup = isOwner && !t.setup.hidden;
   // The server already drops spent reminders; a page left open must too.
   const reminders = t.reminders.filter((r) => Date.parse(r.targetAt) > nowMs);
   // Phones show one reminder: leaving for the airport outranks the rest.
@@ -259,7 +269,18 @@ export function OverviewPage() {
       {header}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
         <div className="flex min-w-0 flex-col gap-6">
-          <DepartureBoard board={board} canEdit={canEdit} nowMs={nowMs} />
+          {/* first-run checklist for the organiser; gone once hidden */}
+          {showSetup && (
+            <SetupChecklist
+              tripId={trip.id}
+              setup={t.setup}
+              started={today >= trip.startDate.slice(0, 10)}
+            />
+          )}
+          {/* An empty board would only repeat the checklist's first row, so it waits. */}
+          {!(showSetup && board.kind === 'none' && !board.todayDone && !t.setup.hasBookings) && (
+            <DepartureBoard board={board} canEdit={canEdit} nowMs={nowMs} />
+          )}
           {phoneReminder && (
             <Link
               to={`../bookings/${phoneReminder.booking.id}`}
@@ -337,7 +358,7 @@ export function OverviewPage() {
                 to="../bookings"
                 mark="bg-accent"
                 label="Bookings"
-                note="All confirmed"
+                note={trip.bookingStats.total ? 'All confirmed' : 'None yet'}
                 count={trip.bookingStats.total}
                 countClass="text-accent-strong"
               />

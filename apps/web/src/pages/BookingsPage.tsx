@@ -105,7 +105,13 @@ export function BookingsPage() {
 
   const dialogs = (
     <>
-      {canEdit && <AddBookingDialog open={dialog === 'add'} onClose={close} />}
+      {canEdit && (
+        <AddBookingDialog
+          open={dialog === 'add'}
+          onClose={close}
+          returnTo={params.get('from') === 'setup' ? `/trips/${trip.id}/overview` : undefined}
+        />
+      )}
       <CalendarDialog open={dialog === 'calendar'} onClose={close} />
     </>
   );

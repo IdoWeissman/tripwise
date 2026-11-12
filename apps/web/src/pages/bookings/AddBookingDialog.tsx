@@ -59,7 +59,16 @@ function foundLabel(drafts: BookingDraft[], kind: string) {
 }
 
 /** Add booking: upload / paste → review → save. Design canvas "Add booking" + "Review bookings". */
-export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AddBookingDialog({
+  open,
+  onClose,
+  returnTo,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Where to go after saving (e.g. back to the setup checklist); default: the new booking. */
+  returnTo?: string;
+}) {
   const { trip } = useTrip();
   const client = useApolloClient();
   const toast = useToast();
@@ -233,7 +242,8 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
       toast(ids.length === 1 ? 'Booking added' : `${ids.length} bookings added`);
       reset();
       onClose();
-      if (ids.length === 1) void navigate(`/trips/${trip.id}/bookings/${ids[0]}`);
+      if (returnTo) void navigate(returnTo);
+      else if (ids.length === 1) void navigate(`/trips/${trip.id}/bookings/${ids[0]}`);
     } catch (err) {
       // Keep what wasn't saved so nothing is lost.
       setItems((prev) => prev.slice(ids.length));

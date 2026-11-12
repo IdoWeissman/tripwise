@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { PasswordInput } from '../components/PasswordInput';
 import { graphql } from '../gql';
+import { afterAuthPath, safeNext } from '../lib/authRedirect';
 import { messageFromError } from '../lib/errors';
 import { MeDocument } from '../lib/session';
 
@@ -35,9 +36,6 @@ const SignUpMutation = graphql(`
 const DEMO = { email: 'demo@tripwise.app', password: 'tripwise-demo' };
 
 /** Only allow in-app redirects. */
-const safeNext = (next: string | null) =>
-  next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
-
 const POINTS = [
   { t: 'One shared itinerary', d: 'Drag activities between days. Everyone sees changes live.' },
   { t: 'Vote on ideas', d: 'Proposals with enough votes land on the plan automatically.' },
@@ -58,7 +56,7 @@ export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) 
   const options = {
     refetchQueries: [{ query: MeDocument }],
     awaitRefetchQueries: true,
-    onCompleted: () => navigate(next),
+    onCompleted: () => navigate(afterAuthPath(mode, params.get('next'))),
   };
   const [signIn, signInState] = useMutation(SignInMutation, options);
   const [signUp, signUpState] = useMutation(SignUpMutation, options);

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client/react';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Avatar } from '../components/Avatar';
 import { PageHeader, StatTile } from '../components/Bits';
 import { Button } from '../components/Button';
@@ -28,6 +28,8 @@ export function ExpensesPage() {
   // ?add opens the dialog, so Today (and others) can link straight to it.
   const [params, setParams] = useSearchParams();
   const adding = params.has('add');
+  const fromSetup = params.get('from') === 'setup';
+  const navigate = useNavigate();
   const setAdding = (open: boolean) => setParams(open ? { add: '' } : {}, { replace: !open });
   const [deleting, setDeleting] = useState<ExpenseRow | null>(null);
   const { data, loading, error, refetch } = useQuery(ExpensesDocument, {
@@ -339,6 +341,7 @@ export function ExpensesPage() {
             setAdding(false);
             void refetch();
             toast('Expense added.');
+            if (fromSetup) void navigate(`/trips/${trip.id}/overview`);
           }}
         />
       )}

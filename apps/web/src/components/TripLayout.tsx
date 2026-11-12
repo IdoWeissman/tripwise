@@ -272,7 +272,8 @@ export function TripLayout() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-[17px] leading-tight font-bold">{trip.name}</p>
             <p className="truncate text-[13px] text-sign-ink-soft">
-              {formatDateRange(trip.startDate, trip.endDate)} · {trip.members.length} members
+              {formatDateRange(trip.startDate, trip.endDate)} · {trip.members.length}{' '}
+              {trip.members.length === 1 ? 'member' : 'members'}
             </p>
           </div>
           <LiveIndicator online={!liveError} labelClassName="max-sm:sr-only" />

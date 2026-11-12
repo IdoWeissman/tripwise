@@ -51,10 +51,11 @@ async function main() {
       endDate: new Date(start.getTime() + 5 * DAY),
       members: {
         create: [
-          { userId: ido.id, role: 'OWNER' },
-          { userId: maya.id, role: 'EDITOR' },
-          { userId: noa.id, role: 'EDITOR' },
-          { userId: daniel.id, role: 'VIEWER' },
+          // The demo trip is fully set up, so its first-run checklist starts hidden.
+          { userId: ido.id, role: 'OWNER', setupHiddenAt: new Date() },
+          { userId: maya.id, role: 'EDITOR', setupHiddenAt: new Date() },
+          { userId: noa.id, role: 'EDITOR', setupHiddenAt: new Date() },
+          { userId: daniel.id, role: 'VIEWER', setupHiddenAt: new Date() },
         ],
       },
       days: {

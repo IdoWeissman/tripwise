@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Avatar } from '../components/Avatar';
 import { PageHeader } from '../components/Bits';
 import { Button } from '../components/Button';
@@ -60,6 +60,8 @@ type Member = TripShell['members'][number];
 
 export function MembersPage() {
   const { trip, viewerId, isOwner } = useTrip();
+  const [params] = useSearchParams();
+  const fromSetup = params.get('from') === 'setup';
   const toast = useToast();
   const navigate = useNavigate();
   const [removing, setRemoving] = useState<Member | null>(null);
@@ -95,7 +97,7 @@ export function MembersPage() {
         subtitle="Owners manage the trip. Editors add and vote. Viewers can only look."
       />
 
-      {isOwner && <InviteCard tripId={trip.id} />}
+      {isOwner && <InviteCard tripId={trip.id} fromSetup={fromSetup} />}
 
       <section
         aria-label="People on this trip"
@@ -245,7 +247,7 @@ function DeleteTripCard({ tripId, tripName }: { tripId: string; tripName: string
   );
 }
 
-function InviteCard({ tripId }: { tripId: string }) {
+function InviteCard({ tripId, fromSetup }: { tripId: string; fromSetup: boolean }) {
   const [role, setRole] = useState<TripRole>('EDITOR');
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -291,7 +293,7 @@ function InviteCard({ tripId }: { tripId: string }) {
             ]}
           />
         </div>
-        <Button onClick={() => void generate()} disabled={loading}>
+        <Button onClick={() => void generate()} disabled={loading} autoFocus={fromSetup}>
           {link ? 'New link' : 'Create invite link'}
         </Button>
       </div>
@@ -311,6 +313,14 @@ function InviteCard({ tripId }: { tripId: string }) {
             </Button>
           </span>
         </label>
+      )}
+      {link && fromSetup && (
+        <Link
+          to={`/trips/${tripId}/overview`}
+          className="flex min-h-11 items-center self-start text-sm font-bold"
+        >
+          Back to setup
+        </Link>
       )}
       {error && (
         <p role="alert" className="text-sm text-negative-ink">

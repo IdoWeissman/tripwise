@@ -97,6 +97,8 @@ type Trip {
   settlements: [Settlement!]!
   "The current viewer's role on this trip."
   myRole: TripRole!
+  "First-run setup checklist (bookings, invites, expenses), as the viewer sees it."
+  setup: TripSetup!
   "IANA time zone for the destination, e.g. \"Europe/Lisbon\"."
   timeZone: String!
   bookings: [Booking!]!
@@ -113,6 +115,16 @@ type Trip {
   attachments(limit: Int = 20): [Attachment!]!
   "Private, read-only iCalendar feed (created on first request)."
   calendarUrl: String!
+}
+
+"What a new trip still needs. Shown to the owner on Today until done or hidden."
+type TripSetup {
+  hasBookings: Boolean!
+  "Someone else has joined, or the viewer has created an invite link."
+  hasInvited: Boolean!
+  hasExpenses: Boolean!
+  "The viewer hid the checklist."
+  hidden: Boolean!
 }
 
 type BookingStats {
@@ -498,6 +510,8 @@ type Mutation {
   addExpense(input: AddExpenseInput!): Expense!
   "Payer or owner."
   deleteExpense(id: ID!): Boolean!
+  "Hides the setup checklist for the viewer on this trip."
+  hideTripSetup(tripId: ID!): Trip!
   "Owner only. Returns a signed invite token (valid 7 days)."
   createInviteLink(tripId: ID!, role: TripRole!): String!
   joinTrip(token: String!): Trip!
