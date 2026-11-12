@@ -37,3 +37,9 @@ qa-output/
 
 # Eval reports (regenerated on every run)
 apps/api/evals/*/report*.md
+
+# Claude Code personal settings (local permissions)
+.claude/settings.local.json
+
+# Impeccable: binary downloaded per machine on first run
+**/skills/impeccable/scripts/bin/
