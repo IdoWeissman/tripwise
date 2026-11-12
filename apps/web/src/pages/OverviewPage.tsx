@@ -16,7 +16,7 @@ import {
   localDay,
   localTime,
 } from '../lib/bookings';
-import { formatMoney, toNumber } from '../lib/format';
+import { formatMoney, todayIn, toNumber } from '../lib/format';
 import { useTrip } from '../lib/trip';
 
 const TripOverviewDocument = graphql(`
@@ -99,15 +99,6 @@ const DayAgendaDocument = graphql(`
 
 type Overview = NonNullable<TripOverviewQuery['trip']>;
 type Agenda = NonNullable<DayAgendaQuery['trip']>['agenda'];
-
-/** "YYYY-MM-DD" for now in the destination's time zone. */
-function todayIn(timeZone: string) {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
-  } catch {
-    return new Date().toISOString().slice(0, 10);
-  }
-}
 
 function greeting(timeZone: string) {
   let hour = new Date().getHours();

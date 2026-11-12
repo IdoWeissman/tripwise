@@ -39,7 +39,7 @@ export function Segmented<T extends string>({
             aria-selected={isTabs ? selected : undefined}
             aria-checked={isTabs ? undefined : selected}
             onClick={() => onChange(o.value)}
-            className={`min-h-10 flex-1 rounded-control px-3.5 text-sm whitespace-nowrap ${
+            className={`min-h-11 flex-1 rounded-control px-3.5 text-sm whitespace-nowrap ${
               selected
                 ? 'bg-surface font-semibold text-ink shadow-segment'
                 : 'font-medium text-ink-secondary'

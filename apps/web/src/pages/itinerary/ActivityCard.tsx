@@ -58,14 +58,17 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
           </span>
         </span>
         <span title={`Added by ${a.createdBy.name}`} className="shrink-0">
-          <Avatar name={a.createdBy.name} index={avatarIndex} size="sm" />
+          <span className="sr-only">Added by {a.createdBy.name}</span>
+          <span aria-hidden="true">
+            <Avatar name={a.createdBy.name} index={avatarIndex} size="sm" />
+          </span>
         </span>
       </div>
       {a.booking && booked && (
         <Link
           to={`../bookings/${a.booking.id}`}
           relative="path"
-          className="mt-1 flex min-h-11 items-center gap-2 rounded-control bg-surface-muted px-2.5 text-xs font-semibold text-ink-secondary no-underline hover:bg-border hover:text-ink"
+          className="mt-1 flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface px-2.5 text-xs font-semibold text-ink-secondary no-underline hover:bg-surface-muted hover:text-ink"
         >
           <span className={`rounded-chip px-1.5 py-0.5 tracking-[0.04em] ${booked.chip}`}>
             <span className="sr-only">{booked.label} </span>

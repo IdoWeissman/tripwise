@@ -32,6 +32,22 @@ export function currencySymbol(currency = 'EUR'): string {
   }
 }
 
+/** "YYYY-MM-DD" right now at the destination (falls back to UTC for an unknown zone). */
+export function todayIn(timeZone: string, now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
+  } catch {
+    return now.toISOString().slice(0, 10);
+  }
+}
+
+/** "Sun 16" — compact day label for pickers. */
+export function formatDayShort(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(d);
+  return `${weekday} ${d.getUTCDate()}`;
+}
+
 /** "Fri, May 14" */
 export function formatDay(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {

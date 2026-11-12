@@ -65,7 +65,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Primary button**: accent background, white text, 44px tall (48–52 on mobile primary actions). Max **one** primary button per view region. Disabled: `accent-tint-border` background with `accent-deep` text (stays readable; never faded white-on-teal).
 - **Secondary button**: white, `border-input` border, text color.
 - **Destructive**: text-only in `color.negative`, always requires confirmation.
-- **Segmented control / tabs**: muted track, selected segment white with a subtle shadow; uses `role="tablist"`/`role="radiogroup"` correctly.
+- **Segmented control / tabs**: muted track, 44px segments, selected segment white with a subtle shadow; uses `role="tablist"`/`role="radiogroup"` correctly.
 - **Avatar**: circle, initial, member palette, 2px white ring when stacked (−8px overlap). Tooltip/title with full name.
 - **Live indicator**: 8px `color.live` dot + "Live" in `accent-strong` while the subscription is connected; grey dot + "Reconnecting…" otherwise. (Per-person presence is planned; until then never show an "N online" count.)
 - **Never use native `<select>`, `type="date"` or `type="time"` inputs** — their look differs per browser. Use the shared components:
@@ -133,17 +133,21 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 ### 03 · Itinerary board
 
-- One column per day (272px), horizontally scrollable; header shows `Day N` + date.
+- One column per day (272px), horizontally scrollable with 32px trailing space; header shows `Day N` + date. When the board overflows, **Earlier days / Later days** (44px icon buttons) and a **Today** jump (during the trip) sit above it, right-aligned.
+- **Today** (destination time): its column gets an `accent-tint-border` outline and a "Today" pill in the header, and the board opens scrolled to it. Never colour alone — the pill carries the word.
+- **Time order**: a day reads top to bottom in time. The stay strip is pinned first; then timed bookings and timed activities interleave by time (a booking first at the same minute); then activities without a time in their saved order; then bookings still missing a time. Dragging moves an activity to another day; only untimed activities can be reordered within a day.
+- A multi-leg booking shows the leg that belongs to the day (departing that day, else arriving), so a round trip's return day shows the return flight.
 - Activity card: same density as the booking cards (12px padding, 14px title): time (accent), title, one meta line (location · cost pp), "added by" avatar, drag handle (`aria-label="Drag to move"`).
-- **One event, one card.** A scheduled plan that stands for a booking (the API's `Activity.booking`: same day, same or no time, and the booking's name or place in the plan, or a check-in plan on the stay's first day) carries a 44px **Booked** row (type chip + code) linking to the booking, and that booking's own card is not shown. If it covers the stay check-in, the stay strip reads "Night 1 of N".
+- **One event, one card.** A scheduled plan that stands for a booking (the API's `Activity.booking`: same day, same or no time, and the booking's name or place in the plan, or a check-in plan on the stay's first day) carries a 44px **Booked** row (white with a `border` hairline so every type chip stays visible; type chip + code) linking to the booking, and that booking's own card is not shown. If it covers the stay check-in, the stay strip reads "Night 1 of N".
 - Mobile day header counts every card: "2 bookings · 3 activities".
 - Dragging: card tilts −1.5°, accent border + shadow; target shows a dashed accent "Drop here" slot.
-- Reordering must also be possible with the keyboard: focus the drag handle, Space to pick up, arrows to move (also across days), Space to drop, Esc to cancel.
+- Reordering must also be possible with the keyboard: focus the drag handle, Space to pick up, arrows to move (also across days), Space to drop, Esc to cancel. Screen readers hear it in the user's terms — "Picked up Dinner at Taberna da Rua. Day 1, Fri, May 14, position 2 of 2", "… is over Day 3, Sun, May 16", "Dropped …", "Cancelled. … is back on Day 1" — never ids; the instructions say that time sets the order within a day.
 - Moves are optimistic; on failure the board snaps back and an error toast explains why.
-- Each column ends with an "Add activity" ghost button (adds straight to that day). Empty days keep the column visible with a dashed "Nothing planned yet" hint.
+- Each column ends with an "Add activity" ghost button (44px; adds straight to that day). Empty days keep the column visible with a dashed "Nothing planned yet" hint — a stay strip alone doesn't count as planned.
+- States: the loading skeleton is card-shaped (column with header, strip and two cards); the error state keeps the page header; a trip without days explains why and links to Proposals.
 - Scheduled activities without a day appear in a leading **Unplanned** column, only when there are any.
 - A Board / Map view toggle will live in the page header once the map view exists.
-- **Bookings on the board** sit above the day's activities and are read-only (edit them on the booking): a teal **stay strip** (`STAY` · "Check-in 14:00 · …", "Night 2 of 5 · …", "Check-out 11:00 · …") and compact booking cards (type code chip, time range, route or title, number · reference). Both link to the booking. A booking that needs details gets the attention border and "Time missing". A day with bookings but no activities drops the "Nothing planned yet" hint.
+- **Bookings on the board** take their place in the day's time order and are read-only (edit them on the booking): a teal **stay strip** (`STAY` · "Check-in 14:00 · …", "Night 2 of 5 · …", "Check-out 11:00 · …") and compact booking cards (type code chip, time range, route or title, number · reference). Both link to the booking. A booking that needs details gets the attention border and "Time missing". A day with bookings but no activities drops the "Nothing planned yet" hint.
 
 ### 04 · Proposals & voting
 
@@ -242,7 +246,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 ### M1–M4 · Mobile
 
 - **Tab bar**: five tabs — Today, Plan, Bookings, Vote, Money. Members moves to a 44px People button beside the trip name. Bookings and Vote show a dot when something needs attention (labelled for screen readers).
-- **Itinerary**: trip name + live indicator, then a horizontally scrolling day picker (segmented control). One day's activities at a time, as a vertical list. Touch replaces drag with a per-card **Move to…** select (44px).
+- **Itinerary**: trip name + live indicator, then a horizontally scrolling day picker (segmented control, 44px) labelled with dates ("Day 3 · Sun 16"; "Today · Sun 16" during the trip). Opens on today while the trip is on, and scrolls the chosen day into view. One day at a time, in the same time order as the board. Touch replaces drag with a per-card **Move to…** select (44px, full-size); the subtitle explains it.
 - **Proposals**: compact cards, 3-segment vote meter, full-width-row "Vote / Voted" button on the right.
 - **Expenses**: balance hero card at top (accent-tint), then Settle up, then Recent. "+ Expense" primary in header.
 - **Add expense**: full-screen form; big centered amount input with the currency symbol (decimal keyboard); description, paid by, category and **Date** (defaults to today at the destination). The split starts as one summary row ("Split equally, everyone" · "€12.50 each · 4 people" + **Change**); **Change** reveals the split method as a 3-way segmented control (Equally / Percent / Exact) with per-person shares that update live and a validation hint that confirms shares add up to the total. Sticky bottom "Save expense" button.

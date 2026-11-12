@@ -8,7 +8,7 @@ import { SelectField, TextField } from '../../components/Fields';
 import { Segmented } from '../../components/Segmented';
 import type { SplitMethod } from '../../gql/graphql';
 import { messageFromError } from '../../lib/errors';
-import { currencySymbol, formatMoney } from '../../lib/format';
+import { currencySymbol, formatMoney, todayIn } from '../../lib/format';
 import { centsToDecimal, equalShares, parseCents } from '../../lib/money';
 import { useTrip } from '../../lib/trip';
 import { AddExpenseDocument } from './queries';
@@ -19,15 +19,6 @@ const METHODS: { value: SplitMethod; label: string }[] = [
   { value: 'PERCENT', label: 'Percent' },
   { value: 'EXACT', label: 'Exact' },
 ];
-
-/** "YYYY-MM-DD" today at the destination, so a late-night expense lands on the trip's day. */
-function todayIn(timeZone: string) {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
-  } catch {
-    return new Date().toISOString().slice(0, 10);
-  }
-}
 
 /** M4 · Add expense — big amount, split method, live per-person shares and validation hint. */
 export function AddExpenseDialog({

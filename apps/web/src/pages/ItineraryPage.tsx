@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@apollo/client/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '../components/Bits';
 import { PlusIcon } from '../components/Icons';
@@ -8,20 +8,21 @@ import { Select } from '../components/Select';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { messageFromError } from '../lib/errors';
-import { formatDay } from '../lib/format';
+import { formatDay, formatDayShort, todayIn } from '../lib/format';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 import { useIsDesktop } from '../lib/useMediaQuery';
+import { ActivityCard } from './itinerary/ActivityCard';
 import { AddActivityDialog } from './itinerary/AddActivityDialog';
 import { standaloneBookings } from './itinerary/bookedPlans';
-import { DayBookings } from './itinerary/DayBookings';
-import { ActivityCard } from './itinerary/ActivityCard';
 import { Board, type Column } from './itinerary/Board';
+import { BookingCard, StayStrip } from './itinerary/DayBookings';
 import {
   ItineraryDocument,
   MoveActivityDocument,
   UNPLANNED,
   type ItineraryActivity,
 } from './itinerary/queries';
+import { dayTimeline, orderedActivities } from './itinerary/timeline';
 
 type Items = Record<string, string[]>;
 
@@ -38,6 +39,7 @@ export function ItineraryPage() {
   const [pending, setPending] = useState<Items | null>(null);
   const [adding, setAdding] = useState<Column | null>(null);
   const [mobileDay, setMobileDay] = useState<string | null>(null);
+  const today = todayIn(trip.timeZone);
 
   const { columns, serverItems, byId } = useMemo(() => {
     const t = data?.trip;
@@ -45,22 +47,32 @@ export function ItineraryPage() {
     const serverItems: Items = {};
     const columns: Column[] = [];
     if (!t) return { columns, serverItems, byId };
+    const timeOf = (id: string) => byId.get(id)?.startTime;
     if (t.unplannedActivities.length) {
       columns.push({ id: UNPLANNED, label: 'Unplanned', sublabel: 'No day yet' });
-      serverItems[UNPLANNED] = t.unplannedActivities.map((a) => (byId.set(a.id, a), a.id));
+      t.unplannedActivities.forEach((a) => byId.set(a.id, a));
+      serverItems[UNPLANNED] = orderedActivities(
+        t.unplannedActivities.map((a) => a.id),
+        timeOf,
+      );
     }
     for (const d of t.days) {
       columns.push({
         id: d.id,
         label: `Day ${d.position + 1}`,
         sublabel: formatDay(d.date),
-        extra: d.stay || standaloneBookings(d).length ? <DayBookings day={d} /> : undefined,
-        bookings: standaloneBookings(d).length,
+        day: d,
+        isToday: d.date.slice(0, 10) === today,
       });
-      serverItems[d.id] = d.activities.map((a) => (byId.set(a.id, a), a.id));
+      d.activities.forEach((a) => byId.set(a.id, a));
+      // Kept in the order the day shows them (time first), so drag positions line up.
+      serverItems[d.id] = orderedActivities(
+        d.activities.map((a) => a.id),
+        timeOf,
+      );
     }
     return { columns, serverItems, byId };
-  }, [data]);
+  }, [data, today]);
 
   const items = pending ?? serverItems;
 
@@ -75,14 +87,21 @@ export function ItineraryPage() {
       setPending(null);
     } catch (err) {
       setPending(null); // snap back to the server's order
-      toast(messageFromError(err, "Couldn't move that activity."), 'error');
+      toast(
+        messageFromError(err, "Couldn't move that activity — it's back where it was."),
+        'error',
+      );
     }
   };
 
   const header = (
     <PageHeader
       title="Itinerary"
-      subtitle={isDesktop ? 'Drag activities to reorder or move them between days.' : undefined}
+      subtitle={
+        isDesktop
+          ? 'Each day runs in time order. Drag an activity to another day; ones without a time can be reordered.'
+          : 'Each day runs in time order. Use Move to for another day.'
+      }
       actions={
         canEdit && (
           <Link
@@ -99,25 +118,54 @@ export function ItineraryPage() {
 
   if (loading && !data) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6" aria-busy="true">
         {header}
         <div className="flex gap-4 overflow-hidden">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-80 w-[272px] flex-none" />
+          {Array.from({ length: isDesktop ? 4 : 1 }, (_, i) => (
+            <div
+              key={i}
+              className="flex w-full flex-none flex-col gap-2.5 rounded-card bg-surface-column p-3 md:w-68"
+            >
+              <Skeleton className="h-6 w-24 rounded-control" />
+              <Skeleton className="h-11 rounded-control" />
+              <Skeleton className="h-23 rounded-xl" />
+              <Skeleton className="h-23 rounded-xl" />
+            </div>
           ))}
         </div>
       </div>
     );
   }
   if (error)
-    return <ErrorState message="We couldn't load the itinerary." onRetry={() => void refetch()} />;
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <ErrorState message="We couldn't load the itinerary." onRetry={() => void refetch()} />
+      </div>
+    );
   if (columns.length === 0)
-    return <EmptyState title="No days yet" body="This trip has no dates." />;
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <EmptyState
+          title="No days yet"
+          body="This trip has no dates, so there's nothing to lay out by day. Ideas can still be proposed and voted on."
+          action={
+            <Link to="../proposals" className="flex min-h-11 items-center text-sm font-semibold">
+              Go to proposals
+            </Link>
+          }
+        />
+      </div>
+    );
 
+  // Phones open on today while the trip is on, otherwise on the first day.
   const selectedDay =
     mobileDay && items[mobileDay]
       ? mobileDay
-      : (columns.find((c) => c.id !== UNPLANNED)?.id ?? columns[0]!.id);
+      : (columns.find((c) => c.isToday)?.id ??
+        columns.find((c) => c.id !== UNPLANNED)?.id ??
+        columns[0]!.id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,6 +242,10 @@ function dayCount(activities: number, bookings: number) {
     .join(' · ');
 }
 
+/** Picker label: "Today · Sun 16" or "Day 3 · Sun 16" — the date is always visible. */
+const pickerLabel = (c: Column) =>
+  !c.day ? 'Unplanned' : `${c.isToday ? 'Today' : c.label} · ${formatDayShort(c.day.date)}`;
+
 /** M1 — one day at a time with a day picker; "Move to" replaces drag on touch. */
 function MobileDayList({
   columns,
@@ -208,60 +260,71 @@ function MobileDayList({
   onAdd,
 }: MobileProps) {
   const column = columns.find((c) => c.id === selected)!;
-  const list = items[selected] ?? [];
+  const date = column.day?.date.slice(0, 10) ?? '';
+  const bookings = column.day ? standaloneBookings(column.day) : [];
+  const ids = items[selected] ?? [];
+  const entries = dayTimeline(ids, (id) => byId.get(id)?.startTime, bookings, date);
+
+  // Keep the chosen day visible in the scrolling picker (e.g. today on Day 5).
+  const picker = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    picker.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [selected]);
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative -mx-4 overflow-x-auto px-4 pb-1">
+      <div ref={picker} className="relative -mx-4 overflow-x-auto px-4 pb-1">
         <Segmented
           label="Day"
           value={selected}
           onChange={onSelect}
-          options={columns.map((c) => ({
-            value: c.id,
-            label: c.id === UNPLANNED ? 'Unplanned' : c.label,
-          }))}
+          options={columns.map((c) => ({ value: c.id, label: pickerLabel(c) }))}
           className="w-max"
         />
       </div>
-      <div className="flex items-baseline justify-between">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <h2 className="text-xl font-bold">
           {column.label} · {column.sublabel}
+          {column.isToday && <span className="sr-only">, today</span>}
         </h2>
-        <span className="text-[13px] text-ink-muted">
-          {dayCount(list.length, column.bookings ?? 0)}
-        </span>
+        <span className="text-[13px] text-ink-muted">{dayCount(ids.length, bookings.length)}</span>
       </div>
-      {column.extra}
-      {list.length === 0 && !column.extra && (
+      {column.day && <StayStrip day={column.day} />}
+      {ids.length === 0 && bookings.length === 0 && (
         <EmptyState
           title="Nothing planned yet"
           body="Add an activity or propose an idea for the group to vote on."
         />
       )}
-      {list.map((id) => {
-        const a = byId.get(id);
+      {entries.map((e) => {
+        if (e.kind === 'booking')
+          return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
+        const a = byId.get(e.id);
         if (!a) return null;
         return (
           <ActivityCard
-            key={id}
+            key={e.id}
             activity={a}
             currency={currency}
             avatarIndex={avatarIndex(a.createdBy.id)}
             control={
               canEdit && (
-                <Select
-                  size="sm"
-                  aria-label={`Move ${a.title} to another day`}
-                  placeholder="Move to…"
-                  value={undefined}
-                  onValueChange={(col) => onMove(id, col)}
-                  options={columns
-                    .filter((c) => c.id !== selected)
-                    .map((c) => ({
-                      value: c.id,
-                      label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
-                    }))}
-                />
+                <span className="w-36">
+                  <Select
+                    aria-label={`Move ${a.title} to another day`}
+                    placeholder="Move to…"
+                    value={undefined}
+                    onValueChange={(col) => onMove(e.id, col)}
+                    options={columns
+                      .filter((c) => c.id !== selected)
+                      .map((c) => ({
+                        value: c.id,
+                        label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
+                      }))}
+                  />
+                </span>
               )
             }
           />
