@@ -294,6 +294,72 @@ export function groupByDay<T extends WhenLike>(items: T[]): { date: string | nul
   return groups;
 }
 
+/**
+ * One timetable row: a booking, or one leg of a multi-leg flight/train. A round trip shows its
+ * return under the day it departs, and each leg is done on its own.
+ */
+export interface BookingRow<T> {
+  key: string;
+  booking: T;
+  leg: T extends { segments: (infer S)[] } ? S | null : null;
+  /** 1-based leg number, and how many legs the booking has (0 when it has none). */
+  legNo: number;
+  legCount: number;
+  start: string | null;
+  /** When the row is over: the leg's arrival, the booking's end, or else its start. */
+  end: string | null;
+}
+
+export function bookingRows<
+  T extends WhenLike & {
+    id: string;
+    segments: { departLocal: string; arriveLocal?: string | null }[];
+  },
+>(items: T[]): BookingRow<T>[] {
+  const rows: BookingRow<T>[] = [];
+  for (const b of items) {
+    if (b.segments.length > 1) {
+      b.segments.forEach((leg, i) =>
+        rows.push({
+          key: `${b.id}:${i}`,
+          booking: b,
+          leg: leg as BookingRow<T>['leg'],
+          legNo: i + 1,
+          legCount: b.segments.length,
+          start: leg.departLocal,
+          end: leg.arriveLocal ?? leg.departLocal,
+        }),
+      );
+    } else {
+      const leg = b.segments[0] ?? null;
+      rows.push({
+        key: b.id,
+        booking: b,
+        leg: leg as BookingRow<T>['leg'],
+        legNo: leg ? 1 : 0,
+        legCount: b.segments.length,
+        start: startOf(b),
+        end: leg ? (leg.arriveLocal ?? leg.departLocal) : (b.endLocal ?? b.startLocal ?? null),
+      });
+    }
+  }
+  return rows.sort((a, b) => (a.start ?? '￿').localeCompare(b.start ?? '￿'));
+}
+
+/** Rows grouped by the local day they start, in time order; undated ones last. */
+export function groupRowsByDay<R extends { start: string | null }>(
+  rows: R[],
+): { date: string | null; items: R[] }[] {
+  const groups: { date: string | null; items: R[] }[] = [];
+  for (const row of rows) {
+    const date = row.start?.slice(0, 10) ?? null;
+    const last = groups.at(-1);
+    if (last && last.date === date) last.items.push(row);
+    else groups.push({ date, items: [row] });
+  }
+  return groups;
+}
+
 /** "€1,248.00" — price is a decimal string from the API. */
 export function bookingPrice(
   price: string | null | undefined,

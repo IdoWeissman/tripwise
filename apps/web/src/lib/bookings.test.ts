@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bookingPrice,
   directions,
+  bookingRows,
   bookingWhen,
   countdown,
   dayHeading,
@@ -9,6 +10,7 @@ import {
   duration,
   fileExt,
   groupByDay,
+  groupRowsByDay,
   localDayTime,
 } from './bookings';
 
@@ -57,6 +59,31 @@ describe('booking cards', () => {
     expect(groups.map((g) => g.date)).toEqual(['2027-05-16', '2027-05-19', null]);
     expect(dayHeading('2027-05-16', '2027-05-14', '2027-05-19')).toBe('Sun, May 16 · Day 3');
     expect(dayHeading('2027-05-21', '2027-05-14', '2027-05-19')).toBe('Fri, May 21');
+  });
+  it('splits multi-leg bookings into one row per leg, each on its own day', () => {
+    const roundTrip = {
+      id: 'f1',
+      type: 'FLIGHT' as const,
+      segments: [
+        { departLocal: '2027-05-14T06:10', arriveLocal: '2027-05-14T10:05' },
+        { departLocal: '2027-05-19T17:40', arriveLocal: '2027-05-20T00:25' },
+      ],
+    };
+    const show = { id: 's1', type: 'EVENT' as const, startLocal: '2027-05-16T20:00', segments: [] };
+    const undated = { id: 'o1', type: 'OTHER' as const, segments: [] };
+    const rows = bookingRows([undated, roundTrip, show]);
+    expect(rows.map((r) => [r.key, r.legNo, r.legCount, r.end])).toEqual([
+      ['f1:0', 1, 2, '2027-05-14T10:05'],
+      ['s1', 0, 0, '2027-05-16T20:00'],
+      ['f1:1', 2, 2, '2027-05-20T00:25'],
+      ['o1', 0, 0, null],
+    ]);
+    expect(groupRowsByDay(rows).map((g) => [g.date, g.items.length])).toEqual([
+      ['2027-05-14', 1],
+      ['2027-05-16', 1],
+      ['2027-05-19', 1],
+      [null, 1],
+    ]);
   });
   it('formats prices', () => {
     expect(bookingPrice('1248', 'EUR')).toBe('€1,248.00');

@@ -183,6 +183,7 @@ The system is dense and typographic rather than decorative. Times and amounts ar
 Every section owns one hue at full strength on its own sign: Plan blue for itinerary and bookings, Vote violet for proposals, Money green for expenses. State is carried by form as well as colour: a confirmed booking is a solid chip, an unbooked plan is dashed, a departed row is struck through and muted, the next row lifts.
 
 **Key Characteristics:**
+
 - Enamel blue sign rail (desktop) or sign header plus white bottom tab bar (phones), never both.
 - Signal yellow only for now / next / you-are-here.
 - One family, Archivo, using its width axis: narrow tabular figures for times, amounts, counts and codes.
@@ -195,15 +196,18 @@ Every section owns one hue at full strength on its own sign: Plan blue for itine
 A cool, institutional palette: one deep enamel blue carrying structure, one rationed yellow, three section hues, and a red that means money owed or danger.
 
 ### Primary
+
 - **Enamel Sign Blue** (sign): the rail, the phone and account headers, the departure board, primary buttons, filter pills when active, the selected calendar day, toasts. It is the system's structure, not an accent.
 - **Raised Sign Blue** (sign-raised): the active rail item, buttons that sit on the sign (Ask, People), primary hover.
 - **Sign Mist** (sign-ink-soft): secondary text on the sign (7.8:1 on sign blue). The only non-white text colour allowed on the sign.
 
 ### Secondary
+
 - **Signal Yellow** (signal): the you-are-here bar on the rail and tab bar, the departure time on the board, the countdown, the Next pill, the logo plate, text selection. Never a fill for large areas.
 - **Signal Cream / Signal Umber** (signal-tint / signal-ink): the phone reminder strip and its bell.
 
 ### Tertiary
+
 - **Plan Blue** (accent): links, focus rings, the caret, progress fills, the Plan section mark. With **Plan Ink** (accent-strong) on **Plan Tint** (accent-tint) it forms every booking type chip and the lifted Next time in the timetable.
 - **Vote Violet** (vote / vote-tint): the Proposals section only: its primary and Vote buttons, open-ideas count.
 - **Money Green** (money / money-tint): the Expenses section only: the balance panel when you are owed or settled, positive balances.
@@ -211,6 +215,7 @@ A cool, institutional palette: one deep enamel blue carrying structure, one rati
 - **Live Green** (live): the connection dot on the sign. Never text.
 
 ### Neutral
+
 - **Platform Grey** (bg): the app ground.
 - **Sign Panel White** (surface): panels, the timetable, dialogs, the bottom tab bar, inputs.
 - **Track Grey / Column Grey** (surface-muted / surface-column): segmented-control tracks, neutral code chips, skeletons / itinerary day columns.
@@ -220,6 +225,7 @@ A cool, institutional palette: one deep enamel blue carrying structure, one rati
 - **Alert Blush / Alert Rust / Alert Wash** (attention / attention-ink / tint-orange): missing-details alerts, invalid fields, destructive hover.
 
 ### Named Rules
+
 **The Rationed Yellow Rule.** Signal yellow marks only now, next and you-are-here. If a screen has more than a handful of yellow marks, it has become a construction site.
 
 **The One Hue Per Section Rule.** A section's hue lives on that section's sign and never decorates another section. Booking chips are always Plan blue; the 3–5 letter code names the type, not a colour.
@@ -235,17 +241,19 @@ A cool, institutional palette: one deep enamel blue carrying structure, one rati
 **Character:** A grotesque that can narrow itself. Headings run heavy (800) and tight; times and amounts drop to 82% width with tabular figures, so a column of departures reads like a printed board.
 
 ### Hierarchy
+
 - **Board time** (800, 44px phone / 56px desktop, line-height 1, figures): the next departure on the departure board, in signal yellow.
 - **Display** (800, 44px phone / 48px desktop, 1.1, -0.02em, figures): the balance amount.
 - **Headline** (800, 26px phone / 34px desktop, -0.02em): page H1 and the greeting.
 - **Board route** (800, 22px phone / 26px desktop, -0.01em): the route on the departure board.
-- **Timetable time** (800, 22px, figures): times on timetable rows and booking cards, prices on booking cards.
+- **Timetable time** (800, 22px, figures): times on timetable rows (Today and Bookings).
 - **Title** (800, 16–18px): panel headings and row titles (row titles at 700).
 - **Body** (400–500, 14–15px): UI and body copy; buttons at 15px 700.
 - **Meta** (400, 13px): captions and meta lines under titles.
 - **Label** (800, 12px, 0.06em): type-chip codes (FLT, STAY, SHOW, PLAN). Minimum text size; 11px only for avatar initials.
 
 ### Named Rules
+
 **The Timetable Figures Rule.** Every time, amount, count and code uses the `figures` treatment (tabular numerals, 82% width). Importance is a size ramp: the figure is big, its label is small.
 
 **The Codes Are Data Rule.** Confirmation codes sit on a white plate in monospace with wide tracking (0.1em), never in body type.
@@ -263,11 +271,13 @@ The Today screen is a two-column grid at `lg`: the main column (departure board,
 Flat. Depth is conveyed by colour fields (blue sign on grey ground, white panels on grey) and hairlines. Shadows exist only for transient states.
 
 ### Shadow Vocabulary
+
 - **Segment** (`box-shadow: 0 1px 2px rgb(17 20 24 / 0.08)`): the selected segment in a segmented control.
 - **Lifted** (`box-shadow: 0 12px 24px rgb(11 42 111 / 0.2)`): an item being dragged on the itinerary board.
 - **Popover** (`box-shadow: 0 8px 24px rgb(17 20 24 / 0.14)`): select menus, date pickers, the skip link.
 
 ### Named Rules
+
 **The Colour Fields Not Shadows Rule.** A panel at rest has no shadow. If it needs to stand out, it moves onto the sign or a section hue.
 
 ## Shapes
@@ -277,7 +287,9 @@ Three corners and a pill: 4px for chips and code plates, 8px for controls (butto
 ## Components
 
 ### Buttons
+
 Sign-board solid and plain-spoken: verbs in sentence case, 15px bold.
+
 - **Shape:** gently squared (8px), 44px minimum height, 20px horizontal padding, 8px icon gap.
 - **Primary:** sign blue with white text; one per region. Disabled stays readable: deep blue text on the pale blue tint-border fill, never faded.
 - **Hover / Focus:** primary to raised sign blue; colour transition only. Focus is a 2px Plan blue outline offset 2px everywhere.
@@ -288,11 +300,13 @@ Sign-board solid and plain-spoken: verbs in sentence case, 15px bold.
 - **On the sign:** the Ask and People buttons are raised sign blue; when open they invert to white with sign-blue text.
 
 ### Chips
+
 - **Type chip:** Plan tint with Plan ink, 4px corners, 28px tall in the timetable, 12px 800 code with 0.06em tracking (FLT, STAY, SHOW, SIGHT, TOUR, RAIL, FOOD, MISC, IN, OUT). The label is screen-reader text; the code is visual.
 - **Unbooked plan:** the same chip as a 1.5px dashed Meta Ink outline reading PLAN.
 - **Next pill:** signal yellow, sign-blue text, full round, 12px 800.
 
 ### Cards / Containers
+
 - **Corner Style:** 12px.
 - **Background:** white panels on Platform Grey; the sign and section hues for boards that carry the screen's main fact.
 - **Shadow Strategy:** none at rest (see Elevation & Depth).
@@ -300,27 +314,33 @@ Sign-board solid and plain-spoken: verbs in sentence case, 15px bold.
 - **Internal Padding:** 20px phone / 24px desktop horizontally, 12–20px vertically.
 
 ### Inputs / Fields
+
 - **Style:** white, 1px input edge, 8px corners, 44px tall, 12px padding, 14px text; label above at 14px 600.
 - **Focus:** the global 2px Plan blue outline.
 - **Error:** border turns Owed Red, message below in Owed Red ink at 13px. Native select, date and time inputs are replaced by the shared Select, Date and Time fields.
 
 ### Navigation
+
 - **Rail (desktop):** 15px items, 44px tall, 8px corners; each has a 14px section mark square and an optional white count badge. Inactive items are white at 85% and wash white/10 on hover; the active item is raised sign blue, bold, with a 5px signal-yellow you-are-here bar on the rail's left edge.
 - **Bottom tab bar (phones):** white, hairline top edge, five tabs at 56px with 22px icons and 12px labels. Active is sign blue bold with a 4px signal-yellow bar along its top; needs-attention shows a 10px Owed Red dot with a white ring.
 - **Segmented control:** Track Grey track with 4px inset, 44px segments; selected segment white with the Segment shadow.
 
 ### Departure Board
+
 The signature. A sign-blue panel in three strips separated by white/15 hairlines. Header: "Up next · Type" in Sign Mist on the left, the countdown in signal yellow on the right (13px bold). Row: board time in yellow, the route in white with a Sign Mist meta line, the confirmation code on a white plate with a copy button, and Leave by (flights) as a 26–28px figure. Footer: white text links (Details, Directions, Manage) that turn yellow on hover. When the next departure changes, the row turns over with the flap-in motion (320ms, `cubic-bezier(0.2, 0.8, 0.2, 1)`, a short vertical slide with a slight X-rotation, no bounce), behind `motion-safe`.
 
 ### Timetable
+
 One white panel, never a stack of cards. Each row is a three-column grid (time 64/88px, chip 56/64px, title) at 64px minimum height, separated by hairlines. The next timed row lifts (time in Plan ink, yellow Next pill); departed rows are muted and struck through. Booked rows link to their booking and wash Platform Grey on hover.
 
 ### Balance Panel
+
 A Money-green panel (Owed Red ink when you owe) with a 15px bold label, the signed balance at display size in white figures, and a white/90 summary line. The whole panel is one link to Expenses.
 
 ## Do's and Don'ts
 
 ### Do:
+
 - **Do** set every time, amount, count and code in the figures treatment, and make the figure bigger than its label.
 - **Do** keep signal yellow to now, next, you-are-here, the logo plate and text selection.
 - **Do** show state with form as well as colour: solid booked, dashed unbooked, struck done, lifted next.
@@ -329,6 +349,7 @@ A Money-green panel (Owed Red ink when you owe) with a 15px bold label, the sign
 - **Do** keep motion short and mechanical (200–320ms, no overshoot) and behind `motion-safe`.
 
 ### Don't:
+
 - **Don't** use a section hue outside its section, or colour a booking chip by type.
 - **Don't** use shadows on panels at rest; only Segment, Lifted and Popover exist.
 - **Don't** use gradients, glass, coloured side-stripes on cards, or emoji in UI.

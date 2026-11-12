@@ -114,17 +114,20 @@ export function StatTile({
 export function PageHeader({
   title,
   subtitle,
+  subtitleClassName = '',
   actions,
 }: {
   title: string;
   subtitle?: string;
+  /** e.g. `max-sm:hidden` to keep phones' first screen for content */
+  subtitleClassName?: string;
   actions?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-[26px] font-extrabold tracking-[-0.02em] md:text-[34px]">{title}</h1>
-        {subtitle && <p className="text-sm text-ink-muted">{subtitle}</p>}
+        {subtitle && <p className={`text-sm text-ink-muted ${subtitleClassName}`}>{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-3">{actions}</div>}
     </div>
