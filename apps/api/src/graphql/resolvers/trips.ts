@@ -2,11 +2,21 @@ import type { Resolvers } from '../__generated__/resolvers-types.js';
 import { badInput, forbidden, requireTripRole, requireViewer } from '../errors.js';
 import { isValidZone } from '../../lib/time.js';
 import { publishTripEvent } from '../pubsub.js';
+import { searchPlaces } from '../../places/search.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const tripResolvers: Resolvers = {
   Query: {
+    placeSearch: async (_p, { query }, ctx) => {
+      requireViewer(ctx);
+      try {
+        return await searchPlaces(query);
+      } catch {
+        // Suggestions are a convenience: when the geocoder is down, free text still works.
+        return [];
+      }
+    },
     trips: (_p, _a, ctx) => {
       const userId = requireViewer(ctx);
       return ctx.db.trip.findMany({
@@ -36,6 +46,9 @@ export const tripResolvers: Resolvers = {
       if (end < start) throw badInput('End date must be on or after the start date.');
       const dayCount = Math.round((end.getTime() - start.getTime()) / DAY_MS) + 1;
       if (dayCount > 60) throw badInput('Trips can be at most 60 days long.');
+      const currency = input.currency?.trim().toUpperCase();
+      if (currency && !/^[A-Z]{3}$/.test(currency))
+        throw badInput('Currency must be a 3-letter code.');
 
       return ctx.db.trip.create({
         data: {
@@ -43,7 +56,7 @@ export const tripResolvers: Resolvers = {
           destination: input.destination.trim(),
           startDate: start,
           endDate: end,
-          currency: input.currency ?? 'EUR',
+          currency: currency ?? 'EUR',
           timeZone: input.timeZone && isValidZone(input.timeZone) ? input.timeZone : 'UTC',
           members: { create: { userId, role: 'OWNER' } },
           days: {

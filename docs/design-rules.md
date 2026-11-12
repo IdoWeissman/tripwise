@@ -88,6 +88,7 @@ The visual world is **Platform**: the trip runs like a well-run station. Enamel 
   - **Date field** (`components/DateField.tsx`): "Fri, Nov 20, 2026" trigger with a calendar icon; 44px day cells, selected day = `sign` fill, today bold + underline, days before `min` disabled; Clear / Today footer.
   - **Time field** (`components/TimeField.tsx`): Select of 24h times in 15-minute steps plus "Any time".
   - Menus inside a dialog render inside that dialog (`PortalContainerContext`).
+- **Place field** (`components/PlaceField.tsx`): an ARIA combobox for destinations. Free text always works; from 2 characters it suggests real places (debounced 250ms) through our `placeSearch` query, which asks the Open-Meteo geocoder server-side (the browser never calls it; results cached). Each suggestion: pin · name · region, country · currency, 48px rows, highlight `surface-muted`. Arrows move, Enter picks (never submits), Esc closes. The list sits in the flow under the input (so a dialog body never clips it). States: "Searching…", "No matches — any place works, just type it.", and when the geocoder is down "Suggestions aren't available right now — type the place." A live region announces the count.
 - **Dialog**: native `<dialog>`; full-screen sheet on phones, centred `rounded-card` (440px, or 560px for forms with lists) from `sm` up, as tall as its content up to 90vh with sticky footers; title + 44px close button.
 - **Password field** (`components/PasswordInput.tsx`): show/hide eye button inside the right edge (44px, `aria-label`, `aria-pressed`), never submits.
 - **Confirm dialog**: every destructive action asks first; confirm uses `negative` colours.
@@ -142,7 +143,7 @@ The visual world is **Platform**: the trip runs like a well-run station. Enamel 
 - Card cover is a **trip plate** in `sign`, `sign-raised` or `money` (cycled) with white type — no stock photos unless the user uploads one. The plate carries the trip: the destination (first part, 28px extrabold) and a **day strip** (one tick per trip day; days already lived are yellow, the rest white at 30%) with "N days". The "Happening now" pill is yellow; other status pills are white at 15%.
 - The last grid cell is always the dashed "Plan a new trip" card.
 - Card status pill: Upcoming / Happening now / Past; countdown "in N days" on upcoming trips. Stat line: "N activities · N open votes".
-- **New trip dialog**: name, destination, start/end date (end ≥ start, validated inline), currency. Creating a trip opens its itinerary.
+- **New trip dialog**: the shared **`TripForm`** — name, **destination** (a Place field, §1.5), start/end date (end ≥ start, validated inline), currency. Picking a place sets the trip's time zone (hint: "Times on this trip use Western European Time.") and switches the currency to the one used there, with the hint "Set from Portugal — change it if you'll pay in something else." (choosing a currency yourself clears the hint and is kept). Free text is always accepted; its time zone falls back to the organiser's own. Creating a trip opens it.
 - "Recent activity" feed (planned) shows a Live indicator and max 5 items with relative times.
 
 ### 03 · Itinerary board

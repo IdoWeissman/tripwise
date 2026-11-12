@@ -485,9 +485,27 @@ input AddExpenseInput {
   spentAt: DateTime
 }
 
+"A place someone might travel to — a destination suggestion for the trip form."
+type PlaceSuggestion {
+  name: String!
+  "State / province / region, when it helps tell places apart."
+  region: String
+  country: String!
+  countryCode: String!
+  "Display line, e.g. \"Portland, Oregon, United States\"."
+  label: String!
+  "Value for the Destination field, e.g. \"Lisbon, Portugal\"."
+  destination: String!
+  timeZone: String!
+  "ISO 4217 currency used there, when known."
+  currency: String
+}
+
 type Query {
   me: User
   trips: [Trip!]!
+  "Destination suggestions as you type (signed-in users; at least 2 characters)."
+  placeSearch(query: String!): [PlaceSuggestion!]!
   trip(id: ID!): Trip
   invitePreview(token: String!): InvitePreview
   "The viewer's active (not revoked) AI assistant tokens, newest first."

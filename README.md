@@ -85,6 +85,8 @@ Uploaded confirmations are read in layers, and you review everything before it's
 3. **Text rules** — route titles ("Tel Aviv ⇄ Rome"), labelled totals, travellers, provider and manage-booking link.
 4. **Claude (optional)** — set `ANTHROPIC_API_KEY` and the email, PDF (including scans) or ticket photo is also read by Claude through a strict tool schema. Exact calendar times always win, and anything the model leaves empty is filled from the rules. If the call fails, the rules' result is used. Uploaded content is sent to the Anthropic API only when a key is set.
 
+**Destination search** — the trip form suggests real places as you type. The API asks the free [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api) on the user's behalf (no key; the browser never calls it, so the visitor's IP isn't shared). Only the typed place name is sent. A picked place sets the trip's time zone and currency; free text still works if the service is down.
+
 ### Importer evals
 
 The importer is measured, not just unit-tested: `apps/api/evals/importer/` holds invented confirmations (JSON-LD,
