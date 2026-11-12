@@ -13,6 +13,10 @@ export default tseslint.config(
       'apps/api/src/graphql/__generated__/**',
       'apps/web/src/gql/**',
       '**/qa-output/**',
+      // vendored agent skills (bundled third-party scripts)
+      '.agents/skills/**',
+      '.claude/skills/impeccable/**',
+      '.github/skills/**',
     ],
   },
   js.configs.recommended,

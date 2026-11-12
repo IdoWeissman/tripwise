@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   bookingPrice,
   directions,
+  agendaStates,
+  bookingRows,
   bookingWhen,
   countdown,
   dayHeading,
@@ -9,6 +11,8 @@ import {
   duration,
   fileExt,
   groupByDay,
+  groupRowsByDay,
+  untilTime,
   localDayTime,
 } from './bookings';
 
@@ -23,6 +27,7 @@ describe('booking formatting', () => {
     const now = Date.parse('2027-05-14T01:35:00Z');
     expect(countdown('2027-05-14T03:10:00Z', now)).toBe('in 1 h 35 min');
     expect(countdown('2027-05-20T03:10:00Z', now)).toBe('in 6 days');
+    expect(countdown('2027-05-14T01:00:00Z', now)).toBe('passed');
   });
   it('labels files', () => {
     expect(fileExt('TAP e-ticket.pdf', 'application/pdf')).toBe('PDF');
@@ -57,6 +62,43 @@ describe('booking cards', () => {
     expect(groups.map((g) => g.date)).toEqual(['2027-05-16', '2027-05-19', null]);
     expect(dayHeading('2027-05-16', '2027-05-14', '2027-05-19')).toBe('Sun, May 16 · Day 3');
     expect(dayHeading('2027-05-21', '2027-05-14', '2027-05-19')).toBe('Fri, May 21');
+  });
+  it('splits multi-leg bookings into one row per leg, each on its own day', () => {
+    const roundTrip = {
+      id: 'f1',
+      type: 'FLIGHT' as const,
+      segments: [
+        { departLocal: '2027-05-14T06:10', arriveLocal: '2027-05-14T10:05' },
+        { departLocal: '2027-05-19T17:40', arriveLocal: '2027-05-20T00:25' },
+      ],
+    };
+    const show = { id: 's1', type: 'EVENT' as const, startLocal: '2027-05-16T20:00', segments: [] };
+    const undated = { id: 'o1', type: 'OTHER' as const, segments: [] };
+    const rows = bookingRows([undated, roundTrip, show]);
+    expect(rows.map((r) => [r.key, r.legNo, r.legCount, r.end])).toEqual([
+      ['f1:0', 1, 2, '2027-05-14T10:05'],
+      ['s1', 0, 0, '2027-05-16T20:00'],
+      ['f1:1', 2, 2, '2027-05-20T00:25'],
+      ['o1', 0, 0, null],
+    ]);
+    expect(groupRowsByDay(rows).map((g) => [g.date, g.items.length])).toEqual([
+      ['2027-05-14', 1],
+      ['2027-05-16', 1],
+      ['2027-05-19', 1],
+      [null, 1],
+    ]);
+  });
+  it('reads a day as done / now / next', () => {
+    const times = ['09:00', '09:30', null, '13:00', '20:00'];
+    // 10:00: Pena Palace (09:30) is in progress, not done; lunch is next.
+    expect(agendaStates(times, '10:00')).toEqual(['done', 'now', 'untimed', 'next', 'ahead']);
+    // 21:00: the last item stays in progress for a while, then counts as done.
+    expect(agendaStates(times, '21:00').at(-1)).toBe('now');
+    expect(agendaStates(times, '23:30').at(-1)).toBe('done');
+    expect(agendaStates(times, '08:00')).toEqual(['next', 'ahead', 'untimed', 'ahead', 'ahead']);
+    expect(agendaStates(times, 'past')).toEqual(['done', 'done', 'untimed', 'done', 'done']);
+    expect(untilTime('10:00', '13:00')).toBe('in 3 h');
+    expect(untilTime('12:20', '13:00')).toBe('in 40 min');
   });
   it('formats prices', () => {
     expect(bookingPrice('1248', 'EUR')).toBe('€1,248.00');

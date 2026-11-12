@@ -60,6 +60,11 @@ export const ItineraryDocument = graphql(`
       id
       name
     }
+    booking {
+      id
+      type
+      confirmationCode
+    }
   }
 `);
 

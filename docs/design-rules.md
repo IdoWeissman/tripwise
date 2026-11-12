@@ -9,80 +9,95 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 ## 1. Global rules (apply to all screens)
 
+The visual world is **Platform**: the trip runs like a well-run station. Enamel sign blue carries the navigation and the boards, signal yellow marks only _now / next / you-are-here_, white sign panels sit on a cool grey ground, and every plan reads like a timetable line.
+
 ### 1.1 Design tokens — never hard-code outside the token file
 
-| Token                                   | Value                               | Use                                                      |
-| --------------------------------------- | ----------------------------------- | -------------------------------------------------------- |
-| `color.bg`                              | `#FAFAF8`                           | App background                                           |
-| `color.surface`                         | `#FFFFFF`                           | Cards, header, panels                                    |
-| `color.surface-muted`                   | `#F1F0EC`                           | Segmented controls, chips, day columns (`#F4F3EF`)       |
-| `color.border`                          | `#E7E5E0`                           | Card and divider borders                                 |
-| `color.border-input`                    | `#D6D3CC`                           | Inputs, secondary buttons                                |
-| `color.text`                            | `#1C1B1A`                           | Primary text                                             |
-| `color.text-secondary`                  | `#4A4844`                           | Body copy, inactive nav                                  |
-| `color.text-muted`                      | `#6B6862`                           | Meta text, captions (lowest allowed text color)          |
-| `color.accent`                          | `#0F766E`                           | Primary buttons, active states, positive money           |
-| `color.accent-strong`                   | `#0F5F58`                           | Accent text on tinted backgrounds                        |
-| `color.accent-tint`                     | `#E6F4F1`                           | Highlight surfaces (trip card, "you" rows, balance hero) |
-| `color.accent-tint-border`              | `#C5E5DF`                           | Border of accent-tint tiles                              |
-| `color.accent-deep`                     | `#0B3D39`                           | Headings on accent-tint panels                           |
-| `color.accent-ink-soft`                 | `#33524F`                           | Body text on accent-tint panels                          |
-| `color.tint-blue` / `color.tint-orange` | `#EEF1FC` / `#FDF1E6`               | Trip card covers (with the matching member ink)          |
-| `color.live`                            | `#14B8A6`                           | "Live" connection dot only — never text                  |
-| `color.negative`                        | `#C2410C` (bars) / `#B13A0A` (text) | Money owed, destructive actions                          |
-| `color.attention`                       | `#FCE3CF` bg / `#9A3412` text       | Counters/badges (e.g. open proposals)                    |
+| Token                                                        | Value                                         | Use                                                                                                    |
+| ------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `color.bg`                                                   | `#F2F4F8`                                     | App ground                                                                                             |
+| `color.surface`                                              | `#FFFFFF`                                     | Panels, cards, dialogs, bottom tab bar                                                                 |
+| `color.surface-muted` / `surface-column`                     | `#E9EDF3` / `#EDF0F5`                         | Segmented tracks, neutral chips / itinerary day columns                                                |
+| `color.border` / `border-input`                              | `#DCE1EA` / `#C3CAD6`                         | Hairlines and panel edges / inputs, hovered secondary buttons                                          |
+| `color.ink` / `ink-secondary`                                | `#111418` / `#3A4150`                         | Primary text / body copy                                                                               |
+| `color.ink-muted`                                            | `#5A6272`                                     | Meta text, captions — the lightest text allowed                                                        |
+| `color.sign`                                                 | `#0B2A6F`                                     | The sign: rail, phone header, departure board, primary buttons, trip plates                            |
+| `color.sign-raised`                                          | `#163C8C`                                     | Active rail item, buttons on the sign, primary hover                                                   |
+| `color.sign-ink-soft`                                        | `#B9C6E4`                                     | Secondary text on the sign (7.8:1)                                                                     |
+| `color.signal`                                               | `#FFC917`                                     | **Rationed**: you-are-here bars, the next departure time, the Next pill, Today / Happening now markers |
+| `color.signal-tint` / `signal-ink`                           | `#FFF1C2` / `#7A5300`                         | Reminder strip, Next/Today pill tints                                                                  |
+| `color.accent` (Plan blue)                                   | `#1F5FD1`                                     | Links, focus rings, interactive controls, Itinerary/Bookings section hue                               |
+| `color.accent-strong` / `accent-deep`                        | `#163C8C` / `#0B2A6F`                         | Accent text on tints                                                                                   |
+| `color.accent-tint` / `accent-tint-border`                   | `#E3ECFF` / `#C3D4FA`                         | Every booking type chip, highlights, disabled primary                                                  |
+| `color.vote` / `vote-tint`                                   | `#6B3FD4` / `#EEE6FF`                         | Proposals section hue: Vote buttons, submit, open-ideas count                                          |
+| `color.money` / `money-tint`                                 | `#0B7A54` / `#E1F4EA`                         | Expenses section hue: balance panel, positive balances, "you" settle rows                              |
+| `color.rail-plan` / `rail-book` / `rail-vote` / `rail-money` | `#5B8CF0` / `#7FD0F0` / `#B49CF5` / `#5FD3A3` | Section marks on the blue rail only                                                                    |
+| `color.live`                                                 | `#3DDC97`                                     | "Live" connection dot only — never text                                                                |
+| `color.negative` / `negative-ink`                            | `#D23A1E` / `#B8311A`                         | Money owed (bars / text and owed panels), destructive actions, alert dots                              |
+| `color.attention` / `attention-ink`                          | `#FDE2DA` / `#9E2A12`                         | Missing-details alerts                                                                                 |
+| `color.tint-orange`                                          | `#FDEEE6`                                     | Missing-details alert wash (with `attention` border)                                                   |
 
-- Exactly **one accent** (teal). Never introduce a second brand color.
-- Positive vs negative must differ in **lightness and hue** (teal vs orange — never red/green alone).
-- Member avatar palette is fixed: Teal `#CCEBE6/#0F5F58`, Orange `#FCE3CF/#9A3412`, Blue `#DCE3FA/#2E3F9E`, Purple `#E9DDF7/#5B2B8C`, Amber `#FBEBC2/#7A4E00`. A member keeps the same color on every screen (assigned by join order).
+- **Section hues**: each section owns one hue at full strength on its sign — Today yellow, Plan blue (Itinerary, Bookings), Vote violet (Proposals), Money green (Expenses). A section's hue never decorates another section.
+- **Yellow is rationed** to now / next / you-are-here and counts that need you. If it spreads further the screen turns into a construction site.
+- Owed vs owed-to-you differ in **hue and sign** (green `+` vs red `−`), never colour alone.
+- Member avatar palette is fixed: Green `#D3F0E3/#0B6446`, Red `#FDE2DA/#9E2A12`, Blue `#DCE6FC/#163C8C`, Violet `#EEE6FF/#5230A8`, Amber `#FFF1C2/#7A5300`. A member keeps the same colour on every screen (assigned by join order).
 
 ### 1.2 Typography
 
-- One family: **Plus Jakarta Sans** (400/500/600/700), fallback `system-ui`.
-- Scale: 12 (labels) · 13 (meta) · 14 (body/UI) · 15 (emphasis body) · 17–18 (card/section titles) · 22 (mobile H1) · 28 (desktop page H1) · 32+ (dashboard/hero only).
-- Headings use weight 700 and `letter-spacing: -0.02em` at 22px+.
-- **All money and counts** use `font-variant-numeric: tabular-nums`.
-- Minimum text size **12px**; never use 11px for anything except avatar initials.
+- One family: **Archivo** (variable, weight 400–800 and width 62–125%), fallback `system-ui` (which also covers Hebrew).
+- Scale: 12 (labels) · 13 (meta) · 14–15 (body/UI) · 16–18 (row and panel titles) · then the display tokens, used as `text-*` utilities: `timetable` 22 · `headline-sm` 26 (phone H1, board route, Leave by) · `headline` 34 (desktop H1) · `count` 36 · `board-sm` 44 (phone board time, balance) · `display` 48 · `board` 56. No other display sizes.
+- Headings weight 800 with `letter-spacing: -0.02em` at 22px+. Body 400–500, UI labels 700.
+- **Times, amounts, counts and codes** use the `figures` utility: tabular numerals at width 82%, so columns line up like a printed timetable. Importance is a size ramp: times and amounts big, labels small.
+- Confirmation codes on the board sit on a white plate in monospace with 0.1em tracking (codes are data).
+- Minimum text size **12px**; 11px only for avatar initials.
 
 ### 1.3 Spacing, radius, elevation
 
-- 4px base grid; prefer 8 / 12 / 16 / 20 / 24 / 32 / 48.
-- Radius: 6 (chips) · 10 (buttons, inputs, nav items) · 12–16 (cards) · 999 (avatars, pills, dots).
-- Elevation is mostly **borders, not shadows**. Shadows only for: the selected segment in a segmented control, an item being dragged, and floating menus/popovers. Use the `shadow-segment` / `shadow-lifted` / `shadow-popover` tokens.
-- No gradients, no left-border accent cards, no emoji in UI.
+- **8px modular grid**: 8 / 16 / 24 / 32 / 40 / 48 (4 only inside dense controls).
+- Radius: 4 (`chip`) · 8 (`control`: buttons, inputs, nav items) · 12 (`card`: panels, boards, dialogs) · 999 (avatars, pills, dots).
+- Elevation is **colour fields and hairlines, not shadows**. Shadows only for the selected segment, an item being dragged and popovers (`shadow-segment` / `shadow-lifted` / `shadow-popover`).
+- **State is never colour alone**: confirmed bookings are solid chips, plans nobody has booked are dashed, things already done today are struck through and muted.
+- No gradients, no glass, no coloured side-stripes on cards, no emoji in UI.
 
 ### 1.4 Layout
 
-- Desktop pages are fluid: max content width **1440px** (dashboard 1240px), 32px page padding.
-- Trip screens share one shell (`TripLayout`): **top bar** (logo → breadcrumb → Live indicator, member avatars, Invite for owners) + **left sidebar** (trip summary card + section nav with open-proposal count) + content.
-- Below `md` (768px) the sidebar is replaced by the trip name block above the content and the bottom tab bar; never show both navigations at once.
-- The sidebar is part of a `flex-wrap` row and **stacks above the content on narrow screens**; it is never sticky or `100vh`.
+- Trip screens share one shell (`TripLayout`).
+  - **Desktop (`lg`+)**: a 248px **sign rail** (sticky, full height, `color.sign`) holding the logo, the trip name and dates, the section nav (hue mark + label + white count badge; the active item is `sign-raised` with the 5px yellow **you-are-here bar** at the rail's edge), then at the bottom the **Ask** button, member avatars, Live indicator, "My trips" and Invite (owners). Content sits to the right, max 1200px, 40px side padding; there is no top bar.
+  - **Phones and tablets (< `lg`)**: a one-row **sign header** — logo plate, trip name + dates (truncate), Live dot, **Ask**, People button — and the fixed white **bottom tab bar** (Today · Plan · Bookings · Vote · Money); the active tab is `sign` weight 700 with a 4px yellow bar along its top edge. Below 360px Ask is icon-only; below `sm` the Live label is screen-reader only. Never show both navigations at once.
+- The account pages (`AppLayout`: trips, AI assistants) use the same sign blue for their header, always one row: below `sm` "AI assistants" becomes an icon button (name kept for screen readers) and the avatar hides.
 - Wide tables live inside an `overflow-x: auto` box; toolbars and button groups wrap.
-- Mobile: 390×844 reference, 20px side gutters, fixed **bottom tab bar** (Plan · Vote · Money · People) with the active tab in accent color + weight 600.
+- Mobile reference 390×844, 16px side gutters.
 
 ### 1.5 Components
 
-- **Primary button**: accent background, white text, 44px tall (48–52 on mobile primary actions). Max **one** primary button per view region.
-- **Secondary button**: white, `border-input` border, text color.
-- **Destructive**: text-only in `color.negative`, always requires confirmation.
-- **Segmented control / tabs**: muted track, selected segment white with a subtle shadow; uses `role="tablist"`/`role="radiogroup"` correctly.
-- **Avatar**: circle, initial, member palette, 2px white ring when stacked (−8px overlap). Tooltip/title with full name.
-- **Live indicator**: 8px `color.live` dot + "Live" in `accent-strong` while the subscription is connected; grey dot + "Reconnecting…" otherwise. (Per-person presence is planned; until then never show an "N online" count.)
-- **Never use native `<select>`, `type="date"` or `type="time"` inputs** — their look differs per browser. Use the shared components:
-  - **Select** (`components/Select.tsx`, Radix): field-styled trigger (44px, or 40px `sm` for inline row controls), 16px chevron with 12px right padding that flips when open; menu = surface card, `rounded-xl`, `border`, `shadow-popover`, 6px gap below the trigger, at least the trigger's width; items 40px tall, hover/keyboard highlight `surface-muted`, the selected item in `accent-strong` semibold with a teal check. Full keyboard support (arrows, type-ahead, Enter, Esc).
-  - **Date field** (`components/DateField.tsx`, react-day-picker): trigger shows "Fri, Nov 20, 2026" with a calendar icon; calendar popover with 44px day cells, selected day = accent fill, today = bold + underline, days before `min` disabled; Clear / Today footer. Opening focuses the selected day (or today) for arrow-key navigation.
-  - **Time field** (`components/TimeField.tsx`): a Select of 24h times in 15-minute steps plus "Any time"; opens scrolled to the current value.
-  - Menus inside a dialog render inside that dialog (`PortalContainerContext`) so they stay above it.
-- **Dialog**: native `<dialog>`; full-screen sheet on phones, centered card (440px, or 560px for forms with lists) from `sm` up, **as tall as its content** up to 90vh — the body scrolls and sticky footers stay visible; title + 44px close button in the header.
-- **Password field** (`components/PasswordInput.tsx`): every password input has a show/hide eye button inside the field's right edge (44px target, `aria-label` "Show password" / "Hide password", `aria-pressed`); it never submits the form and keeps the typed value.
-- **Confirm dialog**: every destructive action (delete expense, remove member, leave trip, delete trip) asks first; confirm button uses `negative` colors.
-- **Toast**: bottom-center, auto-dismiss after 4s, `role="status"` (or `alert` for errors); sits above the mobile tab bar.
-- **Count badge**: `attention` colors, pill, min 22px.
+- **Primary button**: `sign` background, white text, weight 700, 44px tall (48–52 for mobile primary actions); hover `sign-raised`. Max **one** primary per region. Disabled: `accent-tint-border` with `accent-deep` text (stays readable).
+- **Section primary**: on Proposals the primary (Submit for a vote) and the Vote / Voted buttons wear Vote violet (`Button variant="vote"`; unvoted = violet outline, voted = solid violet).
+- **Secondary button**: white, 1.5px `border`, ink text; hover darkens the edge to `border-input`.
+- **Destructive**: `negative-ink` text, stands alone with clear space around it — never next to the primary — and always confirms.
+- **Departure board** (Today's Up next): `sign` panel; a header strip with the type on the left and the countdown in yellow on the right; the row is time (yellow, `figures`, 44/56px) · route (22/30px white) · code plate · **Leave by** (flights: 2 h 30 min before departure, the server's reminder rule); a footer strip of white text links (on phones: "Directions", "Manage"). The row turns over with `animate-flap-in` when the next departure changes.
+- **Timetable rows**: big `figures` time (22px) · type chip · title + meta, separated by hairlines inside one white panel. The next timed row lifts (time in `accent-strong` + a yellow **Next** pill); done rows are muted and struck. Never a stack of separate cards.
+- **Booking rows** (Bookings): the same timetable logic — see §2 · 08.
+- **Type chips** (`BOOKING_TYPES`): every booked thing wears the same solid Plan-blue chip (`accent-tint` / `accent-strong`) and its 3–5 letter code (FLT, STAY, SHOW, SIGHT, TOUR, RAIL, FOOD, MISC) names the type; a plan nobody has booked is a dashed outline "PLAN". Section hues (Vote violet, Money green) never colour a booking.
+- **Segmented control / tabs**: muted track, 44px segments, selected segment white with `shadow-segment`; correct `tablist`/`radiogroup` roles.
+- **Filter pills**: active pill is `sign` with white text.
+- **Avatar**: circle, initial, member palette, 2px ring in the colour behind the stack (`ringClassName`, e.g. `border-sign` on the rail). Title with full name.
+- **Live indicator**: lives on the sign only — `live` dot + white "Live"; `sign-ink-soft` dot + "Reconnecting…" otherwise. Never an "N online" count.
+- **Count badge**: white pill with `sign` text, `figures`, min 22px (it sits on the rail). On the phone tab bar a 10px `negative` dot with a white ring stands in for it.
+- **Never use native `<select>`, `type="date"` or `type="time"` inputs** — use the shared components:
+  - **Select** (`components/Select.tsx`, Radix): field-styled trigger (44px, or 40px `sm`), 16px chevron flipping when open; menu = surface, `rounded-card`, `border`, `shadow-popover`, 6px gap, at least trigger width; 40px items, highlight `surface-muted`, selected item `accent-strong` bold with a check. Full keyboard support.
+  - **Date field** (`components/DateField.tsx`): "Fri, Nov 20, 2026" trigger with a calendar icon; 44px day cells, selected day = `sign` fill, today bold + underline, days before `min` disabled; Clear / Today footer.
+  - **Time field** (`components/TimeField.tsx`): Select of 24h times in 15-minute steps plus "Any time".
+  - Menus inside a dialog render inside that dialog (`PortalContainerContext`).
+- **Place field** (`components/PlaceField.tsx`): an ARIA combobox for destinations. Free text always works; from 2 characters it suggests real places (debounced 250ms) through our `placeSearch` query, which asks the Open-Meteo geocoder server-side (the browser never calls it; results cached). Each suggestion: pin · name · region, country · currency, 48px rows, highlight `surface-muted`. Arrows move, Enter picks (never submits), Esc closes. The list sits in the flow under the input (so a dialog body never clips it). States: "Searching…", "No matches — any place works, just type it.", and when the geocoder is down "Suggestions aren't available right now — type the place." A live region announces the count.
+- **Dialog**: native `<dialog>`; full-screen sheet on phones, centred `rounded-card` (440px, or 560px for forms with lists) from `sm` up, as tall as its content up to 90vh with sticky footers; title + 44px close button.
+- **Password field** (`components/PasswordInput.tsx`): show/hide eye button inside the right edge (44px, `aria-label`, `aria-pressed`), never submits.
+- **Confirm dialog**: every destructive action asks first; confirm uses `negative` colours.
+- **Toast**: bottom-centre, `sign` (or `negative-ink` for errors) with white text, auto-dismiss after 4s, `role="status"`/`alert`; above the bottom tab bar on phones.
 
 ### 1.6 Accessibility (non-negotiable)
 
 - Touch/click targets **≥ 44×44px**.
-- Text contrast **≥ 4.5:1** (3:1 only for 24px+). `#6B6862` on `#FAFAF8` is the lightest text allowed.
+- Text contrast **≥ 4.5:1** (3:1 only for 24px+). `ink-muted` `#5A6272` on `bg` `#F2F4F8` (5.6:1) is the lightest text allowed; on the sign use `sign-ink-soft` or white, on colour panels white or white/90.
 - Real elements only: `<button>`, `<a href>`, `<input>` with a `<label>`. Never click handlers on `div`/`span`.
 - Icon-only buttons have `aria-label`. Decorative SVGs have `aria-hidden="true"`.
 - Current nav item has `aria-current="page"`; toggles use `aria-pressed`; progress uses `role="progressbar"` with values.
@@ -104,6 +119,8 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Error**: inline message near the failed element + retry; never lose user input.
 - **Optimistic updates**: votes, reorders and new expenses appear instantly and roll back with a toast on failure.
 - **Live updates** (GraphQL subscriptions): incoming changes animate in subtly (≤200ms fade/slide); never move the item the user is currently interacting with.
+- **Motion tokens**: `animate-seat-in` (200ms, scale 0.6 → 1 with fade) — a voter's face settling into its seat; `animate-flap-in` (320ms, a short split-flap turn) — the departure board row changing. Motion is short and mechanical, never bouncy. Always behind `motion-safe:`; the base layer also collapses all motion under `prefers-reduced-motion`.
+- **Browser surfaces**: text selection is `signal` with `sign` text; the caret is `accent`; scrollbars use `border-input` on transparent. Trip screens start with a "Skip to content" link (visible on focus) that jumps to `main`.
 
 ---
 
@@ -111,7 +128,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 ### 01 · Sign in
 
-- Split layout: brand/value panel (accent-tint) + form panel. Panels stack on mobile (form first).
+- Split layout: brand/value panel on the sign (`sign` field, white 52px headline, yellow check plates, logo plate) + white form panel. Panels stack on mobile (form first).
 - Max form width 400px. Order: Email → Password → Sign in → divider → **Explore with the demo account** → Create account link. ("Forgot password?" is added together with the reset flow.)
 - **Sign up** (`/sign-up`) reuses this layout with a Name field first and the heading "Create your account".
 - Both honour `?next=` (in-app paths only) so an invite link returns the user to the join screen.
@@ -123,51 +140,58 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Page title "Your trips" + summary line + one primary "New trip" button.
 - Upcoming / Past filter as a segmented control.
 - Trip cards in an auto-fill grid (min 300px). Every card shows: status pill, countdown, name, place · dates, member avatars, one stat line. The whole card is a single link.
-- Card cover uses a light tint from the avatar palette — no stock photos unless the user uploads one.
+- Card cover is a **trip plate** in `sign`, `sign-raised` or `money` (cycled) with white type — no stock photos unless the user uploads one. The plate carries the trip: the destination (first part, 28px extrabold) and a **day strip** (one tick per trip day; days already lived are yellow, the rest white at 30%) with "N days". The "Happening now" pill is yellow; other status pills are white at 15%.
 - The last grid cell is always the dashed "Plan a new trip" card.
 - Card status pill: Upcoming / Happening now / Past; countdown "in N days" on upcoming trips. Stat line: "N activities · N open votes".
-- **New trip dialog**: name, destination, start/end date (end ≥ start, validated inline), currency. Creating a trip opens its itinerary.
+- **New trip dialog**: the shared **`TripForm`** — name, **destination** (a Place field, §1.5), start/end date (end ≥ start, validated inline), currency. Picking a place sets the trip's time zone (hint: "Times on this trip use Western European Time.") and switches the currency to the one used there, with the hint "Set from Portugal — change it if you'll pay in something else." (choosing a currency yourself clears the hint and is kept). Free text is always accepted; its time zone falls back to the organiser's own. Creating a trip opens it.
 - "Recent activity" feed (planned) shows a Live indicator and max 5 items with relative times.
 
 ### 03 · Itinerary board
 
-- One column per day (272px), horizontally scrollable; header shows `Day N` + date.
-- Activity card: time (accent), title, location, cost chip, "added by" avatar, drag handle (`aria-label="Drag to move"`).
+- **Trip ribbon** (`itinerary/TripRibbon.tsx`) above the board: the whole trip in one row — the dashboard's day strip at full strength. One cell per day (≥60px, 44px+ tall) on the segmented track: "Day N" (or **Today** in `accent-strong` bold), the short date ("Sun 16", 15px bold, tabular) and one 6px mark per booking and plan in time order (booking marks in the type's ink colour, plans `accent`; at most 6; an empty day shows one `border-input` mark). Cells for the days in view are white with `shadow-segment`; a click scrolls the board to that day. Each cell's `aria-label` reads the day, date, "today" and its counts. It replaces separate prev/next/today buttons.
+- One column per day (272px), horizontally scrollable with 32px trailing space. Header: the day-of-month as a 28px bold tabular numeral (the column's landmark, like the times on a flight card) beside "Sun, May" / "Day N"; the heading's accessible name is "Day N, Sun, May 16".
+- **Today** (destination time): its column gets a 2px `sign` outline, an `accent-strong` numeral and a yellow "Today" pill, and the board opens scrolled to it. Never colour alone — the pill carries the word.
+- **Time order**: a day reads top to bottom in time. The stay strip is pinned first; then timed bookings and timed activities interleave by time (a booking first at the same minute); then activities without a time in their saved order; then bookings still missing a time. Dragging moves an activity to another day; only untimed activities can be reordered within a day.
+- A multi-leg booking shows the leg that belongs to the day (departing that day, else arriving), so a round trip's return day shows the return flight.
+- Activity card: same density as the booking cards (12px padding, 14px title): time (accent), title, one meta line (location · cost pp), "added by" avatar, drag handle (`aria-label="Drag to move"`).
+- **One event, one card.** A scheduled plan that stands for a booking (the API's `Activity.booking`: same day, same or no time, and the booking's name or place in the plan, or a check-in plan on the stay's first day) carries a 44px **Booked** row (white with a `border` hairline so every type chip stays visible; type chip + code) linking to the booking, and that booking's own card is not shown. If it covers the stay check-in, the stay strip reads "Night 1 of N".
+- Mobile day header counts every card: "2 bookings · 3 activities".
 - Dragging: card tilts −1.5°, accent border + shadow; target shows a dashed accent "Drop here" slot.
-- Reordering must also be possible with the keyboard: focus the drag handle, Space to pick up, arrows to move (also across days), Space to drop, Esc to cancel.
+- Reordering must also be possible with the keyboard: focus the drag handle, Space to pick up, arrows to move (also across days), Space to drop, Esc to cancel. Screen readers hear it in the user's terms — "Picked up Dinner at Taberna da Rua. Day 1, Fri, May 14, position 2 of 2", "… is over Day 3, Sun, May 16", "Dropped …", "Cancelled. … is back on Day 1" — never ids; the instructions say that time sets the order within a day.
 - Moves are optimistic; on failure the board snaps back and an error toast explains why.
-- Each column ends with an "Add activity" ghost button (adds straight to that day). Empty days keep the column visible with a dashed "Nothing planned yet" hint.
+- Each column ends with an "Add activity" ghost button (44px; adds straight to that day). Empty days keep the column visible with a dashed "Nothing planned yet" hint — a stay strip alone doesn't count as planned.
+- States: the loading skeleton reserves the ribbon and is card-shaped (column with header, strip and two cards); the error state keeps the page header; a trip without days explains why and links to Proposals.
 - Scheduled activities without a day appear in a leading **Unplanned** column, only when there are any.
 - A Board / Map view toggle will live in the page header once the map view exists.
-- **Bookings on the board** sit above the day's activities and are read-only (edit them on the booking): a teal **stay strip** (`STAY` · "Check-in 14:00 · …", "Night 2 of 5 · …", "Check-out 11:00 · …") and compact booking cards (type code chip, time range, route or title, number · reference). Both link to the booking. A booking that needs details gets the attention border and "Time missing". A day with bookings but no activities drops the "Nothing planned yet" hint.
+- **Bookings on the board** take their place in the day's time order and are read-only (edit them on the booking): a Plan-blue tint **stay strip** (`STAY` · "Check-in 14:00 · …", "Night 2 of 5 · …", "Check-out 11:00 · …") and compact booking cards (type code chip, time range, route or title, number · reference). Both link to the booking. A booking that needs details gets the attention border and "Time missing". A day with bookings but no activities drops the "Nothing planned yet" hint.
 
 ### 04 · Proposals & voting
 
-- Threshold is stated in the header ("Ideas need 3 votes…") and shown per card with a progress bar + "N more to accept".
-- Vote button: 44px, `aria-pressed`; filled accent when the user has voted.
+- Threshold is stated in the header ("Ideas need 3 votes…") and shown per card as **vote seats**: one 32px seat per vote needed; voters' avatars fill seats in voting order (with `animate-seat-in`), open seats are dashed circles (`role="img"`, "2 of 3 votes"). Beside it: who voted ("Maya and you voted" / "No votes yet") and "N more votes put it on the plan".
+- Vote button: labelled **Vote** (chevron) / **Voted** (check, filled accent), 44px, `aria-pressed`, full width on phones. Proposals are about people, so the seats — not a bare count — carry the decision.
 - One vote per user per proposal (UI and DB constraint agree).
 - Votes are optimistic (instant); a toast confirms when a proposal is accepted and moves to the Accepted tab.
-- Open / Accepted / Declined tabs show counts. Owners can **Decline** an open proposal (destructive text button).
+- Open / Accepted / Declined tabs show counts. Owners can **Decline** an open proposal (quiet ghost text button that turns `negative` on hover — it must never be the loudest thing on the card).
 - Propose form sits beside the list from `lg` up; below that a "Propose" button reveals it above the list.
 - Viewers see the list with vote buttons disabled.
 
 ### 05 · Expenses & settle up
 
-- Top: three stat tiles — Trip total, You paid, Your balance (balance tile uses accent-tint when positive, attention tint when negative).
+- Top: three stat tiles — Trip total, You paid, Your balance (the balance tile is a full-strength `money` panel when positive, `negative-ink` when negative, white text on both).
 - Expense table columns: Expense (title + date · category), Paid by (avatar + name), Amount, Your share. Numbers right-aligned, tabular.
 - Below `md` the table becomes a compact list (avatar · title · "X paid · date" · amount), and the balance tile, then Settle up and Balances, come before the list (M3 order).
-- Settle up card lists the suggested payments (at most n−1); rows involving the current user are highlighted with accent-tint and get a **Mark paid** button (also for owners). Marking paid records a "Settlement" entry that is excluded from Trip total.
+- Settle up card lists the suggested payments (at most n−1): avatars → avatar, "Noa pays Maya", amount on one line; rows involving the current user are highlighted with `money-tint` and get a **Mark €42.10 paid** button on its own line (also for owners), and the toast names what was recorded. Marking paid records a "Settlement" entry that is excluded from Trip total.
 - The payer or the owner can delete an expense (trash icon button with `aria-label`, then a confirm dialog).
 - Copy: "You pay Maya", "Daniel pays you" — "you" is lower-case mid-sentence.
-- Balances use a diverging bar chart centered at zero: teal right = owed to them, orange left = they owe. Always also show the signed value.
+- Balances use a diverging bar chart centered at zero: money green right = owed to them, red left = they owe. Always also show the signed value.
 - Balances always sum to exactly zero (computed server-side with `NUMERIC`, never floats).
 
 ### 06 · Members & invites
 
 - Role explainer line under the title (Owner / Editor / Viewer).
 - Invite card (owners only): role select (Editor / Viewer) → "Create invite link" → read-only link + "Copy link" (shows "Copied" for 2s). Links expire after 7 days. Email invites are planned.
-- Member rows: avatar, name (+ "(you)"), email, role select. Only the owner can change roles; the owner's own role is locked.
-- Owners can **Remove** others; non-owners can **Leave**. Both confirm first; members with an unsettled balance can't be removed.
+- Member rows: avatar, name (+ "(you)"), email, role select. Only the owner can change roles; a role nobody can change (the owner's, or any role for non-owners) shows as plain text, not a disabled select.
+- Owners can **Remove** others; non-owners can **Leave**. Both confirm first. Members with an unsettled balance can't be removed or leave: instead of the button the row says why ("Owes €96.29 · settle first").
 - **Delete this trip** (owners only): a last card with an `attention` border, a one-line warning of what is deleted and that it can't be undone, and a secondary **Delete trip** button in negative colors with a trash icon. It confirms first, then returns to My trips with a toast. Members who have the trip open are sent to My trips with "… was deleted by its owner."
 
 ### 07 · Join trip (`/join/:token`)
@@ -178,14 +202,17 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 ### 08 · Bookings (`/trips/:id/bookings`)
 
-- Header: "Bookings" + one-line purpose; actions **Calendar & reminders** (secondary) and **Add booking** (primary, editors only).
-- Filter pills (`role="tab"`, 44px tall, fully rounded): All · Flights · Stays · Things to do · Transport · Dining, each with its count. The active pill is ink-filled.
-- An attention banner (tint-orange, attention border) names the first booking that needs details, says what's missing, and links to it.
-- Bookings are grouped by the local day they start ("Fri, May 14 · Day 1"; no day number outside the trip); undated ones go last under "Date not set".
-- Booking card: 48px type chip (code + color — never color alone; the type is also in visually hidden text), title + provider · number, the "when" line (tabular numerals), reference chip (monospace), document count, status chip (Confirmed / Needs details / Cancelled), price, and an external-link button (44px, labelled) when there's a provider URL. Needs details → attention border and attention-colored "when" line.
-- Type colors: Flight blue, Stay teal, Event purple, Attraction/Tour amber, Transport orange, Dining/Other muted.
-- Empty: "No bookings yet" with **Add your first booking**; a filter with no matches: "No bookings of this type".
-- `?add` and `?calendar` open the dialogs, so other screens can link straight to them.
+- Header: "Bookings" + one-line purpose (hidden on phones); actions **Add booking** (primary, editors only, first) and **Calendar & reminders** (secondary; on phones a 44px bell icon button with the name kept for screen readers, since it is set once).
+- Filter pills (toggle buttons with `aria-pressed` in a labelled group, 44px tall, fully rounded): All · Flights · Stays · Things to do · Transport · Dining, each with its count (visible digits plus visually hidden ", N bookings"). Counts are **rows**, so a round trip counts as two flights. The active pill is `sign`. Types with no bookings are hidden (All and the active filter always show). On phones the pills are one row that scrolls sideways with a fade at the right edge; from `sm` they wrap. The filter lives in the URL (`?type=FLIGHT`).
+- **Needs details**: before the trip, an attention line (tint-orange, attention border, no live region) at the top names the first booking that needs details, says what's missing, and links **Add details** right after the sentence. During the trip the plan comes first: it shrinks to one linked line ("Sintra train needs departure time →" or "N bookings need details") placed right after Today.
+- The page is a **timetable**: one row per booking, and **one row per leg** for multi-leg flights and trains (a round trip's return sits under the day it departs, shares the code, and is done on its own). Rows are grouped by the local day they start ("Fri, May 14 · Day 1"; no day number outside the trip), one white panel per day with hairlines between rows; undated rows go last under "No date yet".
+- **Mid-trip**: days before today fold into one **Earlier · N days, N bookings** button (`aria-expanded`; the open/closed state is remembered per trip for the session), so the page opens on today. Only finished rows fold: anything still in effect today (a stay, a multi-day tour) is **pinned first in Today** with "Now" in the time column and "Staying · night 3 of 5 · check-out Wed, May 19 · 11:00" ("In progress · until …" for non-stays), code plate included. Today's heading carries the yellow **Today** pill and its panel a 2px `sign` border. The first row still ahead gets an `accent-strong` time and the yellow **Next** pill. Rows whose end has passed are muted and struck (time, type chip and code plate all step back), with "Done:" for screen readers.
+- Row: 22px `figures` time (or "––:––") over the type chip · title (the leg's route for legs) with Next/Cancelled pills · the when line (leg times, "Leg 1 of 2", travellers) · meta (provider · number · price once per booking · documents). Needs details → the chip turns dashed `attention-ink` and the when line reads "Missing departure time"; no extra status chip. The title link stretches over the whole row.
+- **Confirmation code**: a monospace plate (15px, 0.1em tracking, `sign` on `bg`) that is a real button — "Copy confirmation code K7Q2ZP" — copying and confirming with a toast; beside it a 44px external-link button when there's a provider URL. Both sit above the row link.
+- Type chips follow §1.5: one solid Plan-blue chip for every booked type, the code names it.
+- The page content is capped at 880px so each code plate stays near its row on wide screens.
+- Empty: "No bookings yet" with **Add your first booking**; a filter with no matches: "No bookings of this type" with an **Add booking** secondary.
+- `?add` and `?calendar` open the dialogs (keeping `?type`), so other screens can link straight to them.
 
 ### 09 · Booking detail (`/trips/:id/bookings/:bookingId`)
 
@@ -193,14 +220,16 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Two columns that wrap on narrow screens. Main: the schedule — flights/trains as a leg card (date · number, big departure and arrival times, codes and names, duration, "+1" for next-day arrivals, a note when the zones differ) with an Outbound/Return segmented control when there are several legs; other types as fact tiles (Starts/Check-in, Ends/Check-out, Where). The address shows as text with a **Get directions** link; notes keep line breaks.
 - Side: **Confirmation** card (monospace code + **Copy**, which says "Copied" for 2s; then Passengers/People, Price, Status, Added by, Source), **Documents** (file chips that open short-lived signed URLs; delete with confirmation; a dashed "Attach boarding passes / Attach a document" button), **Reminders** for this booking with a link to settings, and **Delete booking** (destructive, confirms; documents are deleted with it).
 - Needs details → the attention banner with **Add details**, which opens the edit dialog.
+- Below `md` the confirmation code (+ **Copy**) sits directly under the title, before the actions and the leg card — it's what people need at a counter. The side card then starts with Passengers/People.
 
 ### 10 · Trip overview / Today (`/trips/:id/overview`, the trip's landing screen)
 
-- Greeting in the destination's time of day ("Good morning, Ido") and the trip status: "Day 2 of 6 · Sat, May 15", "Starts in 12 days · 6 days" or "Trip ended". Actions: **Add to calendar** (secondary) and **Add booking** (primary).
-- **Up next** card: a tinted header strip in the booking type's color ("Up next · Flight" + "Departs in 1 h 35 min"), then the leg (times, codes, duration) or the booking's title, date and place, then confirmation code + copy, **Details**, **Directions to …** (departure airport for flights, the venue otherwise) and **Manage booking**. With nothing ahead: a dashed card that invites adding a booking.
-- **Today** (or the first/last day outside the trip): one ordered list mixing bookings, check-in/out and planned activities by time — time (accent, tabular), 32px type chip, title and subtitle. Bookings link to their detail.
-- Side column: **Reminders** (next three, with countdowns; link to settings) and four "at a glance" tiles (Bookings, Open ideas, Spent, Your balance) that link to their sections.
-- Mobile: the first reminder shows as a blue banner under Up next; the side reminders card is hidden.
+- Greeting in the destination's time of day ("Good morning, Ido", one line, truncating) and the trip status: "Day 3 of 6 · Sun, May 16 · Lisbon", "Starts in 12 days · 6 days" or "Trip ended". Actions (editors): **Add expense** (primary — the thing people do right after paying) and **Add booking** (secondary); one row, full width on phones. Add to calendar lives with the reminders.
+- **Time is honest.** The page keeps its own clock (`useNow`, ticking every minute), so states move on their own. Today's rows read by `agendaStates`: a started row is **in progress** until the next row starts (the last row of the day for 3 h) and only then **done**; the first row not yet started is **next**. A past time never reads "now": `countdown` says "passed". Past bookings drop off the board, a passed **Leave by** disappears, and reminders whose target has passed are filtered out (`Reminder.targetAt`).
+- **One "next" for the screen.** The departure board (§1.5) shows the next thing **today**, plan or booking. A booking with leg details gets the full board (time, route, code plate as a copy button that swaps to a check and "Copied", Leave by, Details / Directions / Manage); a plan gets the plan board (time, title, place, **Open itinerary**). When nothing is left today the board falls back to the next booking, labelled "Next booking · Wed, May 19"; with nothing at all: "That's everything for today" / "No departures yet" with a yellow **Add a booking**.
+- **Today** (or the first/last day outside the trip) is a **timetable** in one white panel: rows of time (`text-timetable` figures) · type chip (booked = solid tint; a plan nobody has booked = dashed "PLAN"; done = muted) · title and subtitle, split by hairlines. The in-progress row gets a signal-tint wash and a yellow **Now** pill; the next row an `accent-strong` time and an outlined **Next** pill (the board carries the yellow); done rows are muted and struck. Screen readers hear the state first: "Done, 09:30, Attraction: Pena Palace". Every row links: bookings to their detail, plans to the itinerary. A failed agenda load shows "We couldn't load this day's plan." with **Try again** inside the panel — never "Nothing scheduled".
+- Side column (desktop 360px; tablets two-up under the day; phones stacked): the **balance panel** at full Money strength (`money`, or `negative-ink` when you owe); **Waiting on the group** with a visible heading (Open ideas in violet; Bookings "Missing details" in red when any booking needs details, else "All confirmed" in blue — the note never repeats the number); **Reminders** (from `md`, next three with countdowns, "Add to calendar" link).
+- Phones: the leave-for-the-airport reminder (or the first) shows as a signal-tint strip under the board, linking to its booking (no live region); a **Calendar & reminders** button closes the side column.
 
 ### 11 · Add booking (dialog)
 
@@ -227,20 +256,28 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 ### 14 · Trip assistant (panel on every trip screen)
 
 - Opened by **Ask** (sparkle icon, secondary style, `aria-expanded`) at the start of the trip top bar. The conversation is kept while the panel is closed or the section changes.
-- Desktop (`md`+): a non-modal panel docked right, 420px wide, full height, `border-l` + `shadow-popover`; the page reserves the width so nothing is hidden beneath it. Phones: a full-screen sheet above the tab bar. Esc and the 44px close button close it and return focus to **Ask**.
+- Desktop (`lg`+): a non-modal panel docked right, 420px wide, full height, `border-l` + `shadow-popover`; the page reserves the width so nothing is hidden beneath it. Phones and tablets: a full-screen sheet above the tab bar (docking 420px on a tablet would leave the page ~350px). Esc and the 44px close button close it and return focus to **Ask**.
 - Empty: one line on what it can do + starter chips (pills, 44px). Loading: a skeleton. Not configured: the dashed empty block. Error: the inline error with **Try again**.
 - Messages: the user's in an `accent-tint` bubble on the right; answers as plain text (paragraphs, bullets, **bold**) on the surface. A status line with a pulsing accent dot ("Checking bookings…") shows while tools run; text streams in.
 - Citations: small inline number chips (`surface-muted`, `accent-strong`, linking to the source) plus a **Sources** row of 44px chips under the answer — the row is the touch target; the inline chips are a shortcut.
 - Suggestion cards (`accent-tint` with `accent-tint-border`): "Add expense" / "Propose an activity" / "Add booking", a summary line and detail line, then **Confirm** (primary) and **Dismiss**. Confirmed → "Added to the trip" with a check. Viewers see a note instead of buttons. Nothing is saved without a confirm.
 - Composer: auto-growing textarea (Enter sends, Shift+Enter new line), icon-only **Send** with `aria-label`, and a caption with questions left today and "Answers can be wrong; check the source."
 
+### 15 · Welcome and the setup checklist (first run)
+
+- **Who and when**: right after sign-up. A sign-up with no `?next` goes to `/welcome`; a sign-up through an invite (`?next=/join/…`) or any other destination skips onboarding and lands where it was going. Existing accounts never see `/welcome` again unless they open it.
+- **`/welcome`** (full page, outside the dashboard shell, phone-first): the form leads — logo (phones), "Where are you going?" (`headline-sm` / `headline`), "Welcome, Shir. Start with the trip — bookings, friends and expenses come right after.", then the shared **`TripForm`** (`pages/trips/TripForm.tsx`, also used by the New trip dialog: name, destination, start/end date with end ≥ start, currency). One full-width primary **Create trip** (48px) and a quiet **I'll do this later** link to `/`. From `md` the sign-blue panel sits on the left (like Sign in) and explains what comes next — Add your bookings · Invite the group · Add expenses already paid — with "All three are optional"; on phones it follows the form. Creating the trip opens its Today screen. Loading: the button reads "Creating…"; a server error shows under the fields and keeps what was typed.
+- **"Get the trip ready"** (owners only, top of Today's main column, above the board): a white panel with a 2px `sign` border; header "Get the trip ready" · "N of 3 done" · **Hide**. Three rows, any order, all optional, each a whole-row link (≥ 64px): **Add your bookings** (`bookings?add&from=setup`, importer first), **Invite the group** (`members?invite&from=setup`: focuses Create invite link; after a link exists, "Back to setup"), **Add expenses already paid** (`expenses?add&from=setup`). The first unfinished row is primary (a `sign` arrow button); done rows show a money-green check, a struck title, "Done:" for screen readers and "Add more". Once the trip has started, phones drop the helper lines. While the checklist shows, an empty departure board ("No departures yet") is left out — it would only repeat the first row.
+- **Done means**: a booking exists · someone else joined **or** an invite link was created (`TripMember.inviteSharedAt`) · an expense exists — computed by `Trip.setup`. A save that started from the checklist (`from=setup`) returns to Today, which revalidates on arrival so the tick shows.
+- **All done**: the panel becomes one money-tint line, "You're set — the trip is ready for the group." with **Done**. **Hide**/**Done** call `hideTripSetup`, stored per member on the server (`TripMember.setupHiddenAt`), so it stays hidden on every device.
+
 ### M1–M4 · Mobile
 
 - **Tab bar**: five tabs — Today, Plan, Bookings, Vote, Money. Members moves to a 44px People button beside the trip name. Bookings and Vote show a dot when something needs attention (labelled for screen readers).
-- **Itinerary**: trip name + live indicator, then a horizontally scrolling day picker (segmented control). One day's activities at a time, as a vertical list. Touch replaces drag with a per-card **Move to…** select (44px).
+- **Itinerary**: trip name + live indicator, then the **trip ribbon** as the day picker (`role="tablist"`: arrows / Home / End change day, only the chosen day is in the Tab order; same cells as on the board, scrolling only its own track sideways when they don't fit). Opens on today while the trip is on, and scrolls the chosen day into view. One day at a time, in the same time order as the board. Touch replaces drag with a per-card **Move to…** select (44px, full-size); the subtitle explains it.
 - **Proposals**: compact cards, 3-segment vote meter, full-width-row "Vote / Voted" button on the right.
-- **Expenses**: balance hero card at top (accent-tint), then Settle up, then Recent. "+ Expense" primary in header.
-- **Add expense**: full-screen form; big centered amount input (decimal keyboard); split method as a 3-way segmented control (Equally / Percent / Exact); per-person shares update live; a validation hint confirms shares add up to the total; sticky bottom "Save expense" button.
+- **Expenses**: balance panel at top (full `money` green, or `negative-ink` when you owe), then Settle up, then Recent. "+ Expense" primary in header.
+- **Add expense**: full-screen form; big centered amount input with the currency symbol (decimal keyboard); description, paid by, category and **Date** (defaults to today at the destination). The split starts as one summary row ("Split equally, everyone" · "€12.50 each · 4 people" + **Change**); **Change** reveals the split method as a 3-way segmented control (Equally / Percent / Exact) with per-person shares that update live and a validation hint that confirms shares add up to the total. Sticky bottom "Save expense" button.
 - No fake OS status bars in mockups; respect safe areas (≥22px bottom padding under the tab bar).
 
 ---

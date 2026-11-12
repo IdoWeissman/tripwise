@@ -66,7 +66,7 @@ export function Select<T extends string>({
           position="popper"
           sideOffset={6}
           collisionPadding={12}
-          className="z-[60] max-h-[min(320px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-ink shadow-popover"
+          className="z-[60] max-h-[min(320px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] flex flex-col overflow-hidden rounded-card border border-border bg-surface text-ink shadow-popover"
         >
           <RadixSelect.Viewport className="max-h-[inherit] overflow-y-auto p-1">
             {options.map((o) => (
@@ -74,7 +74,7 @@ export function Select<T extends string>({
                 key={o.value}
                 value={o.value}
                 disabled={o.disabled}
-                className="relative flex min-h-10 cursor-pointer items-center rounded-lg pr-9 pl-3 text-sm outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-muted data-[highlighted]:bg-surface-muted data-[state=checked]:font-semibold data-[state=checked]:text-accent-strong"
+                className="relative flex min-h-10 cursor-pointer items-center rounded-control pr-9 pl-3 text-sm outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-muted data-[highlighted]:bg-surface-muted data-[state=checked]:font-semibold data-[state=checked]:text-accent-strong"
               >
                 <RadixSelect.ItemText>{o.label}</RadixSelect.ItemText>
                 <RadixSelect.ItemIndicator className="absolute right-3 flex text-accent">

@@ -27,7 +27,7 @@ export function Segmented<T extends string>({
     <div
       role={isTabs ? 'tablist' : 'radiogroup'}
       aria-label={label}
-      className={`flex gap-1 rounded-xl bg-surface-muted p-1 ${className}`}
+      className={`flex gap-1 rounded-card bg-surface-muted p-1 ${className}`}
     >
       {options.map((o) => {
         const selected = o.value === value;
@@ -39,7 +39,7 @@ export function Segmented<T extends string>({
             aria-selected={isTabs ? selected : undefined}
             aria-checked={isTabs ? undefined : selected}
             onClick={() => onChange(o.value)}
-            className={`min-h-10 flex-1 rounded-[9px] px-3.5 text-sm whitespace-nowrap ${
+            className={`min-h-11 flex-1 rounded-control px-3.5 text-sm whitespace-nowrap ${
               selected
                 ? 'bg-surface font-semibold text-ink shadow-segment'
                 : 'font-medium text-ink-secondary'

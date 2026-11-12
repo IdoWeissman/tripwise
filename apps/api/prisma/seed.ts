@@ -32,7 +32,16 @@ async function main() {
     where: { name: 'Lisbon with the crew', members: { some: { userId: ido.id, role: 'OWNER' } } },
   });
 
-  const start = new Date(Date.UTC(2027, 4, 14));
+  // The demo trip is always under way: it started two days ago (Lisbon time), so whenever the
+  // seed runs, today is Day 3 of 6 — the Sintra day — with earlier days done and later ones ahead.
+  const todayInLisbon = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(
+    new Date(),
+  );
+  const [y, m, d] = todayInLisbon.split('-').map(Number);
+  const start = new Date(Date.UTC(y!, m! - 1, d!) - 2 * DAY);
+  /** Wall-clock "YYYY-MM-DDTHH:mm" on trip day `dayIndex` (0 = arrival day). */
+  const on = (dayIndex: number, time: string) =>
+    `${new Date(start.getTime() + dayIndex * DAY).toISOString().slice(0, 10)}T${time}`;
   const trip = await db.trip.create({
     data: {
       name: 'Lisbon with the crew',
@@ -42,10 +51,11 @@ async function main() {
       endDate: new Date(start.getTime() + 5 * DAY),
       members: {
         create: [
-          { userId: ido.id, role: 'OWNER' },
-          { userId: maya.id, role: 'EDITOR' },
-          { userId: noa.id, role: 'EDITOR' },
-          { userId: daniel.id, role: 'VIEWER' },
+          // The demo trip is fully set up, so its first-run checklist starts hidden.
+          { userId: ido.id, role: 'OWNER', setupHiddenAt: new Date() },
+          { userId: maya.id, role: 'EDITOR', setupHiddenAt: new Date() },
+          { userId: noa.id, role: 'EDITOR', setupHiddenAt: new Date() },
+          { userId: daniel.id, role: 'VIEWER', setupHiddenAt: new Date() },
         ],
       },
       days: {
@@ -244,9 +254,9 @@ async function main() {
           fromName: 'Tel Aviv',
           toCode: 'LIS',
           toName: 'Lisbon',
-          departLocal: '2027-05-14T06:10',
+          departLocal: on(0, '06:10'),
           departTz: 'Asia/Jerusalem',
-          arriveLocal: '2027-05-14T10:05',
+          arriveLocal: on(0, '10:05'),
           arriveTz: LIS,
         },
         {
@@ -256,9 +266,9 @@ async function main() {
           fromName: 'Lisbon',
           toCode: 'TLV',
           toName: 'Tel Aviv',
-          departLocal: '2027-05-19T17:40',
+          departLocal: on(5, '17:40'),
           departTz: LIS,
-          arriveLocal: '2027-05-20T00:25',
+          arriveLocal: on(6, '00:25'),
           arriveTz: 'Asia/Jerusalem',
         },
       ],
@@ -272,8 +282,8 @@ async function main() {
       title: 'Casa do Largo, Alfama',
       provider: 'Apartment · 5 nights',
       confirmationCode: 'HMX4-22A9',
-      startLocal: '2027-05-14T14:00',
-      endLocal: '2027-05-19T11:00',
+      startLocal: on(0, '14:00'),
+      endLocal: on(5, '11:00'),
       address: 'Rua dos Remédios 42, Lisbon',
       price: '636.80',
       currency: 'EUR',
@@ -288,7 +298,7 @@ async function main() {
       title: 'Taberna da Rua',
       provider: 'Restaurant · table for 4',
       confirmationCode: 'TR-8812',
-      startLocal: '2027-05-14T19:30',
+      startLocal: on(0, '19:30'),
       location: 'Alfama',
       travellers: 4,
     },
@@ -301,8 +311,8 @@ async function main() {
       title: 'Sunset sail on the Tagus',
       provider: 'Catamaran tour',
       confirmationCode: 'SAIL-3391',
-      startLocal: '2027-05-15T18:30',
-      endLocal: '2027-05-15T20:30',
+      startLocal: on(1, '18:30'),
+      endLocal: on(1, '20:30'),
       location: 'Doca de Alcântara',
       price: '180.00',
       currency: 'EUR',
@@ -328,7 +338,7 @@ async function main() {
       title: 'Pena Palace',
       provider: 'Timed entry · 4 adults',
       confirmationCode: 'PNP-77120',
-      startLocal: '2027-05-16T09:30',
+      startLocal: on(2, '09:30'),
       location: 'Sintra',
       price: '80.00',
       currency: 'EUR',
@@ -343,8 +353,8 @@ async function main() {
       title: 'Fado night',
       provider: 'Casa da Saudade · 4 tickets',
       confirmationCode: 'FD-20491',
-      startLocal: '2027-05-16T20:00',
-      endLocal: '2027-05-16T22:30',
+      startLocal: on(2, '20:00'),
+      endLocal: on(2, '22:30'),
       location: 'Bairro Alto',
       price: '120.00',
       currency: 'EUR',

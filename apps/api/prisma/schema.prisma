@@ -102,6 +102,10 @@ model TripMember {
   userId   String   @db.Uuid
   role     TripRole @default(EDITOR)
   joinedAt DateTime @default(now())
+  /// When this member first created an invite link (links are stateless tokens).
+  inviteSharedAt DateTime?
+  /// When this member hid the trip's setup checklist.
+  setupHiddenAt  DateTime?
 
   trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

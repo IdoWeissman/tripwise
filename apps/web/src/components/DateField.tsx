@@ -107,9 +107,9 @@ export function DateField({
               week: '',
               day: 'size-11 p-0 text-center',
               day_button:
-                'size-11 rounded-control text-sm tabular-nums hover:bg-surface-muted disabled:cursor-not-allowed disabled:hover:bg-transparent',
+                'size-11 rounded-control text-sm figures hover:bg-surface-muted disabled:cursor-not-allowed disabled:hover:bg-transparent',
               selected:
-                '[&>button]:bg-accent [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-accent-hover',
+                '[&>button]:bg-sign [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-sign-raised',
               today:
                 '[&>button]:font-bold [&>button]:underline [&>button]:decoration-2 [&>button]:underline-offset-4',
               disabled: '[&>button]:text-border-input',

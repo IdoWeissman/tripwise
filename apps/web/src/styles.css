@@ -1,63 +1,135 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens — mirror docs/design-rules.md §1.1.
+ * Design tokens — "Platform" (rail wayfinding). Mirror docs/design-rules.md §1.1.
  * Add a token here (and to the rules) BEFORE using a new color/size anywhere.
  */
 @theme {
-  --font-sans: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+  --font-sans: 'Archivo Variable', system-ui, sans-serif;
 
-  --color-bg: #fafaf8;
+  /* ground and panels */
+  --color-bg: #f2f4f8;
   --color-surface: #ffffff;
-  --color-surface-muted: #f1f0ec;
-  --color-surface-column: #f4f3ef;
-  --color-border: #e7e5e0;
-  --color-border-input: #d6d3cc;
-  --color-ink: #1c1b1a;
-  --color-ink-secondary: #4a4844;
-  --color-ink-muted: #6b6862;
-  --color-accent: #0f766e;
-  --color-accent-hover: #115e59;
-  --color-accent-strong: #0f5f58;
-  --color-accent-tint: #e6f4f1;
-  --color-accent-deep: #0b3d39;
-  --color-accent-ink-soft: #33524f;
-  --color-accent-tint-border: #c5e5df;
-  --color-tint-blue: #eef1fc;
-  --color-tint-orange: #fdf1e6;
-  --color-live: #14b8a6;
-  --color-negative: #c2410c;
-  --color-negative-ink: #b13a0a;
-  --color-attention: #fce3cf;
-  --color-attention-ink: #9a3412;
+  --color-surface-muted: #e9edf3;
+  --color-surface-column: #edf0f5;
+  --color-border: #dce1ea;
+  --color-border-input: #c3cad6;
+  --color-ink: #111418;
+  --color-ink-secondary: #3a4150;
+  --color-ink-muted: #5a6272;
+
+  /* the sign: enamel blue rail and boards */
+  --color-sign: #0b2a6f;
+  --color-sign-raised: #163c8c;
+  --color-sign-ink-soft: #b9c6e4;
+  /* section marks on the rail (light enough to read on the sign) */
+  --color-rail-plan: #5b8cf0;
+  --color-rail-book: #7fd0f0;
+  --color-rail-vote: #b49cf5;
+  --color-rail-money: #5fd3a3;
+  /* signal yellow — rationed to now / next / you-are-here */
+  --color-signal: #ffc917;
+  --color-signal-tint: #fff1c2;
+  --color-signal-ink: #7a5300;
+
+  /* interactive = Plan blue */
+  --color-accent: #1f5fd1;
+  --color-accent-hover: #194fb0;
+  --color-accent-strong: #163c8c;
+  --color-accent-tint: #e3ecff;
+  --color-accent-deep: #0b2a6f;
+  --color-accent-ink-soft: #33456f;
+  --color-accent-tint-border: #c3d4fa;
+
+  /* section hues: Vote and Money (Plan is the accent) */
+  --color-vote: #6b3fd4;
+  --color-vote-tint: #eee6ff;
+  --color-money: #0b7a54;
+  --color-money-tint: #e1f4ea;
+
+  --color-tint-blue: #e3ecff;
+  --color-tint-orange: #fdeee6;
+  --color-live: #3ddc97;
+  --color-negative: #d23a1e;
+  --color-negative-ink: #b8311a;
+  --color-attention: #fde2da;
+  --color-attention-ink: #9e2a12;
 
   /* member avatar palette (bg / ink) */
-  --color-member-teal: #ccebe6;
-  --color-member-teal-ink: #0f5f58;
-  --color-member-orange: #fce3cf;
-  --color-member-orange-ink: #9a3412;
-  --color-member-blue: #dce3fa;
-  --color-member-blue-ink: #2e3f9e;
-  --color-member-purple: #e9ddf7;
-  --color-member-purple-ink: #5b2b8c;
-  --color-member-amber: #fbebc2;
-  --color-member-amber-ink: #7a4e00;
+  --color-member-teal: #d3f0e3;
+  --color-member-teal-ink: #0b6446;
+  --color-member-orange: #fde2da;
+  --color-member-orange-ink: #9e2a12;
+  --color-member-blue: #dce6fc;
+  --color-member-blue-ink: #163c8c;
+  --color-member-purple: #eee6ff;
+  --color-member-purple-ink: #5230a8;
+  --color-member-amber: #fff1c2;
+  --color-member-amber-ink: #7a5300;
+
+  /* display sizes (rules §1.2) — times, amounts and counts above the 22px timetable size */
+  --text-board: 56px;
+  --text-board-sm: 44px;
+  --text-display: 48px;
+  --text-count: 36px;
+  --text-headline: 34px;
+  --text-headline-sm: 26px;
+  --text-timetable: 22px;
 
   /* the only shadows allowed (rules §1.3) */
-  --shadow-segment: 0 1px 2px rgb(0 0 0 / 0.06);
-  --shadow-lifted: 0 12px 24px rgb(15 118 110 / 0.18);
-  --shadow-popover: 0 8px 24px rgb(28 27 26 / 0.12);
+  --shadow-segment: 0 1px 2px rgb(17 20 24 / 0.08);
+  --shadow-lifted: 0 12px 24px rgb(11 42 111 / 0.2);
+  --shadow-popover: 0 8px 24px rgb(17 20 24 / 0.14);
 
-  --radius-chip: 6px;
-  --radius-control: 10px;
-  --radius-card: 16px;
+  --radius-chip: 4px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+
+  /* the only entrance motions (rules §1.8) */
+  --animate-seat-in: seat-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  @keyframes seat-in {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+  }
+  /* the departure board's row turning over, like a split-flap: short, mechanical, no bounce */
+  --animate-flap-in: flap-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  @keyframes flap-in {
+    from {
+      opacity: 0;
+      transform: translateY(-35%) rotateX(55deg);
+    }
+  }
+}
+
+/* Times, amounts and codes: narrow tabular figures (Archivo width axis). */
+@utility figures {
+  font-variant-numeric: tabular-nums;
+  font-stretch: 82%;
 }
 
 @layer base {
   html {
     @apply bg-bg font-sans text-ink antialiased;
+    caret-color: var(--color-accent);
+  }
+  ::selection {
+    background-color: var(--color-signal);
+    color: var(--color-sign);
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-accent;
+  }
+  * {
+    scrollbar-color: var(--color-border-input) transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
   }
 }

@@ -35,6 +35,11 @@ export const memberResolvers: Resolvers = {
     createInviteLink: async (_p, { tripId, role }, ctx) => {
       await requireTripRole(ctx, tripId, 'OWNER');
       if (role === 'OWNER') throw badInput('Invites can grant Editor or Viewer access.');
+      // Links are stateless tokens; remember that one was shared so the setup checklist can tick it.
+      await ctx.db.tripMember.updateMany({
+        where: { tripId, userId: ctx.viewerId!, inviteSharedAt: null },
+        data: { inviteSharedAt: new Date() },
+      });
       return signInvite({ tripId, role, inv: ctx.viewerId! }, ctx.env.JWT_SECRET);
     },
 

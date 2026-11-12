@@ -1,6 +1,9 @@
 import type { BookingSource, BookingType } from '../gql/graphql';
 
-/** Type label + colors — design rules §2 · Bookings. Color is never the only signal: always show the label/code. */
+/**
+ * Type label + chip — design rules §1.5. Every booked thing wears the same solid Plan-blue chip (a plan
+ * nobody has booked is dashed); the 3–5 letter code names the type, so section hues stay with their section.
+ */
 export const BOOKING_TYPES: Record<
   BookingType,
   { label: string; code: string; chip: string; tint: string }
@@ -8,50 +11,50 @@ export const BOOKING_TYPES: Record<
   FLIGHT: {
     label: 'Flight',
     code: 'FLT',
-    chip: 'bg-member-blue text-member-blue-ink',
-    tint: 'bg-tint-blue text-member-blue-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   STAY: {
     label: 'Stay',
     code: 'STAY',
-    chip: 'bg-member-teal text-member-teal-ink',
+    chip: 'bg-accent-tint text-accent-strong',
     tint: 'bg-accent-tint text-accent-strong',
   },
   EVENT: {
     label: 'Event',
     code: 'SHOW',
-    chip: 'bg-member-purple text-member-purple-ink',
-    tint: 'bg-member-purple/40 text-member-purple-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   ATTRACTION: {
     label: 'Attraction',
     code: 'SIGHT',
-    chip: 'bg-member-amber text-member-amber-ink',
-    tint: 'bg-member-amber/40 text-member-amber-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   TOUR: {
     label: 'Tour',
     code: 'TOUR',
-    chip: 'bg-member-amber text-member-amber-ink',
-    tint: 'bg-member-amber/40 text-member-amber-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   TRANSPORT: {
     label: 'Transport',
     code: 'RAIL',
-    chip: 'bg-member-orange text-member-orange-ink',
-    tint: 'bg-tint-orange text-member-orange-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   DINING: {
     label: 'Dining',
     code: 'FOOD',
-    chip: 'bg-surface-muted text-ink-secondary',
-    tint: 'bg-surface-muted text-ink-secondary',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   OTHER: {
     label: 'Other',
     code: 'MISC',
-    chip: 'bg-surface-muted text-ink-secondary',
-    tint: 'bg-surface-muted text-ink-secondary',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
 };
 
@@ -105,6 +108,15 @@ export const localDay = (local: string | null | undefined) =>
   local ? DAY.format(asUtc(local)) : null;
 export const localDayLong = (local: string | null | undefined) =>
   local ? DAY_LONG.format(asUtc(local)) : null;
+/** "Leave by" for a flight: 2 h 30 min before departure, the same rule as the server's reminder. */
+export function leaveBy(departLocal: string | null | undefined): string | null {
+  const t = localTime(departLocal);
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  const mins = (((h! * 60 + m! - 150) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+}
+
 export const localTime = (local: string | null | undefined) =>
   local && local.length > 10 ? local.slice(11, 16) : null;
 export const localDate = (local: string | null | undefined) => (local ? local.slice(0, 10) : '');
@@ -129,10 +141,12 @@ export function duration(fromIso: string, toIso: string) {
   return [h && `${h} h`, m && `${m} min`].filter(Boolean).join(' ');
 }
 
-/** "in 45 min", "in 3 h 20 min", "in 2 days", "tomorrow". */
+/** "in 45 min", "in 3 h 20 min", "in 2 days"; "now" this minute, "passed" after. */
 export function countdown(iso: string, now = Date.now()) {
   const mins = Math.round((Date.parse(iso) - now) / 60_000);
-  if (mins <= 0) return 'now';
+  // A past time is never "now": a stale item must not read as urgent.
+  if (mins < 0) return 'passed';
+  if (mins === 0) return 'now';
   if (mins < 60) return `in ${mins} min`;
   if (mins < 48 * 60) {
     const h = Math.floor(mins / 60);
@@ -282,6 +296,72 @@ export function groupByDay<T extends WhenLike>(items: T[]): { date: string | nul
   return groups;
 }
 
+/**
+ * One timetable row: a booking, or one leg of a multi-leg flight/train. A round trip shows its
+ * return under the day it departs, and each leg is done on its own.
+ */
+export interface BookingRow<T> {
+  key: string;
+  booking: T;
+  leg: T extends { segments: (infer S)[] } ? S | null : null;
+  /** 1-based leg number, and how many legs the booking has (0 when it has none). */
+  legNo: number;
+  legCount: number;
+  start: string | null;
+  /** When the row is over: the leg's arrival, the booking's end, or else its start. */
+  end: string | null;
+}
+
+export function bookingRows<
+  T extends WhenLike & {
+    id: string;
+    segments: { departLocal: string; arriveLocal?: string | null }[];
+  },
+>(items: T[]): BookingRow<T>[] {
+  const rows: BookingRow<T>[] = [];
+  for (const b of items) {
+    if (b.segments.length > 1) {
+      b.segments.forEach((leg, i) =>
+        rows.push({
+          key: `${b.id}:${i}`,
+          booking: b,
+          leg: leg as BookingRow<T>['leg'],
+          legNo: i + 1,
+          legCount: b.segments.length,
+          start: leg.departLocal,
+          end: leg.arriveLocal ?? leg.departLocal,
+        }),
+      );
+    } else {
+      const leg = b.segments[0] ?? null;
+      rows.push({
+        key: b.id,
+        booking: b,
+        leg: leg as BookingRow<T>['leg'],
+        legNo: leg ? 1 : 0,
+        legCount: b.segments.length,
+        start: startOf(b),
+        end: leg ? (leg.arriveLocal ?? leg.departLocal) : (b.endLocal ?? b.startLocal ?? null),
+      });
+    }
+  }
+  return rows.sort((a, b) => (a.start ?? '￿').localeCompare(b.start ?? '￿'));
+}
+
+/** Rows grouped by the local day they start, in time order; undated ones last. */
+export function groupRowsByDay<R extends { start: string | null }>(
+  rows: R[],
+): { date: string | null; items: R[] }[] {
+  const groups: { date: string | null; items: R[] }[] = [];
+  for (const row of rows) {
+    const date = row.start?.slice(0, 10) ?? null;
+    const last = groups.at(-1);
+    if (last && last.date === date) last.items.push(row);
+    else groups.push({ date, items: [row] });
+  }
+  return groups;
+}
+
 /** "€1,248.00" — price is a decimal string from the API. */
 export function bookingPrice(
   price: string | null | undefined,
@@ -337,4 +417,46 @@ export function directions(
     url: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`,
     label,
   };
+}
+
+// --- the shape of a day: what is done, what is happening now, what is next ---
+
+export type AgendaState = 'done' | 'now' | 'next' | 'ahead' | 'untimed';
+
+const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+/** A last item of the day with nothing after it counts as in progress for this long. */
+const LAST_ITEM_MINUTES = 180;
+
+/**
+ * State of each agenda row (rows are in time order). `now` is "HH:MM" on that day, 'past' for a
+ * day that is over, '' for one still ahead. A started row is **in progress** until the next one
+ * starts, and only then done; the first row not yet started is next.
+ */
+export function agendaStates(
+  times: readonly (string | null | undefined)[],
+  now: string,
+): AgendaState[] {
+  if (now === 'past') return times.map((t) => (t ? 'done' : 'untimed'));
+  if (!now) return times.map((t) => (t ? 'ahead' : 'untimed'));
+  const started = times.flatMap((t, i) => (t && t <= now ? [i] : []));
+  const nextIdx = times.findIndex((t) => !!t && t > now);
+  const current = started.at(-1);
+  return times.map((t, i) => {
+    if (!t) return 'untimed';
+    if (i === nextIdx) return 'next';
+    if (t > now) return 'ahead';
+    if (i !== current) return 'done';
+    // The latest started row: in progress until the next row starts (or for a while, if last).
+    return nextIdx !== -1 || toMinutes(now) - toMinutes(t) < LAST_ITEM_MINUTES ? 'now' : 'done';
+  });
+}
+
+/** "in 45 min" / "in 3 h 20 min" between two "HH:MM" times on the same day. */
+export function untilTime(now: string, time: string): string {
+  const mins = toMinutes(time) - toMinutes(now);
+  if (mins <= 0) return 'now';
+  if (mins < 60) return `in ${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `in ${h} h${m ? ` ${m} min` : ''}`;
 }

@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { PasswordInput } from '../components/PasswordInput';
 import { graphql } from '../gql';
+import { afterAuthPath, safeNext } from '../lib/authRedirect';
 import { messageFromError } from '../lib/errors';
 import { MeDocument } from '../lib/session';
 
@@ -35,9 +36,6 @@ const SignUpMutation = graphql(`
 const DEMO = { email: 'demo@tripwise.app', password: 'tripwise-demo' };
 
 /** Only allow in-app redirects. */
-const safeNext = (next: string | null) =>
-  next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
-
 const POINTS = [
   { t: 'One shared itinerary', d: 'Drag activities between days. Everyone sees changes live.' },
   { t: 'Vote on ideas', d: 'Proposals with enough votes land on the plan automatically.' },
@@ -45,7 +43,7 @@ const POINTS = [
 ];
 
 const inputCls =
-  'h-12 rounded-control border border-border-input bg-surface px-3.5 text-[15px] font-normal text-ink';
+  'h-12 rounded-control border border-border-input bg-surface px-3.5 text-[15px] font-normal text-ink placeholder:text-ink-muted';
 
 export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) {
   const navigate = useNavigate();
@@ -58,7 +56,7 @@ export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) 
   const options = {
     refetchQueries: [{ query: MeDocument }],
     awaitRefetchQueries: true,
-    onCompleted: () => navigate(next),
+    onCompleted: () => navigate(afterAuthPath(mode, params.get('next'))),
   };
   const [signIn, signInState] = useMutation(SignInMutation, options);
   const [signUp, signUpState] = useMutation(SignUpMutation, options);
@@ -159,17 +157,17 @@ export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) 
 
       <section
         aria-label="About Tripwise"
-        className="order-2 flex flex-[1_1_480px] flex-col justify-between gap-12 bg-accent-tint px-8 py-12 md:order-1 md:px-16"
+        className="order-2 flex flex-[1_1_480px] flex-col justify-between gap-12 bg-sign px-8 py-12 text-white md:order-1 md:px-16"
       >
-        <Logo />
+        <Logo onSign />
         <div className="flex max-w-[520px] flex-col gap-8">
-          <h2 className="text-4xl leading-[1.12] font-bold tracking-[-0.025em] text-accent-deep md:text-[44px]">
+          <h2 className="text-4xl leading-[1.08] font-extrabold tracking-[-0.025em] text-white md:text-[52px]">
             Plan the trip together. Skip the group-chat chaos.
           </h2>
           <ul className="flex flex-col gap-4.5">
             {POINTS.map((p) => (
               <li key={p.t} className="flex items-start gap-3.5">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface text-accent">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-sign-raised text-white">
                   <svg
                     width="18"
                     height="18"
@@ -185,14 +183,14 @@ export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) 
                   </svg>
                 </span>
                 <span className="flex flex-col gap-0.5">
-                  <strong className="font-semibold text-accent-deep">{p.t}</strong>
-                  <span className="text-[15px] text-accent-ink-soft">{p.d}</span>
+                  <strong className="font-bold text-white">{p.t}</strong>
+                  <span className="text-[15px] text-sign-ink-soft">{p.d}</span>
                 </span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-[13px] text-accent-ink-soft">
+        <p className="text-[13px] text-sign-ink-soft">
           An open-source portfolio project · React, GraphQL, PostgreSQL
         </p>
       </section>

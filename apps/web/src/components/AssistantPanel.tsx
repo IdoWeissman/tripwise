@@ -170,7 +170,7 @@ export function AssistantPanel({
       aria-modal="false"
       aria-labelledby="assistant-title"
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      className="fixed inset-0 z-50 flex flex-col bg-surface md:inset-y-0 md:right-0 md:left-auto md:w-[420px] md:border-l md:border-border md:shadow-popover"
+      className="fixed inset-0 z-50 flex flex-col bg-surface lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[420px] lg:border-l lg:border-border lg:shadow-popover"
     >
       <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
         <div className="flex items-center gap-2">

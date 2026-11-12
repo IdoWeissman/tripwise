@@ -58,6 +58,9 @@ describe.runIf(run)('API integration', () => {
   });
 
   afterAll(async () => {
+    // The invite test stamps inviteSharedAt on the seeded owner; leave the seed as found.
+    if (tripId)
+      await db.tripMember.updateMany({ where: { tripId }, data: { inviteSharedAt: null } });
     await server.stop();
     await db.$disconnect();
   });
@@ -240,6 +243,81 @@ describe.runIf(run)('API integration', () => {
       { t: tripId, u: guestId },
     );
     expect(removed.data.removeMember).toBe(true);
+  });
+
+  it('tracks the setup checklist per member and hides it on request', async () => {
+    const newcomer = request.agent(server.app);
+    await gql(newcomer, 'mutation($i: SignUpInput!) { signUp(input: $i) { user { id } } }', {
+      i: { email: `setup-${Date.now()}@example.com`, name: 'Shir', password: 'password123' },
+    });
+    const id = (
+      await gql(newcomer, 'mutation($i: CreateTripInput!) { createTrip(input: $i) { id } }', {
+        i: {
+          name: 'First trip',
+          destination: 'Rome',
+          startDate: '2027-07-01',
+          endDate: '2027-07-04',
+          currency: 'EUR',
+        },
+      })
+    ).data.createTrip.id as string;
+    const setupQ =
+      'query($id: ID!) { trip(id: $id) { setup { hasBookings hasInvited hasExpenses hidden } } }';
+    const setup = async () => (await gql(newcomer, setupQ, { id })).data.trip.setup;
+
+    expect(await setup()).toEqual({
+      hasBookings: false,
+      hasInvited: false,
+      hasExpenses: false,
+      hidden: false,
+    });
+
+    // Sharing a link counts as inviting, even before anyone joins.
+    await gql(newcomer, 'mutation($t: ID!) { createInviteLink(tripId: $t, role: EDITOR) }', {
+      t: id,
+    });
+    const me = (await gql(newcomer, '{ me { id } }')).data.me.id as string;
+    await gql(newcomer, 'mutation($i: AddExpenseInput!) { addExpense(input: $i) { id } }', {
+      i: {
+        tripId: id,
+        description: 'Flights',
+        amount: '420.00',
+        paidById: me,
+        splitMethod: 'EQUAL',
+        splits: [{ userId: me }],
+      },
+    });
+    expect(await setup()).toMatchObject({
+      hasBookings: false,
+      hasInvited: true,
+      hasExpenses: true,
+      hidden: false,
+    });
+    await gql(
+      newcomer,
+      'mutation($t: ID!, $i: BookingInput!) { createBooking(tripId: $t, input: $i) { id } }',
+      { t: id, i: { type: 'DINING', title: 'Roscioli', startLocal: '2027-07-01T20:00' } },
+    );
+    expect(await setup()).toMatchObject({ hasBookings: true });
+
+    // Outsiders can't read it.
+    const unseen = await gql(owner, setupQ, { id });
+    expect(unseen.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+
+    const hidden = await gql(
+      newcomer,
+      'mutation($t: ID!) { hideTripSetup(tripId: $t) { setup { hidden } } }',
+      { t: id },
+    );
+    expect(hidden.data.hideTripSetup.setup.hidden).toBe(true);
+
+    // …nor hide it.
+    const denied = await gql(owner, 'mutation($t: ID!) { hideTripSetup(tripId: $t) { id } }', {
+      t: id,
+    });
+    expect(denied.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+
+    await gql(newcomer, 'mutation($id: ID!) { deleteTrip(id: $id) }', { id });
   });
 
   it('lets only the owner delete a trip, with everything in it', async () => {

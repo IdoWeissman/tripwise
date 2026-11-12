@@ -19,6 +19,35 @@ export function formatMoney(amount: number, currency = 'EUR', signed = false): s
   return `${amount < 0 ? '−' : '+'}${abs}`;
 }
 
+/** "€" for EUR, "$" for USD; the ISO code when the locale has no symbol. */
+export function currencySymbol(currency = 'EUR'): string {
+  try {
+    return (
+      new Intl.NumberFormat('en-US', { style: 'currency', currency })
+        .formatToParts(0)
+        .find((p) => p.type === 'currency')?.value ?? currency
+    );
+  } catch {
+    return currency;
+  }
+}
+
+/** "YYYY-MM-DD" right now at the destination (falls back to UTC for an unknown zone). */
+export function todayIn(timeZone: string, now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
+  } catch {
+    return now.toISOString().slice(0, 10);
+  }
+}
+
+/** "Sun 16" — compact day label for pickers. */
+export function formatDayShort(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(d);
+  return `${weekday} ${d.getUTCDate()}`;
+}
+
 /** "Fri, May 14" */
 export function formatDay(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -48,4 +77,26 @@ export function formatRelative(iso: string, now = Date.now()): string {
 export function daysUntil(iso: string, now = new Date()): number {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Math.round((new Date(iso).getTime() - today) / 86_400_000);
+}
+
+/** "HH:MM" now in a time zone — what has already happened today steps back. */
+export function nowHHMM(timeZone: string, now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone,
+    }).format(now);
+  } catch {
+    return now.toTimeString().slice(0, 5);
+  }
+}
+
+/** True when a day (YYYY-MM-DD) and optional "HH:MM" are already behind us in the trip's zone. */
+export function isPast(date: string, time: string | null | undefined, timeZone: string): boolean {
+  if (!date) return false;
+  const today = todayIn(timeZone);
+  if (date !== today) return date < today;
+  return !!time && time < nowHHMM(timeZone);
 }

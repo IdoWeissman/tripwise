@@ -97,6 +97,8 @@ type Trip {
   settlements: [Settlement!]!
   "The current viewer's role on this trip."
   myRole: TripRole!
+  "First-run setup checklist (bookings, invites, expenses), as the viewer sees it."
+  setup: TripSetup!
   "IANA time zone for the destination, e.g. \"Europe/Lisbon\"."
   timeZone: String!
   bookings: [Booking!]!
@@ -113,6 +115,16 @@ type Trip {
   attachments(limit: Int = 20): [Attachment!]!
   "Private, read-only iCalendar feed (created on first request)."
   calendarUrl: String!
+}
+
+"What a new trip still needs. Shown to the owner on Today until done or hidden."
+type TripSetup {
+  hasBookings: Boolean!
+  "Someone else has joined, or the viewer has created an invite link."
+  hasInvited: Boolean!
+  hasExpenses: Boolean!
+  "The viewer hid the checklist."
+  hidden: Boolean!
 }
 
 type BookingStats {
@@ -226,6 +238,8 @@ type Reminder {
   title: String!
   body: String!
   fireAt: DateTime!
+  "When the thing it reminds about happens (departure, check-out, start). Past it, the reminder is moot."
+  targetAt: DateTime!
   booking: Booking!
 }
 
@@ -356,6 +370,13 @@ type Activity {
   createdAt: DateTime!
   voteCount: Int!
   viewerHasVoted: Boolean!
+  "Members who voted for it, in the order they voted."
+  voters: [User!]!
+  """
+  The booking this scheduled plan stands for (same day, same time or no time, and the booking's
+  name or place in the plan), so apps show the event once. Null when none matches.
+  """
+  booking: Booking
 }
 
 type AuthPayload {
@@ -464,9 +485,27 @@ input AddExpenseInput {
   spentAt: DateTime
 }
 
+"A place someone might travel to — a destination suggestion for the trip form."
+type PlaceSuggestion {
+  name: String!
+  "State / province / region, when it helps tell places apart."
+  region: String
+  country: String!
+  countryCode: String!
+  "Display line, e.g. \"Portland, Oregon, United States\"."
+  label: String!
+  "Value for the Destination field, e.g. \"Lisbon, Portugal\"."
+  destination: String!
+  timeZone: String!
+  "ISO 4217 currency used there, when known."
+  currency: String
+}
+
 type Query {
   me: User
   trips: [Trip!]!
+  "Destination suggestions as you type (signed-in users; at least 2 characters)."
+  placeSearch(query: String!): [PlaceSuggestion!]!
   trip(id: ID!): Trip
   invitePreview(token: String!): InvitePreview
   "The viewer's active (not revoked) AI assistant tokens, newest first."
@@ -489,6 +528,8 @@ type Mutation {
   addExpense(input: AddExpenseInput!): Expense!
   "Payer or owner."
   deleteExpense(id: ID!): Boolean!
+  "Hides the setup checklist for the viewer on this trip."
+  hideTripSetup(tripId: ID!): Trip!
   "Owner only. Returns a signed invite token (valid 7 days)."
   createInviteLink(tripId: ID!, role: TripRole!): String!
   joinTrip(token: String!): Trip!

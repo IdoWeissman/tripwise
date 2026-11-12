@@ -1,6 +1,6 @@
-import { useApolloClient, useMutation } from '@apollo/client/react';
+import { useApolloClient, useMutation, useQuery } from '@apollo/client/react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Avatar } from '../components/Avatar';
 import { PageHeader } from '../components/Bits';
 import { Button } from '../components/Button';
@@ -12,6 +12,7 @@ import { useToast } from '../components/Toast';
 import { graphql } from '../gql';
 import type { TripRole } from '../gql/graphql';
 import { messageFromError } from '../lib/errors';
+import { formatMoney, toNumber } from '../lib/format';
 import { useTrip, type TripShell } from '../lib/trip';
 
 const CreateInviteDocument = graphql(`
@@ -40,11 +41,27 @@ const RemoveMemberDocument = graphql(`
   }
 `);
 
+const MemberBalancesDocument = graphql(`
+  query MemberBalances($id: ID!) {
+    trip(id: $id) {
+      id
+      balances {
+        user {
+          id
+        }
+        amount
+      }
+    }
+  }
+`);
+
 const ROLE_LABEL: Record<TripRole, string> = { OWNER: 'Owner', EDITOR: 'Editor', VIEWER: 'Viewer' };
 type Member = TripShell['members'][number];
 
 export function MembersPage() {
   const { trip, viewerId, isOwner } = useTrip();
+  const [params] = useSearchParams();
+  const fromSetup = params.get('from') === 'setup';
   const toast = useToast();
   const navigate = useNavigate();
   const [removing, setRemoving] = useState<Member | null>(null);
@@ -55,6 +72,10 @@ export function MembersPage() {
   const [removeMember, { loading: removingBusy }] = useMutation(RemoveMemberDocument, {
     refetchQueries: ['TripShell'],
   });
+  // Members with an unsettled balance can't leave or be removed (rules §2 · 06): say so up front.
+  const { data: balanceData } = useQuery(MemberBalancesDocument, { variables: { id: trip.id } });
+  const balanceOf = (userId: string) =>
+    toNumber(balanceData?.trip?.balances.find((b) => b.user.id === userId)?.amount ?? '0');
 
   const confirmRemove = async () => {
     if (!removing) return;
@@ -76,7 +97,7 @@ export function MembersPage() {
         subtitle="Owners manage the trip. Editors add and vote. Viewers can only look."
       />
 
-      {isOwner && <InviteCard tripId={trip.id} />}
+      {isOwner && <InviteCard tripId={trip.id} fromSetup={fromSetup} />}
 
       <section
         aria-label="People on this trip"
@@ -87,6 +108,7 @@ export function MembersPage() {
           {trip.members.map((m, index) => {
             const isSelf = m.user.id === viewerId;
             const locked = !isOwner || m.role === 'OWNER';
+            const balance = balanceOf(m.user.id);
             return (
               <li
                 key={m.user.id}
@@ -100,32 +122,42 @@ export function MembersPage() {
                   </span>
                   <span className="truncate text-[13px] text-ink-muted">{m.user.email}</span>
                 </span>
-                <Select
-                  size="sm"
-                  className="w-32"
-                  aria-label={`Role for ${m.user.name}`}
-                  value={m.role}
-                  disabled={locked}
-                  onValueChange={(role) =>
-                    void updateRole({ variables: { tripId: trip.id, userId: m.user.id, role } })
-                  }
-                  options={[
-                    ...(m.role === 'OWNER'
-                      ? [{ value: 'OWNER' as const, label: ROLE_LABEL.OWNER }]
-                      : []),
-                    { value: 'EDITOR' as const, label: ROLE_LABEL.EDITOR },
-                    { value: 'VIEWER' as const, label: ROLE_LABEL.VIEWER },
-                  ]}
-                />
-                {((isOwner && !isSelf) || (isSelf && m.role !== 'OWNER')) && (
-                  <Button
-                    variant="destructive"
-                    className="min-h-11 px-3 text-sm"
-                    onClick={() => setRemoving(m)}
-                  >
-                    {isSelf ? 'Leave' : 'Remove'}
-                  </Button>
+                {locked ? (
+                  <span className="flex min-h-10 w-32 items-center px-1 text-sm font-semibold text-ink-secondary">
+                    {ROLE_LABEL[m.role]}
+                  </span>
+                ) : (
+                  <Select
+                    size="sm"
+                    className="w-32"
+                    aria-label={`Role for ${m.user.name}`}
+                    value={m.role}
+                    onValueChange={(role) =>
+                      void updateRole({ variables: { tripId: trip.id, userId: m.user.id, role } })
+                    }
+                    options={[
+                      { value: 'EDITOR' as const, label: ROLE_LABEL.EDITOR },
+                      { value: 'VIEWER' as const, label: ROLE_LABEL.VIEWER },
+                    ]}
+                  />
                 )}
+                {((isOwner && !isSelf) || (isSelf && m.role !== 'OWNER')) &&
+                  (balance === 0 ? (
+                    <Button
+                      variant="destructive"
+                      className="min-h-11 px-3 text-sm"
+                      onClick={() => setRemoving(m)}
+                    >
+                      {isSelf ? 'Leave' : 'Remove'}
+                    </Button>
+                  ) : (
+                    <span className="flex min-h-11 items-center text-[13px] text-ink-muted figures">
+                      {balance < 0
+                        ? `Owes ${formatMoney(-balance, trip.currency)}`
+                        : `Is owed ${formatMoney(balance, trip.currency)}`}{' '}
+                      · settle first
+                    </span>
+                  ))}
               </li>
             );
           })}
@@ -215,7 +247,7 @@ function DeleteTripCard({ tripId, tripName }: { tripId: string; tripName: string
   );
 }
 
-function InviteCard({ tripId }: { tripId: string }) {
+function InviteCard({ tripId, fromSetup }: { tripId: string; fromSetup: boolean }) {
   const [role, setRole] = useState<TripRole>('EDITOR');
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -261,7 +293,7 @@ function InviteCard({ tripId }: { tripId: string }) {
             ]}
           />
         </div>
-        <Button onClick={() => void generate()} disabled={loading}>
+        <Button onClick={() => void generate()} disabled={loading} autoFocus={fromSetup}>
           {link ? 'New link' : 'Create invite link'}
         </Button>
       </div>
@@ -281,6 +313,14 @@ function InviteCard({ tripId }: { tripId: string }) {
             </Button>
           </span>
         </label>
+      )}
+      {link && fromSetup && (
+        <Link
+          to={`/trips/${tripId}/overview`}
+          className="flex min-h-11 items-center self-start text-sm font-bold"
+        >
+          Back to setup
+        </Link>
       )}
       {error && (
         <p role="alert" className="text-sm text-negative-ink">

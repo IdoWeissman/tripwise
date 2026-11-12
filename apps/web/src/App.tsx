@@ -13,6 +13,7 @@ import { OverviewPage } from './pages/OverviewPage';
 import { ProposalsPage } from './pages/ProposalsPage';
 import { SignInPage } from './pages/SignInPage';
 import { TripsPage } from './pages/TripsPage';
+import { WelcomePage } from './pages/WelcomePage';
 
 const router = createBrowserRouter([
   { path: '/sign-in', element: <SignInPage /> },
@@ -21,6 +22,8 @@ const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
+      // first run after sign-up — full page, outside the dashboard shell
+      { path: '/welcome', element: <WelcomePage /> },
       {
         element: <AppLayout />,
         children: [

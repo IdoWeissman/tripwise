@@ -59,7 +59,16 @@ function foundLabel(drafts: BookingDraft[], kind: string) {
 }
 
 /** Add booking: upload / paste → review → save. Design canvas "Add booking" + "Review bookings". */
-export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AddBookingDialog({
+  open,
+  onClose,
+  returnTo,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Where to go after saving (e.g. back to the setup checklist); default: the new booking. */
+  returnTo?: string;
+}) {
   const { trip } = useTrip();
   const client = useApolloClient();
   const toast = useToast();
@@ -233,7 +242,8 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
       toast(ids.length === 1 ? 'Booking added' : `${ids.length} bookings added`);
       reset();
       onClose();
-      if (ids.length === 1) void navigate(`/trips/${trip.id}/bookings/${ids[0]}`);
+      if (returnTo) void navigate(returnTo);
+      else if (ids.length === 1) void navigate(`/trips/${trip.id}/bookings/${ids[0]}`);
     } catch (err) {
       // Keep what wasn't saved so nothing is lost.
       setItems((prev) => prev.slice(ids.length));
@@ -283,7 +293,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                 : 'border-border-input bg-bg hover:bg-surface-muted'
             }`}
           >
-            <span className="flex size-12 items-center justify-center rounded-xl bg-accent-tint text-accent">
+            <span className="flex size-12 items-center justify-center rounded-card bg-accent-tint text-accent">
               <UploadIcon size={22} />
             </span>
             <span className="text-[15px] font-semibold">
@@ -363,11 +373,11 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
               {files.map((f) => (
                 <li
                   key={f.key}
-                  className="flex items-center gap-3 rounded-[14px] border border-border p-3"
+                  className="flex items-center gap-3 rounded-card border border-border p-3"
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-[42px] w-[34px] shrink-0 items-center justify-center rounded-chip bg-surface-muted text-[10px] font-bold text-ink-secondary"
+                    className="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-chip bg-surface-muted text-xs font-bold text-ink-secondary"
                   >
                     {f.ext}
                   </span>
@@ -440,7 +450,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                     type="button"
                     aria-current={i === current ? 'true' : undefined}
                     onClick={() => setCurrent(i)}
-                    className={`flex min-h-14 min-w-[200px] items-center gap-3 rounded-[14px] border px-3 py-2 text-left md:min-w-0 ${
+                    className={`flex min-h-14 min-w-[200px] items-center gap-3 rounded-card border px-3 py-2 text-left md:min-w-0 ${
                       i === current
                         ? 'border-accent bg-accent-tint'
                         : 'border-border bg-surface hover:bg-surface-muted'
@@ -448,7 +458,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                   >
                     <span
                       aria-hidden="true"
-                      className={`flex size-9 shrink-0 items-center justify-center rounded-[9px] text-[9px] font-bold ${t.chip}`}
+                      className={`flex h-9 w-12 shrink-0 items-center justify-center rounded-chip text-xs font-bold ${t.chip}`}
                     >
                       {t.code}
                     </span>
@@ -469,7 +479,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
 
             {cur && (
               <div className="flex min-w-0 flex-1 flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-bg px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-bg px-4 py-3">
                   <span className="text-sm text-ink-secondary">
                     {SOURCE_LABEL[cur.source]}
                     {cur.sourceName ? ` · ${cur.sourceName}` : ''}

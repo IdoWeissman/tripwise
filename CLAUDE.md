@@ -8,7 +8,7 @@ Read this before making any change.
 - Use only the design tokens defined in `apps/web/src/styles.css` (they mirror §1.1 of the rules). Never introduce stray hex values, font sizes or radii. If a new token is truly needed, add it to **both** the rules file and `styles.css` first.
 - New screen? Add a section for it under "2. Screen rules" in `docs/design-rules.md` in the same change.
 - Every screen ships with loading, empty and error states, works at 390px width, keeps touch targets ≥ 44px and text contrast ≥ 4.5:1.
-- The visual reference is the Tripwise design canvas (screens 01–06 desktop, M1–M4 mobile). Match it.
+- The visual reference is the **Platform** world in `docs/design-rules.md` §1 and `DESIGN.md` (the older teal design canvas is retired). Match it.
 
 ## Architecture
 

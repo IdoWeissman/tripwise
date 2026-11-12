@@ -4,6 +4,8 @@ import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
 import { TextField, TimeInputField } from '../../components/Fields';
 import { messageFromError } from '../../lib/errors';
+import { currencySymbol } from '../../lib/format';
+import { useTrip } from '../../lib/trip';
 import { AddActivityDocument, ItineraryDocument } from './queries';
 
 interface Props {
@@ -18,6 +20,7 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
   const [startTime, setStartTime] = useState('');
   const [location, setLocation] = useState('');
   const [cost, setCost] = useState('');
+  const { currency } = useTrip().trip;
   const [add, { loading, error }] = useMutation(AddActivityDocument, {
     refetchQueries: [{ query: ItineraryDocument, variables: { id: tripId } }],
     awaitRefetchQueries: true,
@@ -43,7 +46,7 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
 
   return (
     <Dialog open onClose={onClose} title={`Add activity · ${dayLabel}`}>
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form onSubmit={submit} className="flex min-h-full flex-col gap-4">
         <TextField
           label="Title"
           required
@@ -55,7 +58,7 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <TimeInputField label="Time" value={startTime} onChange={setStartTime} />
           <TextField
-            label="Cost pp"
+            label={`Cost pp (${currencySymbol(currency)})`}
             inputMode="decimal"
             placeholder="0.00"
             value={cost}
@@ -73,7 +76,8 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
             {messageFromError(error)}
           </p>
         )}
-        <div className="flex justify-end gap-3">
+        {/* Footer sits on the sheet's bottom edge on phones (thumb reach) and sticks if the form scrolls. */}
+        <div className="sticky bottom-0 -mx-5 mt-auto -mb-5 flex justify-end gap-3 border-t border-border bg-surface px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
