@@ -1,4 +1,6 @@
 import { GraphQLError } from 'graphql';
+import { matchBooking } from '../../bookings/match.js';
+import { dateKey } from '../../lib/time.js';
 import type { Resolvers } from '../__generated__/resolvers-types.js';
 import { badInput, requireTripRole } from '../errors.js';
 import { publishTripEvent, pubsub, tripTopic } from '../pubsub.js';
@@ -176,5 +178,16 @@ export const activityResolvers: Resolvers = {
     },
     voteCount: (a, _args, ctx) => ctx.loaders.voteCountByActivity.load(a.id),
     viewerHasVoted: (a, _args, ctx) => ctx.loaders.viewerVoted.load(a.id),
+    voters: (a, _args, ctx) => ctx.loaders.votersByActivity.load(a.id),
+    booking: async (a, _args, ctx) => {
+      if (a.status !== 'SCHEDULED' || !a.dayId) return null;
+      const [day, trip, bookings] = await Promise.all([
+        ctx.loaders.dayById.load(a.dayId),
+        ctx.loaders.tripById.load(a.tripId),
+        ctx.loaders.bookingsByTrip.load(a.tripId),
+      ]);
+      if (!day || !trip) return null;
+      return matchBooking(a, dateKey(day.date), bookings, trip.timeZone);
+    },
   },
 };

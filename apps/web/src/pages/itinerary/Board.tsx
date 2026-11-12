@@ -30,6 +30,8 @@ export interface Column {
   sublabel: string;
   /** Read-only bookings for the day (stay strip + booking cards), shown above the activities. */
   extra?: React.ReactNode;
+  /** Booking cards shown on their own that day (for the day's item count). */
+  bookings?: number;
 }
 
 type Items = Record<string, string[]>;

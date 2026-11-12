@@ -2,7 +2,7 @@ import { useQuery } from '@apollo/client/react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../components/Button';
-import { BellIcon, CopyIcon, PinIcon, PlusIcon } from '../components/Icons';
+import { BellIcon, CalendarIcon, CopyIcon, PinIcon, PlusIcon } from '../components/Icons';
 import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { graphql } from '../gql';
@@ -169,7 +169,7 @@ export function OverviewPage() {
           relative="path"
           className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border-input bg-surface px-5 text-[15px] font-semibold text-ink no-underline hover:bg-surface-muted hover:text-ink"
         >
-          <BellIcon />
+          <CalendarIcon />
           Add to calendar
         </Link>
         {canEdit && (
@@ -419,7 +419,7 @@ function UpNextCard({ upNext, canEdit }: { upNext: Overview['upNext']; canEdit: 
                 {[s.fromCode, s.fromName].filter(Boolean).join(' · ')}
               </span>
             </span>
-            <span className="text-center text-[11px] font-semibold text-ink-muted">
+            <span className="text-center text-xs font-semibold text-ink-muted">
               {s.arrivesAt ? duration(s.departsAt, s.arrivesAt) : s.number}
             </span>
             <span className="flex min-w-0 flex-col text-right">
@@ -544,17 +544,23 @@ function TodayList({
                 : a.kind === 'CHECK_OUT'
                   ? 'OUT'
                   : (type?.code ?? 'PLAN');
+            const label =
+              a.kind === 'CHECK_IN'
+                ? 'Check-in'
+                : a.kind === 'CHECK_OUT'
+                  ? 'Check-out'
+                  : (type?.label ?? 'Plan');
             const chip = type?.chip ?? 'bg-surface-muted text-ink-secondary';
             const inner = (
               <>
                 <span className="text-sm font-bold text-accent-strong tabular-nums">
-                  {a.time ?? '—'}
+                  {a.time ?? <span className="text-xs font-semibold text-ink-muted">Any time</span>}
                 </span>
                 <span
-                  aria-hidden="true"
-                  className={`flex size-8 items-center justify-center rounded-[9px] text-[9px] font-bold ${chip}`}
+                  className={`flex h-8 items-center justify-center rounded-chip text-xs font-bold tracking-[0.02em] ${chip}`}
                 >
-                  {code}
+                  <span className="sr-only">{label}: </span>
+                  <span aria-hidden="true">{code}</span>
                 </span>
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-semibold">{a.title}</span>
@@ -565,7 +571,7 @@ function TodayList({
               </>
             );
             const cls =
-              'grid min-h-14 grid-cols-[48px_32px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border border-border bg-surface px-3 py-2.5 text-ink no-underline';
+              'grid min-h-14 grid-cols-[52px_48px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border border-border bg-surface px-3 py-2.5 text-ink no-underline';
             return (
               <li key={`${a.kind}-${a.booking?.id ?? a.activity?.id ?? i}`}>
                 {a.booking ? (

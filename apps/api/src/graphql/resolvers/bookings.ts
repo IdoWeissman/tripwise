@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { GraphQLError } from 'graphql';
+import { matchBooking } from '../../bookings/match.js';
 import { aiConfig, parseText } from '../../bookings/parse/index.js';
 import { computeReminders, DEFAULT_PREFS, upcoming } from '../../bookings/reminders.js';
 import {
@@ -145,7 +146,15 @@ export const bookingResolvers: Resolvers = {
         where: { dayId, status: 'SCHEDULED' },
         orderBy: { position: 'asc' },
       });
-      for (const a of activities)
+      const bookings = await ctx.loaders.bookingsByTrip.load(t.id);
+      for (const a of activities) {
+        // A plan that stands for a booking is shown once: on the booking's row.
+        const booked = matchBooking(a, date, bookings, t.timeZone);
+        const row = booked && items.find((i) => i.booking?.id === booked.id && !i.activity);
+        if (row) {
+          row.activity = a;
+          continue;
+        }
         items.push({
           kind: 'ACTIVITY',
           time: a.startTime,
@@ -154,6 +163,7 @@ export const bookingResolvers: Resolvers = {
           booking: null,
           activity: a,
         });
+      }
       // By time; at the same time, fixed bookings come before flexible plans. Untimed plans last.
       const rank = (i: AgendaItemModel) => (i.kind === 'ACTIVITY' ? 1 : 0);
       return items.sort(

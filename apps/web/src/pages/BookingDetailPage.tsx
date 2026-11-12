@@ -200,7 +200,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
         <div className="flex min-w-0 items-center gap-4">
           <span
             aria-hidden="true"
-            className={`flex size-12 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold tracking-[0.04em] ${t.chip}`}
+            className={`flex size-12 shrink-0 items-center justify-center rounded-xl text-xs font-bold tracking-[0.04em] ${t.chip}`}
           >
             {t.code}
           </span>
@@ -209,6 +209,15 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
             <p className="text-sm text-ink-muted">{subtitle}</p>
           </div>
         </div>
+        {b.confirmationCode && (
+          <section aria-label="Confirmation code" className={`${card} w-full px-4 py-3 md:hidden`}>
+            <ConfirmationCode
+              code={b.confirmationCode}
+              copied={copied}
+              onCopy={() => void copyCode()}
+            />
+          </section>
+        )}
         <div className="flex flex-wrap gap-3">
           {canEdit && (
             <Button variant="secondary" onClick={startEditing}>
@@ -273,7 +282,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
                   role="tab"
                   aria-selected={i === leg}
                   onClick={() => setLeg(i)}
-                  className={`min-h-11 rounded-[9px] text-sm ${i === leg ? 'bg-surface font-semibold shadow-segment' : 'font-medium text-ink-secondary'}`}
+                  className={`min-h-11 rounded-control text-sm ${i === leg ? 'bg-surface font-semibold shadow-segment' : 'font-medium text-ink-secondary'}`}
                 >
                   {legLabel(i)}
                 </button>
@@ -301,7 +310,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
                     <span className="truncate text-xs text-ink-muted">{seg.fromName}</span>
                   )}
                 </span>
-                <span className="flex flex-col items-center gap-1 text-[11px] font-semibold text-ink-muted">
+                <span className="flex flex-col items-center gap-1 text-xs font-semibold text-ink-muted">
                   <span aria-hidden="true" className="h-px w-16 bg-border-input sm:w-24" />
                   {seg.arrivesAt && duration(seg.departsAt, seg.arrivesAt)}
                 </span>
@@ -377,23 +386,17 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
             <h2 id="bk-conf" className="sr-only">
               Confirmation
             </h2>
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex min-w-0 flex-col">
-                <span className="text-xs text-ink-muted">Confirmation</span>
-                <span
-                  className={`font-mono font-bold break-all ${(b.confirmationCode?.length ?? 0) > 10 ? 'text-lg tracking-[0.04em]' : 'text-2xl tracking-[0.1em]'}`}
-                >
-                  {b.confirmationCode ?? '—'}
-                </span>
-              </span>
-              {b.confirmationCode && (
-                <Button variant="secondary" onClick={() => void copyCode()}>
-                  <CopyIcon size={16} />
-                  <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
-                </Button>
-              )}
+            {/* On phones the code sits under the title instead (see above). */}
+            <div className={b.confirmationCode ? 'hidden md:block' : undefined}>
+              <ConfirmationCode
+                code={b.confirmationCode}
+                copied={copied}
+                onCopy={() => void copyCode()}
+              />
             </div>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t border-surface-muted pt-3.5 text-sm">
+            <dl
+              className={`grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm ${b.confirmationCode ? 'md:border-t md:border-surface-muted md:pt-3.5' : 'border-t border-surface-muted pt-3.5'}`}
+            >
               {b.travellers ? (
                 <DlRow k={b.type === 'FLIGHT' ? 'Passengers' : 'People'} v={String(b.travellers)} />
               ) : null}
@@ -425,7 +428,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
               <div key={a.id} className="flex items-center gap-3">
                 <span
                   aria-hidden="true"
-                  className="flex h-11 w-9 shrink-0 items-center justify-center rounded-chip bg-attention text-[10px] font-bold text-attention-ink"
+                  className="flex h-11 w-9 shrink-0 items-center justify-center rounded-chip bg-attention text-xs font-bold text-attention-ink"
                 >
                   {fileExt(a.fileName, a.mimeType)}
                 </span>
@@ -593,6 +596,36 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
               .catch((err: unknown) => toast(messageFromError(err), 'error'))
           }
         />
+      )}
+    </div>
+  );
+}
+
+/** The code people show at a counter: large, monospaced, one tap to copy. */
+function ConfirmationCode({
+  code,
+  copied,
+  onCopy,
+}: {
+  code: string | null | undefined;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="flex min-w-0 flex-col">
+        <span className="text-xs text-ink-muted">Confirmation</span>
+        <span
+          className={`font-mono font-bold break-all ${(code?.length ?? 0) > 10 ? 'text-lg tracking-[0.04em]' : 'text-2xl tracking-[0.1em]'}`}
+        >
+          {code ?? '—'}
+        </span>
+      </span>
+      {code && (
+        <Button variant="secondary" onClick={onCopy}>
+          <CopyIcon size={16} />
+          <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
+        </Button>
       )}
     </div>
   );

@@ -367,7 +367,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-[42px] w-[34px] shrink-0 items-center justify-center rounded-chip bg-surface-muted text-[10px] font-bold text-ink-secondary"
+                    className="flex h-[42px] w-10 shrink-0 items-center justify-center rounded-chip bg-surface-muted text-xs font-bold text-ink-secondary"
                   >
                     {f.ext}
                   </span>
@@ -448,7 +448,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                   >
                     <span
                       aria-hidden="true"
-                      className={`flex size-9 shrink-0 items-center justify-center rounded-[9px] text-[9px] font-bold ${t.chip}`}
+                      className={`flex h-9 w-12 shrink-0 items-center justify-center rounded-chip text-xs font-bold ${t.chip}`}
                     >
                       {t.code}
                     </span>

@@ -51,11 +51,25 @@
   --radius-chip: 6px;
   --radius-control: 10px;
   --radius-card: 16px;
+
+  /* the only entrance motion (rules §1.8): a vote's face settling into its seat, ≤200ms */
+  --animate-seat-in: seat-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  @keyframes seat-in {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+  }
 }
 
 @layer base {
   html {
     @apply bg-bg font-sans text-ink antialiased;
+    caret-color: var(--color-accent);
+  }
+  ::selection {
+    background-color: var(--color-accent-tint-border);
+    color: var(--color-accent-deep);
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-accent;

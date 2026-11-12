@@ -12,6 +12,7 @@ import { formatDay } from '../lib/format';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 import { useIsDesktop } from '../lib/useMediaQuery';
 import { AddActivityDialog } from './itinerary/AddActivityDialog';
+import { standaloneBookings } from './itinerary/bookedPlans';
 import { DayBookings } from './itinerary/DayBookings';
 import { ActivityCard } from './itinerary/ActivityCard';
 import { Board, type Column } from './itinerary/Board';
@@ -53,7 +54,8 @@ export function ItineraryPage() {
         id: d.id,
         label: `Day ${d.position + 1}`,
         sublabel: formatDay(d.date),
-        extra: d.stay || d.bookings.length ? <DayBookings day={d} /> : undefined,
+        extra: d.stay || standaloneBookings(d).length ? <DayBookings day={d} /> : undefined,
+        bookings: standaloneBookings(d).length,
       });
       serverItems[d.id] = d.activities.map((a) => (byId.set(a.id, a), a.id));
     }
@@ -180,6 +182,18 @@ interface MobileProps {
   onAdd: (column: Column) => void;
 }
 
+/** "2 bookings · 3 activities" — every card on the day is counted. */
+function dayCount(activities: number, bookings: number) {
+  const part = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  if (!activities && !bookings) return 'Nothing yet';
+  return [
+    bookings ? part(bookings, 'booking', 'bookings') : null,
+    activities ? part(activities, 'activity', 'activities') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** M1 — one day at a time with a day picker; "Move to" replaces drag on touch. */
 function MobileDayList({
   columns,
@@ -214,7 +228,7 @@ function MobileDayList({
           {column.label} · {column.sublabel}
         </h2>
         <span className="text-[13px] text-ink-muted">
-          {list.length} {list.length === 1 ? 'activity' : 'activities'}
+          {dayCount(list.length, column.bookings ?? 0)}
         </span>
       </div>
       {column.extra}

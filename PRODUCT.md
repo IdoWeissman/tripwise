@@ -13,7 +13,7 @@ web
 - **Before the trip**, mostly on desktop: collecting bookings, proposing and voting on ideas, shaping the day-by-day plan.
 - **During the trip**, on a phone, often one-handed and in a hurry: checking what's next, finding a booking code or address, adding an expense right after paying, seeing who owes whom.
 
-**Secondary: portfolio reviewers** (hiring managers, engineers) who arrive from the README or live demo, enter through *Explore with the demo account*, and judge the product and engineering craft within a few minutes. Real groups come first; the demo path must always stay obvious and work.
+**Secondary: portfolio reviewers** (hiring managers, engineers) who arrive from the README or live demo, enter through _Explore with the demo account_, and judge the product and engineering craft within a few minutes. Real groups come first; the demo path must always stay obvious and work.
 
 ## Product Purpose
 
@@ -29,8 +29,8 @@ Success means a group decides together without endless chat threads, everyone fi
 
 - Roles: owner, editor, viewer. Members join through invite links.
 - Trip sections: overview, itinerary (activities by day, drag to reorder), proposals and voting, bookings (imported from confirmation emails, PDFs, calendar files or pasted text, always reviewed before saving), expenses (equal, percent and exact splits; settle-up plan), members.
-- Trip assistant: an *Ask* panel on every trip screen answers from the trip's data and uploaded documents with numbered citations, and can suggest an expense, activity or booking that is saved only after the user confirms.
-- MCP: users create a personal token under *AI assistants* to let Claude, Cursor or another MCP client read and add to their trips.
+- Trip assistant: an _Ask_ panel on every trip screen answers from the trip's data and uploaded documents with numbered citations, and can suggest an expense, activity or booking that is saved only after the user confirms.
+- MCP: users create a personal token under _AI assistants_ to let Claude, Cursor or another MCP client read and add to their trips.
 - Live updates over GraphQL subscriptions; a "Live" indicator shows connection state.
 
 ## Capabilities and Constraints

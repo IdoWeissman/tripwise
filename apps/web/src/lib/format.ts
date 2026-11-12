@@ -19,6 +19,19 @@ export function formatMoney(amount: number, currency = 'EUR', signed = false): s
   return `${amount < 0 ? '−' : '+'}${abs}`;
 }
 
+/** "€" for EUR, "$" for USD; the ISO code when the locale has no symbol. */
+export function currencySymbol(currency = 'EUR'): string {
+  try {
+    return (
+      new Intl.NumberFormat('en-US', { style: 'currency', currency })
+        .formatToParts(0)
+        .find((p) => p.type === 'currency')?.value ?? currency
+    );
+  } catch {
+    return currency;
+  }
+}
+
 /** "Fri, May 14" */
 export function formatDay(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {

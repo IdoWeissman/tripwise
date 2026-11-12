@@ -62,7 +62,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 ### 1.5 Components
 
-- **Primary button**: accent background, white text, 44px tall (48–52 on mobile primary actions). Max **one** primary button per view region.
+- **Primary button**: accent background, white text, 44px tall (48–52 on mobile primary actions). Max **one** primary button per view region. Disabled: `accent-tint-border` background with `accent-deep` text (stays readable; never faded white-on-teal).
 - **Secondary button**: white, `border-input` border, text color.
 - **Destructive**: text-only in `color.negative`, always requires confirmation.
 - **Segmented control / tabs**: muted track, selected segment white with a subtle shadow; uses `role="tablist"`/`role="radiogroup"` correctly.
@@ -104,6 +104,8 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Error**: inline message near the failed element + retry; never lose user input.
 - **Optimistic updates**: votes, reorders and new expenses appear instantly and roll back with a toast on failure.
 - **Live updates** (GraphQL subscriptions): incoming changes animate in subtly (≤200ms fade/slide); never move the item the user is currently interacting with.
+- **Motion token**: `animate-seat-in` (200ms, ease-out, scale 0.6 → 1 with fade) is the one entrance animation — a voter's face settling into its seat. Always behind `motion-safe:`.
+- **Browser surfaces**: text selection uses `accent-tint-border` / `accent-deep`; the caret is `accent`. Trip screens start with a "Skip to content" link (visible on focus) that jumps to `main`.
 
 ---
 
@@ -123,7 +125,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Page title "Your trips" + summary line + one primary "New trip" button.
 - Upcoming / Past filter as a segmented control.
 - Trip cards in an auto-fill grid (min 300px). Every card shows: status pill, countdown, name, place · dates, member avatars, one stat line. The whole card is a single link.
-- Card cover uses a light tint from the avatar palette — no stock photos unless the user uploads one.
+- Card cover uses a light tint from the avatar palette — no stock photos unless the user uploads one. The cover carries the trip: the destination (first part, 28px bold) and a **day strip** (one tick per trip day in the tint's ink; days already lived are solid, the rest 25%) with "N days".
 - The last grid cell is always the dashed "Plan a new trip" card.
 - Card status pill: Upcoming / Happening now / Past; countdown "in N days" on upcoming trips. Stat line: "N activities · N open votes".
 - **New trip dialog**: name, destination, start/end date (end ≥ start, validated inline), currency. Creating a trip opens its itinerary.
@@ -132,7 +134,9 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 ### 03 · Itinerary board
 
 - One column per day (272px), horizontally scrollable; header shows `Day N` + date.
-- Activity card: time (accent), title, location, cost chip, "added by" avatar, drag handle (`aria-label="Drag to move"`).
+- Activity card: same density as the booking cards (12px padding, 14px title): time (accent), title, one meta line (location · cost pp), "added by" avatar, drag handle (`aria-label="Drag to move"`).
+- **One event, one card.** A scheduled plan that stands for a booking (the API's `Activity.booking`: same day, same or no time, and the booking's name or place in the plan, or a check-in plan on the stay's first day) carries a 44px **Booked** row (type chip + code) linking to the booking, and that booking's own card is not shown. If it covers the stay check-in, the stay strip reads "Night 1 of N".
+- Mobile day header counts every card: "2 bookings · 3 activities".
 - Dragging: card tilts −1.5°, accent border + shadow; target shows a dashed accent "Drop here" slot.
 - Reordering must also be possible with the keyboard: focus the drag handle, Space to pick up, arrows to move (also across days), Space to drop, Esc to cancel.
 - Moves are optimistic; on failure the board snaps back and an error toast explains why.
@@ -143,11 +147,11 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 ### 04 · Proposals & voting
 
-- Threshold is stated in the header ("Ideas need 3 votes…") and shown per card with a progress bar + "N more to accept".
-- Vote button: 44px, `aria-pressed`; filled accent when the user has voted.
+- Threshold is stated in the header ("Ideas need 3 votes…") and shown per card as **vote seats**: one 32px seat per vote needed; voters' avatars fill seats in voting order (with `animate-seat-in`), open seats are dashed circles (`role="img"`, "2 of 3 votes"). Beside it: who voted ("Maya and you voted" / "No votes yet") and "N more votes put it on the plan".
+- Vote button: labelled **Vote** (chevron) / **Voted** (check, filled accent), 44px, `aria-pressed`, full width on phones. Proposals are about people, so the seats — not a bare count — carry the decision.
 - One vote per user per proposal (UI and DB constraint agree).
 - Votes are optimistic (instant); a toast confirms when a proposal is accepted and moves to the Accepted tab.
-- Open / Accepted / Declined tabs show counts. Owners can **Decline** an open proposal (destructive text button).
+- Open / Accepted / Declined tabs show counts. Owners can **Decline** an open proposal (quiet ghost text button that turns `negative` on hover — it must never be the loudest thing on the card).
 - Propose form sits beside the list from `lg` up; below that a "Propose" button reveals it above the list.
 - Viewers see the list with vote buttons disabled.
 
@@ -156,7 +160,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Top: three stat tiles — Trip total, You paid, Your balance (balance tile uses accent-tint when positive, attention tint when negative).
 - Expense table columns: Expense (title + date · category), Paid by (avatar + name), Amount, Your share. Numbers right-aligned, tabular.
 - Below `md` the table becomes a compact list (avatar · title · "X paid · date" · amount), and the balance tile, then Settle up and Balances, come before the list (M3 order).
-- Settle up card lists the suggested payments (at most n−1); rows involving the current user are highlighted with accent-tint and get a **Mark paid** button (also for owners). Marking paid records a "Settlement" entry that is excluded from Trip total.
+- Settle up card lists the suggested payments (at most n−1): avatars → avatar, "Noa pays Maya", amount on one line; rows involving the current user are highlighted with accent-tint and get a **Mark €42.10 paid** button on its own line (also for owners), and the toast names what was recorded. Marking paid records a "Settlement" entry that is excluded from Trip total.
 - The payer or the owner can delete an expense (trash icon button with `aria-label`, then a confirm dialog).
 - Copy: "You pay Maya", "Daniel pays you" — "you" is lower-case mid-sentence.
 - Balances use a diverging bar chart centered at zero: teal right = owed to them, orange left = they owe. Always also show the signed value.
@@ -166,8 +170,8 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 - Role explainer line under the title (Owner / Editor / Viewer).
 - Invite card (owners only): role select (Editor / Viewer) → "Create invite link" → read-only link + "Copy link" (shows "Copied" for 2s). Links expire after 7 days. Email invites are planned.
-- Member rows: avatar, name (+ "(you)"), email, role select. Only the owner can change roles; the owner's own role is locked.
-- Owners can **Remove** others; non-owners can **Leave**. Both confirm first; members with an unsettled balance can't be removed.
+- Member rows: avatar, name (+ "(you)"), email, role select. Only the owner can change roles; a role nobody can change (the owner's, or any role for non-owners) shows as plain text, not a disabled select.
+- Owners can **Remove** others; non-owners can **Leave**. Both confirm first. Members with an unsettled balance can't be removed or leave: instead of the button the row says why ("Owes €96.29 · settle first").
 - **Delete this trip** (owners only): a last card with an `attention` border, a one-line warning of what is deleted and that it can't be undone, and a secondary **Delete trip** button in negative colors with a trash icon. It confirms first, then returns to My trips with a toast. Members who have the trip open are sent to My trips with "… was deleted by its owner."
 
 ### 07 · Join trip (`/join/:token`)
@@ -193,12 +197,13 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - Two columns that wrap on narrow screens. Main: the schedule — flights/trains as a leg card (date · number, big departure and arrival times, codes and names, duration, "+1" for next-day arrivals, a note when the zones differ) with an Outbound/Return segmented control when there are several legs; other types as fact tiles (Starts/Check-in, Ends/Check-out, Where). The address shows as text with a **Get directions** link; notes keep line breaks.
 - Side: **Confirmation** card (monospace code + **Copy**, which says "Copied" for 2s; then Passengers/People, Price, Status, Added by, Source), **Documents** (file chips that open short-lived signed URLs; delete with confirmation; a dashed "Attach boarding passes / Attach a document" button), **Reminders** for this booking with a link to settings, and **Delete booking** (destructive, confirms; documents are deleted with it).
 - Needs details → the attention banner with **Add details**, which opens the edit dialog.
+- Below `md` the confirmation code (+ **Copy**) sits directly under the title, before the actions and the leg card — it's what people need at a counter. The side card then starts with Passengers/People.
 
 ### 10 · Trip overview / Today (`/trips/:id/overview`, the trip's landing screen)
 
 - Greeting in the destination's time of day ("Good morning, Ido") and the trip status: "Day 2 of 6 · Sat, May 15", "Starts in 12 days · 6 days" or "Trip ended". Actions: **Add to calendar** (secondary) and **Add booking** (primary).
 - **Up next** card: a tinted header strip in the booking type's color ("Up next · Flight" + "Departs in 1 h 35 min"), then the leg (times, codes, duration) or the booking's title, date and place, then confirmation code + copy, **Details**, **Directions to …** (departure airport for flights, the venue otherwise) and **Manage booking**. With nothing ahead: a dashed card that invites adding a booking.
-- **Today** (or the first/last day outside the trip): one ordered list mixing bookings, check-in/out and planned activities by time — time (accent, tabular), 32px type chip, title and subtitle. Bookings link to their detail.
+- **Today** (or the first/last day outside the trip): one ordered list mixing bookings, check-in/out and planned activities by time — time (accent, tabular), 32px-tall type chip (12px code, spoken label), title and subtitle. Bookings link to their detail. A plan that stands for a booking is merged into the booking's row, never listed twice.
 - Side column: **Reminders** (next three, with countdowns; link to settings) and four "at a glance" tiles (Bookings, Open ideas, Spent, Your balance) that link to their sections.
 - Mobile: the first reminder shows as a blue banner under Up next; the side reminders card is hidden.
 
@@ -240,7 +245,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Itinerary**: trip name + live indicator, then a horizontally scrolling day picker (segmented control). One day's activities at a time, as a vertical list. Touch replaces drag with a per-card **Move to…** select (44px).
 - **Proposals**: compact cards, 3-segment vote meter, full-width-row "Vote / Voted" button on the right.
 - **Expenses**: balance hero card at top (accent-tint), then Settle up, then Recent. "+ Expense" primary in header.
-- **Add expense**: full-screen form; big centered amount input (decimal keyboard); split method as a 3-way segmented control (Equally / Percent / Exact); per-person shares update live; a validation hint confirms shares add up to the total; sticky bottom "Save expense" button.
+- **Add expense**: full-screen form; big centered amount input with the currency symbol (decimal keyboard); description, paid by, category and **Date** (defaults to today at the destination). The split starts as one summary row ("Split equally, everyone" · "€12.50 each · 4 people" + **Change**); **Change** reveals the split method as a 3-way segmented control (Equally / Percent / Exact) with per-person shares that update live and a validation hint that confirms shares add up to the total. Sticky bottom "Save expense" button.
 - No fake OS status bars in mockups; respect safe areas (≥22px bottom padding under the tab bar).
 
 ---

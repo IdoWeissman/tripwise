@@ -1,17 +1,17 @@
 import { useMutation, useQuery } from '@apollo/client/react';
 import { useState, type FormEvent } from 'react';
 import { Avatar } from '../components/Avatar';
-import { PageHeader, ProgressBar } from '../components/Bits';
+import { PageHeader } from '../components/Bits';
 import { Button } from '../components/Button';
 import { TextAreaField, SelectField, TextField } from '../components/Fields';
-import { ChevronUpIcon, PlusIcon } from '../components/Icons';
+import { CheckIcon, ChevronUpIcon, PlusIcon } from '../components/Icons';
 import { Segmented } from '../components/Segmented';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { graphql } from '../gql';
 import type { ActivityStatus, ProposalsQuery } from '../gql/graphql';
 import { messageFromError } from '../lib/errors';
-import { formatDay, formatMoney, formatRelative, toNumber } from '../lib/format';
+import { currencySymbol, formatDay, formatMoney, formatRelative, toNumber } from '../lib/format';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 
 const ProposalsDocument = graphql(`
@@ -39,6 +39,10 @@ const ProposalsDocument = graphql(`
         createdAt
         voteCount
         viewerHasVoted
+        voters {
+          id
+          name
+        }
         createdBy {
           id
           name
@@ -54,6 +58,10 @@ const ToggleVoteDocument = graphql(`
       id
       voteCount
       viewerHasVoted
+      voters {
+        id
+        name
+      }
       status
     }
   }
@@ -88,7 +96,8 @@ const TABS: { value: ActivityStatus; label: string; key: 'proposed' | 'scheduled
   ];
 
 export function ProposalsPage() {
-  const { trip, canEdit, isOwner } = useTrip();
+  const { trip, canEdit, isOwner, viewerId } = useTrip();
+  const me = trip.members.find((m) => m.user.id === viewerId)?.user;
   const avatarIndex = useMemberIndexOf();
   const toast = useToast();
   const [status, setStatus] = useState<ActivityStatus>('PROPOSED');
@@ -131,6 +140,9 @@ export function ProposalsPage() {
           id: p.id,
           voteCount,
           viewerHasVoted: voted,
+          voters: voted
+            ? [...p.voters, { __typename: 'User' as const, id: viewerId, name: me?.name ?? 'You' }]
+            : p.voters.filter((v) => v.id !== viewerId),
           status: voteCount >= threshold ? 'SCHEDULED' : 'PROPOSED',
         },
       },
@@ -212,80 +224,91 @@ export function ProposalsPage() {
           return (
             <article
               key={p.id}
-              className="flex gap-4 rounded-card border border-border bg-surface p-4 sm:gap-5 sm:p-5"
+              className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 sm:p-5"
             >
-              <div className="flex flex-col items-center gap-1">
-                <button
-                  type="button"
-                  aria-label={`Vote for ${p.title}`}
-                  aria-pressed={p.viewerHasVoted}
-                  disabled={!canEdit || !open}
-                  onClick={() => vote(p)}
-                  className={`flex size-11 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    p.viewerHasVoted
-                      ? 'border-accent bg-accent text-white'
-                      : 'border-border-input bg-surface text-ink-secondary hover:bg-surface-muted'
-                  }`}
-                >
-                  <ChevronUpIcon size={20} />
-                </button>
-                <span className="text-lg font-bold tabular-nums">{p.voteCount}</span>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 className="text-[17px] font-bold text-balance">{p.title}</h2>
+                <span className="text-[13px] text-ink-muted">
+                  {[
+                    p.location,
+                    p.costPerPerson &&
+                      `${formatMoney(toNumber(p.costPerPerson), trip.currency)} pp`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
               </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-[17px] font-bold">{p.title}</h2>
+              {p.description && (
+                <p className="max-w-[65ch] text-sm leading-relaxed text-ink-secondary">
+                  {p.description}
+                </p>
+              )}
+
+              {/* The group's decision, as faces: each vote takes a seat until the threshold is met. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-surface-muted pt-3">
+                <VoteSeats
+                  voters={p.voters}
+                  seats={Math.max(threshold, p.voters.length)}
+                  avatarIndex={avatarIndex}
+                />
+                <span className="flex min-w-0 flex-[1_1_180px] flex-col">
+                  <span className="text-sm font-semibold">{voterLine(p.voters, viewerId)}</span>
                   <span className="text-[13px] text-ink-muted">
-                    {[
-                      p.location,
-                      p.costPerPerson &&
-                        `${formatMoney(toNumber(p.costPerPerson), trip.currency)} pp`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    {open
+                      ? remaining === 1
+                        ? '1 more vote puts it on the plan'
+                        : `${remaining} more votes put it on the plan`
+                      : p.status === 'SCHEDULED'
+                        ? 'On the itinerary'
+                        : 'Declined'}
                   </span>
-                </div>
-                {p.description && (
-                  <p className="text-sm leading-relaxed text-ink-secondary">{p.description}</p>
-                )}
+                </span>
                 {open && (
-                  <div className="flex items-center gap-3">
-                    <ProgressBar
-                      value={p.voteCount}
-                      max={threshold}
-                      label="Votes toward threshold"
-                    />
-                    <span className="text-[13px] font-semibold text-ink-muted">
-                      {remaining} more to accept
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    aria-pressed={p.viewerHasVoted}
+                    disabled={!canEdit}
+                    onClick={() => vote(p)}
+                    className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-control border px-4 text-[15px] font-semibold transition-colors disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-muted disabled:text-ink-muted sm:w-auto ${
+                      p.viewerHasVoted
+                        ? 'border-accent bg-accent text-white hover:bg-accent-hover'
+                        : 'border-border-input bg-surface text-ink hover:bg-surface-muted'
+                    }`}
+                  >
+                    {p.viewerHasVoted ? <CheckIcon size={18} /> : <ChevronUpIcon size={18} />}
+                    {p.viewerHasVoted ? 'Voted' : 'Vote'}
+                    <span className="sr-only"> for {p.title}</span>
+                  </button>
                 )}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-[13px] text-ink-muted">
-                    <Avatar name={p.createdBy.name} index={avatarIndex(p.createdBy.id)} size="sm" />
-                    Proposed by {p.createdBy.name} · {formatRelative(p.createdAt)}
-                  </span>
-                  {isOwner && open && (
-                    <Button
-                      variant="destructive"
-                      className="min-h-10 px-3 text-sm"
-                      onClick={() =>
-                        void decline({
-                          variables: { activityId: p.id },
-                          optimisticResponse: {
-                            __typename: 'Mutation',
-                            declineActivity: {
-                              __typename: 'Activity',
-                              id: p.id,
-                              status: 'DECLINED',
-                            },
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-[13px] text-ink-muted">
+                  <Avatar name={p.createdBy.name} index={avatarIndex(p.createdBy.id)} size="sm" />
+                  Proposed by {p.createdBy.id === viewerId ? 'you' : p.createdBy.name} ·{' '}
+                  {formatRelative(p.createdAt)}
+                </span>
+                {isOwner && open && (
+                  <Button
+                    variant="ghost"
+                    className="min-h-11 px-3 text-sm hover:text-negative-ink"
+                    onClick={() =>
+                      void decline({
+                        variables: { activityId: p.id },
+                        optimisticResponse: {
+                          __typename: 'Mutation',
+                          declineActivity: {
+                            __typename: 'Activity',
+                            id: p.id,
+                            status: 'DECLINED',
                           },
-                        })
-                      }
-                    >
-                      Decline
-                    </Button>
-                  )}
-                </div>
+                        },
+                      })
+                    }
+                  >
+                    Decline
+                  </Button>
+                )}
               </div>
             </article>
           );
@@ -298,6 +321,54 @@ export function ProposalsPage() {
         </aside>
       )}
     </div>
+  );
+}
+
+type Voter = Proposal['voters'][number];
+
+/** "No votes yet", "You voted", "Maya and you voted", "Ido, Maya and Noa voted". */
+function voterLine(voters: Voter[], viewerId: string) {
+  if (voters.length === 0) return 'No votes yet';
+  // The viewer reads as "you", listed last so the group's names lead.
+  const names = [
+    ...voters.filter((v) => v.id !== viewerId).map((v) => v.name.split(' ')[0]!),
+    ...(voters.some((v) => v.id === viewerId) ? ['you'] : []),
+  ];
+  const list =
+    names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)} voted`;
+}
+
+/** One seat per vote needed: voters' faces fill seats in voting order, open seats are dashed. */
+function VoteSeats({
+  voters,
+  seats,
+  avatarIndex,
+}: {
+  voters: Voter[];
+  seats: number;
+  avatarIndex: (userId: string) => number;
+}) {
+  return (
+    <span
+      role="img"
+      aria-label={`${voters.length} of ${seats} votes`}
+      className="flex shrink-0 items-center gap-1.5"
+    >
+      {Array.from({ length: seats }, (_, i) => {
+        const v = voters[i];
+        return v ? (
+          <span key={v.id} className="motion-safe:animate-seat-in">
+            <Avatar name={v.name} index={avatarIndex(v.id)} />
+          </span>
+        ) : (
+          <span
+            key={`seat-${i}`}
+            className="size-8 rounded-full border-[1.5px] border-dashed border-border-input"
+          />
+        );
+      })}
+    </span>
   );
 }
 
@@ -314,6 +385,7 @@ function ProposeForm({
   const [dayId, setDayId] = useState('');
   const [cost, setCost] = useState('');
   const [description, setDescription] = useState('');
+  const { currency } = useTrip().trip;
   const toast = useToast();
   const [propose, { loading, error }] = useMutation(ProposeDocument, {
     refetchQueries: ['TripShell'],
@@ -371,7 +443,7 @@ function ProposeForm({
           ]}
         />
         <TextField
-          label="Est. cost pp"
+          label={`Cost pp (${currencySymbol(currency)})`}
           inputMode="decimal"
           placeholder="0.00"
           value={cost}

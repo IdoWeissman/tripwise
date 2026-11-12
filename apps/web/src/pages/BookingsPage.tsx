@@ -193,7 +193,7 @@ function BookingCard({ booking: b }: { booking: BookingSummary }) {
     >
       <span
         aria-hidden="true"
-        className={`flex size-12 items-center justify-center rounded-xl text-[10px] font-bold tracking-[0.04em] ${t.chip}`}
+        className={`flex size-12 items-center justify-center rounded-xl text-xs font-bold tracking-[0.04em] ${t.chip}`}
       >
         {t.code}
       </span>
@@ -241,7 +241,11 @@ function BookingCard({ booking: b }: { booking: BookingSummary }) {
       <div
         className={`col-span-2 items-center justify-between gap-3 sm:col-span-1 sm:flex sm:justify-end ${price || b.bookingUrl ? 'flex' : 'hidden'}`}
       >
-        <span className="text-[15px] font-bold tabular-nums">{price ?? '—'}</span>
+        {price ? (
+          <span className="text-[15px] font-bold tabular-nums">{price}</span>
+        ) : (
+          <span className="text-sm text-ink-muted">No price</span>
+        )}
         {b.bookingUrl && (
           <a
             href={b.bookingUrl}

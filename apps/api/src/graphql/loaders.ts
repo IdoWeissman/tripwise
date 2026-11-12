@@ -1,6 +1,6 @@
 import DataLoader from 'dataloader';
 import type { Db } from '../db.js';
-import type { Attachment, ExpenseSplit, Trip, User } from '../generated/prisma/client.js';
+import type { Attachment, Day, ExpenseSplit, Trip, User } from '../generated/prisma/client.js';
 import { computeBalances, decimalToCents, settleUp, type Transfer } from '../lib/money.js';
 import type { BookingModel, ExpenseModel } from './models.js';
 
@@ -33,6 +33,16 @@ export function createLoaders(db: Db, viewerId: string | null) {
       return ids.map((id) => byId.get(id) ?? 0);
     }),
 
+    /** Who voted for each activity, oldest vote first. */
+    votersByActivity: new DataLoader<string, User[]>(async (ids) => {
+      const rows = await db.vote.findMany({
+        where: { activityId: { in: [...ids] } },
+        include: { user: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      return ids.map((id) => rows.filter((r) => r.activityId === id).map((r) => r.user));
+    }),
+
     viewerVoted: new DataLoader<string, boolean>(async (ids) => {
       if (!viewerId) return ids.map(() => false);
       const rows = await db.vote.findMany({
@@ -51,6 +61,11 @@ export function createLoaders(db: Db, viewerId: string | null) {
     tripById: new DataLoader<string, Trip | null>(async (ids) => {
       const trips = await db.trip.findMany({ where: { id: { in: [...ids] } } });
       return ids.map((id) => trips.find((t) => t.id === id) ?? null);
+    }),
+
+    dayById: new DataLoader<string, Day | null>(async (ids) => {
+      const days = await db.day.findMany({ where: { id: { in: [...ids] } } });
+      return ids.map((id) => days.find((d) => d.id === id) ?? null);
     }),
 
     /** All bookings of a trip with their legs, in time order (undated last). */

@@ -356,6 +356,13 @@ type Activity {
   createdAt: DateTime!
   voteCount: Int!
   viewerHasVoted: Boolean!
+  "Members who voted for it, in the order they voted."
+  voters: [User!]!
+  """
+  The booking this scheduled plan stands for (same day, same time or no time, and the booking's
+  name or place in the plan), so apps show the event once. Null when none matches.
+  """
+  booking: Booking
 }
 
 type AuthPayload {

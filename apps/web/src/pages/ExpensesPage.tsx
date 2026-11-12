@@ -4,7 +4,7 @@ import { Avatar } from '../components/Avatar';
 import { PageHeader, StatTile } from '../components/Bits';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { ArrowRightIcon, PlusIcon, TrashIcon } from '../components/Icons';
+import { ArrowRightIcon, CheckIcon, PlusIcon, TrashIcon } from '../components/Icons';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { messageFromError } from '../lib/errors';
@@ -88,7 +88,7 @@ export function ExpensesPage() {
         },
       });
       await refetch();
-      toast('Payment recorded.');
+      toast(`Recorded: ${s.from.name} paid ${s.to.name} ${money(s.amount)}.`);
     } catch (err) {
       toast(messageFromError(err), 'error');
     }
@@ -168,7 +168,7 @@ export function ExpensesPage() {
               <div className="relative hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[540px] border-collapse text-sm">
                   <thead>
-                    <tr className="text-left text-xs tracking-[0.04em] text-ink-muted uppercase">
+                    <tr className="text-left text-xs font-semibold text-ink-muted">
                       <th scope="col" className="px-5 py-2.5 font-semibold">
                         Expense
                       </th>
@@ -256,24 +256,29 @@ export function ExpensesPage() {
               return (
                 <div
                   key={`${s.from.id}-${s.to.id}`}
-                  className={`flex flex-wrap items-center gap-2.5 rounded-xl p-3 ${involvesMe ? 'bg-accent-tint' : 'bg-bg'}`}
+                  className={`flex flex-col gap-2.5 rounded-xl p-3 ${involvesMe ? 'bg-accent-tint' : 'bg-bg'}`}
                 >
-                  <Avatar name={s.from.name} index={avatarIndex(s.from.id)} size="sm" />
-                  <ArrowRightIcon size={16} className="text-ink-muted" />
-                  <Avatar name={s.to.name} index={avatarIndex(s.to.id)} size="sm" />
-                  <span className="flex-1 text-sm">
-                    {name(s.from)} {s.from.id === viewerId ? 'pay' : 'pays'}{' '}
-                    {s.to.id === viewerId ? 'you' : s.to.name}
-                  </span>
-                  <span className="text-sm font-bold tabular-nums">{money(s.amount)}</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <Avatar name={s.from.name} index={avatarIndex(s.from.id)} size="sm" />
+                      <ArrowRightIcon size={16} className="text-ink-muted" />
+                      <Avatar name={s.to.name} index={avatarIndex(s.to.id)} size="sm" />
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm">
+                      {name(s.from)} {s.from.id === viewerId ? 'pay' : 'pays'}{' '}
+                      {s.to.id === viewerId ? 'you' : s.to.name}
+                    </span>
+                    <span className="text-[15px] font-bold tabular-nums">{money(s.amount)}</span>
+                  </div>
                   {canEdit && (involvesMe || isOwner) && (
                     <Button
                       variant="secondary"
-                      className="min-h-10 px-3 text-sm"
+                      className="min-h-11 self-end px-3.5 text-sm"
                       disabled={recording}
                       onClick={() => void markPaid(s)}
                     >
-                      Mark paid
+                      <CheckIcon size={16} />
+                      Mark {money(s.amount)} paid
                     </Button>
                   )}
                 </div>

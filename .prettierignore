@@ -10,3 +10,9 @@ apps/api/prisma/migrations
 .agents
 # Vendored graphify skill (installed by `graphify install --project`)
 .claude/skills
+# Vendored Impeccable skill copies and its local working files
+.github/skills
+.github/agents
+.github/hooks
+.claude/agents/impeccable-*
+**/.impeccable

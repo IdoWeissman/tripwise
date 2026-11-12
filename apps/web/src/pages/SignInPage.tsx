@@ -45,7 +45,7 @@ const POINTS = [
 ];
 
 const inputCls =
-  'h-12 rounded-control border border-border-input bg-surface px-3.5 text-[15px] font-normal text-ink';
+  'h-12 rounded-control border border-border-input bg-surface px-3.5 text-[15px] font-normal text-ink placeholder:text-ink-muted';
 
 export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) {
   const navigate = useNavigate();

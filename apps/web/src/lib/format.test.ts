@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatDateRange, formatMoney } from './format';
+import { currencySymbol, formatDateRange, formatMoney } from './format';
 
 describe('format', () => {
+  it('finds the currency symbol, falling back to the code', () => {
+    expect(currencySymbol('EUR')).toBe('€');
+    expect(currencySymbol('XYZ')).toBe('XYZ');
+  });
   it('formats a same-month range with an en dash', () => {
     expect(formatDateRange('2027-05-14', '2027-05-19')).toBe('May 14 – 19');
   });

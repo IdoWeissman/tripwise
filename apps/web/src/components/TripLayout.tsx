@@ -121,6 +121,12 @@ export function TripLayout() {
 
   return (
     <div className={`min-h-screen bg-bg pb-24 md:pb-0 ${assistantOpen ? 'md:pr-[420px]' : ''}`}>
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-control bg-surface px-4 py-3 text-sm font-semibold shadow-popover focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Skip to content
+      </a>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3.5 sm:px-8">
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-3 text-sm">
           <Logo />
@@ -211,7 +217,7 @@ export function TripLayout() {
           </NavLink>
         </div>
 
-        <main className="min-w-0 flex-[999_1_560px]">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-[999_1_560px] focus:outline-none">
           <Outlet context={ctx} />
         </main>
       </div>
@@ -239,7 +245,7 @@ export function TripLayout() {
             key={s.to}
             to={s.to}
             className={({ isActive }) =>
-              `relative flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] no-underline ${
+              `relative flex min-h-14 flex-col items-center justify-center gap-1 text-xs no-underline ${
                 isActive ? 'font-semibold text-accent' : 'font-medium text-ink-muted'
               }`
             }

@@ -48,6 +48,27 @@ function status(start: string, end: string) {
   return { label: 'Upcoming', countdown: toStart === 1 ? 'tomorrow' : `in ${toStart} days` };
 }
 
+/** One tick per trip day — the itinerary's columns in miniature; days already lived are filled. */
+function DayStrip({ start, end }: { start: string; end: string }) {
+  const total = Math.max(1, daysUntil(end) - daysUntil(start) + 1);
+  const lived = Math.min(total, Math.max(0, -daysUntil(start) + 1));
+  return (
+    <span className="flex items-center gap-2">
+      <span aria-hidden="true" className="flex min-w-0 flex-1 gap-1">
+        {Array.from({ length: Math.min(total, 21) }, (_, d) => (
+          <span
+            key={d}
+            className={`h-1.5 flex-1 rounded-full bg-current ${d < lived ? '' : 'opacity-25'}`}
+          />
+        ))}
+      </span>
+      <span className="shrink-0 text-xs font-semibold tabular-nums">
+        {total} {total === 1 ? 'day' : 'days'}
+      </span>
+    </span>
+  );
+}
+
 export function TripsPage() {
   const { data, loading, error, refetch } = useQuery(TripsQuery);
   const [filter, setFilter] = useState<Filter>('upcoming');
@@ -106,12 +127,20 @@ export function TripsPage() {
               className="flex flex-col overflow-hidden rounded-card border border-border bg-surface text-ink no-underline hover:border-border-input"
             >
               <div
-                className={`flex h-[132px] items-start justify-between p-4 ${TINTS[i % TINTS.length]}`}
+                className={`flex h-[132px] flex-col justify-between gap-2 p-4 ${TINTS[i % TINTS.length]}`}
               >
-                <span className="rounded-full bg-surface px-3 py-1.5 text-[13px] font-semibold">
-                  {s.label}
-                </span>
-                {s.countdown && <span className="text-[13px] font-semibold">{s.countdown}</span>}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="rounded-full bg-surface px-3 py-1.5 text-[13px] font-semibold">
+                    {s.label}
+                  </span>
+                  {s.countdown && <span className="text-[13px] font-semibold">{s.countdown}</span>}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="truncate text-[28px] leading-none font-bold tracking-[-0.02em]">
+                    {trip.destination.split(',')[0]}
+                  </span>
+                  <DayStrip start={trip.startDate} end={trip.endDate} />
+                </div>
               </div>
               <div className="flex flex-col gap-3.5 p-5">
                 <div className="flex flex-col gap-1">
