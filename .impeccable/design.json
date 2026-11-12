@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T00:00:00Z",
+  "title": "Design System: Tripwise",
+  "extensions": {
+    "colorMeta": {
+      "sign": { "role": "primary", "displayName": "Enamel Sign Blue", "canonical": "#0b2a6f", "tonalRamp": ["#06173d", "#0b2a6f", "#163c8c", "#2c56b0", "#5b7fcf", "#8fa7e0", "#b9c6e4", "#e3ecff"] },
+      "sign-raised": { "role": "primary", "displayName": "Raised Sign Blue", "canonical": "#163c8c" },
+      "sign-ink-soft": { "role": "primary", "displayName": "Sign Mist", "canonical": "#b9c6e4" },
+      "signal": { "role": "secondary", "displayName": "Signal Yellow", "canonical": "#ffc917", "tonalRamp": ["#3d2800", "#7a5300", "#a87400", "#d69c00", "#ffc917", "#ffd95c", "#ffe89a", "#fff1c2"] },
+      "signal-tint": { "role": "secondary", "displayName": "Signal Cream", "canonical": "#fff1c2" },
+      "signal-ink": { "role": "secondary", "displayName": "Signal Umber", "canonical": "#7a5300" },
+      "accent": { "role": "tertiary", "displayName": "Plan Blue", "canonical": "#1f5fd1", "tonalRamp": ["#0b2a6f", "#163c8c", "#194fb0", "#1f5fd1", "#5b8cf0", "#93b4f5", "#c3d4fa", "#e3ecff"] },
+      "accent-strong": { "role": "tertiary", "displayName": "Plan Ink", "canonical": "#163c8c" },
+      "accent-tint": { "role": "tertiary", "displayName": "Plan Tint", "canonical": "#e3ecff" },
+      "accent-tint-border": { "role": "tertiary", "displayName": "Plan Tint Edge", "canonical": "#c3d4fa" },
+      "vote": { "role": "tertiary", "displayName": "Vote Violet", "canonical": "#6b3fd4", "tonalRamp": ["#2a1660", "#3f2196", "#5230a8", "#6b3fd4", "#8d6be2", "#b49cf5", "#d6c9fa", "#eee6ff"] },
+      "vote-tint": { "role": "tertiary", "displayName": "Vote Tint", "canonical": "#eee6ff" },
+      "money": { "role": "tertiary", "displayName": "Money Green", "canonical": "#0b7a54", "tonalRamp": ["#033322", "#0b6446", "#0b7a54", "#1f9a6d", "#5fd3a3", "#97e2c1", "#d3f0e3", "#e1f4ea"] },
+      "money-tint": { "role": "tertiary", "displayName": "Money Tint", "canonical": "#e1f4ea" },
+      "rail-plan": { "role": "tertiary", "displayName": "Rail Mark Plan", "canonical": "#5b8cf0" },
+      "rail-book": { "role": "tertiary", "displayName": "Rail Mark Bookings", "canonical": "#7fd0f0" },
+      "rail-vote": { "role": "tertiary", "displayName": "Rail Mark Vote", "canonical": "#b49cf5" },
+      "rail-money": { "role": "tertiary", "displayName": "Rail Mark Money", "canonical": "#5fd3a3" },
+      "live": { "role": "tertiary", "displayName": "Live Green", "canonical": "#3ddc97" },
+      "negative": { "role": "neutral", "displayName": "Owed Red", "canonical": "#d23a1e", "tonalRamp": ["#4a1208", "#9e2a12", "#b8311a", "#d23a1e", "#e8735c", "#f3a998", "#fde2da", "#fdeee6"] },
+      "negative-ink": { "role": "neutral", "displayName": "Owed Red Ink", "canonical": "#b8311a" },
+      "attention": { "role": "neutral", "displayName": "Alert Blush", "canonical": "#fde2da" },
+      "attention-ink": { "role": "neutral", "displayName": "Alert Rust", "canonical": "#9e2a12" },
+      "tint-orange": { "role": "neutral", "displayName": "Alert Wash", "canonical": "#fdeee6" },
+      "bg": { "role": "neutral", "displayName": "Platform Grey", "canonical": "#f2f4f8", "tonalRamp": ["#111418", "#3a4150", "#5a6272", "#c3cad6", "#dce1ea", "#e9edf3", "#f2f4f8", "#ffffff"] },
+      "surface": { "role": "neutral", "displayName": "Sign Panel White", "canonical": "#ffffff" },
+      "surface-muted": { "role": "neutral", "displayName": "Track Grey", "canonical": "#e9edf3" },
+      "surface-column": { "role": "neutral", "displayName": "Column Grey", "canonical": "#edf0f5" },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "#dce1ea" },
+      "border-input": { "role": "neutral", "displayName": "Input Edge", "canonical": "#c3cad6" },
+      "ink": { "role": "neutral", "displayName": "Station Ink", "canonical": "#111418" },
+      "ink-secondary": { "role": "neutral", "displayName": "Body Ink", "canonical": "#3a4150" },
+      "ink-muted": { "role": "neutral", "displayName": "Meta Ink", "canonical": "#5a6272" }
+    },
+    "typographyMeta": {
+      "board-time": { "displayName": "Board time", "purpose": "The next departure on the departure board, in signal yellow; 44px on phones." },
+      "display": { "displayName": "Display", "purpose": "The balance amount; 44px on phones." },
+      "headline": { "displayName": "Headline", "purpose": "Page H1 and greeting; 26px on phones." },
+      "title": { "displayName": "Title", "purpose": "Panel headings (800) and row titles (700), 16-18px." },
+      "timetable-time": { "displayName": "Timetable time", "purpose": "Times on timetable rows and booking cards, prices on booking cards." },
+      "body": { "displayName": "Body", "purpose": "UI and body copy, 14-15px; buttons at 700." },
+      "meta": { "displayName": "Meta", "purpose": "Captions and meta lines under titles." },
+      "label": { "displayName": "Label", "purpose": "Type-chip codes; the minimum text size." }
+    },
+    "shadows": [
+      { "name": "segment", "value": "0 1px 2px rgb(17 20 24 / 0.08)", "purpose": "The selected segment in a segmented control." },
+      { "name": "lifted", "value": "0 12px 24px rgb(11 42 111 / 0.2)", "purpose": "An item being dragged on the itinerary board." },
+      { "name": "popover", "value": "0 8px 24px rgb(17 20 24 / 0.14)", "purpose": "Select menus, date pickers, the skip link." }
+    ],
+    "motion": [
+      { "name": "flap-in", "value": "flap-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1); from { opacity: 0; transform: translateY(-35%) rotateX(55deg) }", "purpose": "The departure board row turning over when the next departure changes; short, mechanical, no bounce." },
+      { "name": "seat-in", "value": "seat-in 200ms cubic-bezier(0.16, 1, 0.3, 1); from { opacity: 0; transform: scale(0.6) }", "purpose": "A voter's avatar settling into its seat on a proposal." },
+      { "name": "reduced-motion", "value": "animation-duration: 1ms; transition-duration: 1ms", "purpose": "All motion collapses under prefers-reduced-motion; entrances also sit behind motion-safe." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Sign-blue primary action; one per region.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>Add booking</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border: none; border-radius: var(--radius-control, 8px); background: var(--color-sign, #0b2a6f); color: #fff; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: var(--color-sign-raised, #163c8c); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; } .ds-btn-primary:disabled { background: var(--color-accent-tint-border, #c3d4fa); color: var(--color-accent-deep, #0b2a6f); cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White button with a 1.5px hairline edge.",
+      "html": "<button class=\"ds-btn-secondary\">Add to calendar</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border: 1.5px solid var(--color-border, #dce1ea); border-radius: var(--radius-control, 8px); background: var(--color-surface, #fff); color: var(--color-ink, #111418); font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: background-color 150ms, border-color 150ms; } .ds-btn-secondary:hover { border-color: var(--color-border-input, #c3cad6); background: var(--color-bg, #f2f4f8); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; }"
+    },
+    {
+      "name": "Vote Button",
+      "kind": "button",
+      "refersTo": "button-vote",
+      "description": "The Proposals section primary in Vote violet.",
+      "html": "<button class=\"ds-btn-vote\">Submit for a vote</button>",
+      "css": ".ds-btn-vote { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border: none; border-radius: var(--radius-control, 8px); background: var(--color-vote, #6b3fd4); color: #fff; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: background-color 150ms; } .ds-btn-vote:hover { background: rgb(107 63 212 / 0.9); } .ds-btn-vote:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled 44px field with input-edge stroke.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Title</span><input class=\"ds-input\" placeholder=\"Dinner at Ramiro\"></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font-family: 'Archivo Variable', system-ui, sans-serif; } .ds-field-label { font-size: 14px; font-weight: 600; color: var(--color-ink, #111418); } .ds-input { height: 44px; width: 100%; padding: 0 12px; border: 1px solid var(--color-border-input, #c3cad6); border-radius: var(--radius-control, 8px); background: var(--color-surface, #fff); color: var(--color-ink, #111418); font: inherit; font-size: 14px; } .ds-input::placeholder { color: var(--color-ink-muted, #5a6272); } .ds-input:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; } .ds-input[aria-invalid=true] { border-color: var(--color-negative, #d23a1e); }"
+    },
+    {
+      "name": "Sign Rail Navigation",
+      "kind": "nav",
+      "refersTo": "rail-item-active",
+      "description": "Desktop section nav on the sign; active item carries the yellow you-are-here bar.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-rail-item is-active\" href=\"#\"><span class=\"ds-rail-bar\"></span><span class=\"ds-rail-mark\" style=\"background:#ffc917\"></span><span class=\"ds-rail-label\">Today</span></a><a class=\"ds-rail-item\" href=\"#\"><span class=\"ds-rail-mark\" style=\"background:#7fd0f0\"></span><span class=\"ds-rail-label\">Bookings</span><span class=\"ds-count\">1</span></a><a class=\"ds-rail-item\" href=\"#\"><span class=\"ds-rail-mark\" style=\"background:#b49cf5\"></span><span class=\"ds-rail-label\">Proposals</span><span class=\"ds-count\">4</span></a></nav>",
+      "css": ".ds-rail { display: flex; flex-direction: column; gap: 4px; width: 216px; padding: 24px 16px; background: var(--color-sign, #0b2a6f); font-family: 'Archivo Variable', system-ui, sans-serif; } .ds-rail-item { position: relative; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: var(--radius-control, 8px); color: rgb(255 255 255 / 0.85); font-size: 15px; font-weight: 600; text-decoration: none; } .ds-rail-item:hover { background: rgb(255 255 255 / 0.1); color: #fff; } .ds-rail-item:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; } .ds-rail-item.is-active { background: var(--color-sign-raised, #163c8c); color: #fff; font-weight: 700; } .ds-rail-bar { position: absolute; top: 8px; bottom: 8px; left: -16px; width: 5px; border-radius: 0 3px 3px 0; background: var(--color-signal, #ffc917); } .ds-rail-mark { width: 14px; height: 14px; border-radius: 3px; } .ds-rail-label { flex: 1; } .ds-count { display: flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #fff; color: var(--color-sign, #0b2a6f); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; font-stretch: 82%; }"
+    },
+    {
+      "name": "Type Chips",
+      "kind": "chip",
+      "refersTo": "type-chip",
+      "description": "Booked = solid Plan-blue chip with a 3-5 letter code; unbooked plan = dashed outline.",
+      "html": "<span class=\"ds-chip\">FLT</span> <span class=\"ds-chip\">SHOW</span> <span class=\"ds-chip ds-chip-plan\">PLAN</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 10px; border-radius: var(--radius-chip, 4px); background: var(--color-accent-tint, #e3ecff); color: var(--color-accent-strong, #163c8c); font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; } .ds-chip-plan { background: transparent; border: 1.5px dashed var(--color-ink-muted, #5a6272); color: var(--color-ink-secondary, #3a4150); }"
+    },
+    {
+      "name": "Departure Board",
+      "kind": "custom",
+      "refersTo": "departure-board",
+      "description": "Today's Up next: sign panel with yellow tabular time, route, code plate and Leave by; the row flaps in.",
+      "html": "<section class=\"ds-board\"><div class=\"ds-board-head\"><span>Up next · Flight</span><span class=\"ds-board-count\">Departs in 45 min</span></div><div class=\"ds-board-row\"><span class=\"ds-board-time\">06:10</span><span class=\"ds-board-route\"><span class=\"ds-board-title\">Tel Aviv → Lisbon</span><span class=\"ds-board-meta\">TP 1394 · arrives 10:05 · 5 h 55 min</span></span><span class=\"ds-board-code\">K7Q2ZP</span><span class=\"ds-board-leave\"><span class=\"ds-board-meta\">Leave by</span><span class=\"ds-board-leave-time\">03:40</span></span></div><div class=\"ds-board-foot\"><a href=\"#\">Details</a><a href=\"#\">Directions</a><a href=\"#\">Manage booking</a></div></section>",
+      "css": ".ds-board { overflow: hidden; border-radius: var(--radius-card, 12px); background: var(--color-sign, #0b2a6f); color: #fff; font-family: 'Archivo Variable', system-ui, sans-serif; perspective: 800px; } .ds-board-head { display: flex; justify-content: space-between; gap: 8px; padding: 12px 24px; border-bottom: 1px solid rgb(255 255 255 / 0.15); font-size: 13px; font-weight: 700; color: var(--color-sign-ink-soft, #b9c6e4); } .ds-board-count { color: var(--color-signal, #ffc917); } .ds-board-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 16px 20px; padding: 20px 24px; transform-origin: top; animation: ds-flap 320ms cubic-bezier(0.2, 0.8, 0.2, 1); } .ds-board-time { font-size: 56px; line-height: 1; font-weight: 800; color: var(--color-signal, #ffc917); font-variant-numeric: tabular-nums; font-stretch: 82%; } .ds-board-route { display: flex; flex-direction: column; gap: 4px; min-width: 0; } .ds-board-title { font-size: 26px; line-height: 1.25; font-weight: 800; letter-spacing: -0.01em; } .ds-board-meta { font-size: 13px; font-weight: 700; color: var(--color-sign-ink-soft, #b9c6e4); } .ds-board-code { padding: 8px 12px; border-radius: var(--radius-chip, 4px); background: #fff; color: var(--color-sign, #0b2a6f); font-family: ui-monospace, monospace; font-size: 18px; font-weight: 800; letter-spacing: 0.1em; } .ds-board-leave { display: flex; flex-direction: column; align-items: center; } .ds-board-leave-time { font-size: 28px; line-height: 1.25; font-weight: 800; font-variant-numeric: tabular-nums; font-stretch: 82%; } .ds-board-foot { display: flex; justify-content: flex-end; gap: 16px; padding: 6px 24px; border-top: 1px solid rgb(255 255 255 / 0.15); } .ds-board-foot a { display: flex; align-items: center; min-height: 44px; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; } .ds-board-foot a:hover { color: var(--color-signal, #ffc917); } .ds-board-foot a:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; } @keyframes ds-flap { from { opacity: 0; transform: translateY(-35%) rotateX(55deg); } } @media (prefers-reduced-motion: reduce) { .ds-board-row { animation: none; } }"
+    },
+    {
+      "name": "Timetable",
+      "kind": "card",
+      "refersTo": "timetable-panel",
+      "description": "Today as one white panel of hairline rows: done struck, next lifted with the yellow pill.",
+      "html": "<section class=\"ds-tt\"><h2 class=\"ds-tt-head\">Today · Sun, May 16</h2><a class=\"ds-tt-row is-done\" href=\"#\"><span class=\"ds-tt-time\">09:30</span><span class=\"ds-chip\">SIGHT</span><span class=\"ds-tt-body\"><span class=\"ds-tt-title\">Pena Palace</span><span class=\"ds-tt-meta\">Sintra</span></span></a><div class=\"ds-tt-row is-next\"><span class=\"ds-tt-time\">13:00</span><span class=\"ds-chip ds-chip-plan\">PLAN</span><span class=\"ds-tt-body\"><span class=\"ds-tt-title\">Lunch in Sintra village <span class=\"ds-next\">Next</span></span><span class=\"ds-tt-meta\">Sintra</span></span></div><a class=\"ds-tt-row\" href=\"#\"><span class=\"ds-tt-time\">20:00</span><span class=\"ds-chip\">SHOW</span><span class=\"ds-tt-body\"><span class=\"ds-tt-title\">Fado night</span><span class=\"ds-tt-meta\">Bairro Alto</span></span></a></section>",
+      "css": ".ds-tt { padding: 4px 0; border-radius: var(--radius-card, 12px); background: var(--color-surface, #fff); color: var(--color-ink, #111418); font-family: 'Archivo Variable', system-ui, sans-serif; } .ds-tt-head { margin: 0; padding: 12px 24px; font-size: 18px; font-weight: 800; } .ds-tt-row { display: grid; grid-template-columns: 88px 64px minmax(0,1fr); align-items: center; gap: 16px; min-height: 64px; padding: 12px 24px; border-top: 1px solid var(--color-border, #dce1ea); color: inherit; text-decoration: none; } a.ds-tt-row:hover { background: var(--color-bg, #f2f4f8); } a.ds-tt-row:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: -2px; } .ds-tt-time { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; font-stretch: 82%; } .ds-tt-body { display: flex; flex-direction: column; min-width: 0; } .ds-tt-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; } .ds-tt-meta { font-size: 13px; color: var(--color-ink-muted, #5a6272); } .is-done .ds-tt-time, .is-done .ds-tt-title { color: var(--color-ink-muted, #5a6272); } .is-done .ds-tt-title { text-decoration: line-through; text-decoration-thickness: 1px; } .is-next .ds-tt-time { color: var(--color-accent-strong, #163c8c); } .ds-next { padding: 2px 8px; border-radius: 999px; background: var(--color-signal, #ffc917); color: var(--color-sign, #0b2a6f); font-size: 12px; font-weight: 800; } .ds-chip { display: inline-flex; align-items: center; justify-content: center; height: 28px; border-radius: 4px; background: var(--color-accent-tint, #e3ecff); color: var(--color-accent-strong, #163c8c); font-size: 12px; font-weight: 800; letter-spacing: 0.06em; } .ds-chip-plan { background: transparent; border: 1.5px dashed var(--color-ink-muted, #5a6272); color: var(--color-ink-secondary, #3a4150); }"
+    },
+    {
+      "name": "Balance Panel",
+      "kind": "card",
+      "refersTo": "balance-panel",
+      "description": "Money-green panel with the signed balance in display figures; Owed Red ink when you owe.",
+      "html": "<a class=\"ds-balance\" href=\"#\"><span class=\"ds-balance-label\">Your balance</span><span class=\"ds-balance-amount\">+€42.09</span><span class=\"ds-balance-note\">You are owed · Group spent €1,280.00</span></a>",
+      "css": ".ds-balance { display: flex; flex-direction: column; gap: 4px; padding: 20px 24px; border-radius: var(--radius-card, 12px); background: var(--color-money, #0b7a54); color: #fff; font-family: 'Archivo Variable', system-ui, sans-serif; text-decoration: none; } .ds-balance:focus-visible { outline: 2px solid var(--color-accent, #1f5fd1); outline-offset: 2px; } .ds-balance.is-owed { background: var(--color-negative-ink, #b8311a); } .ds-balance-label { font-size: 15px; font-weight: 700; } .ds-balance-amount { font-size: 48px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; font-stretch: 82%; } .ds-balance-note { font-size: 14px; color: rgb(255 255 255 / 0.9); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Platform",
+    "overview": "The trip runs like a well-run European rail station. Navigation and the most important information live on enamel sign blue, the way a platform sign does; everything else sits on white sign panels over a cool grey ground. A traveller glancing at a phone mid-trip, in daylight, should read what departs next, what today holds and where the money stands without hunting for it.\n\nThe system is dense and typographic rather than decorative. Times and amounts are set big in narrow tabular figures so they line up like a printed timetable; labels are small. Hierarchy comes from a size ramp and from colour fields, not from shadows or ornament. Signal yellow is the station's \"you are here\": it is rationed to now, next and the current location, and its scarcity is what makes it legible.\n\nEvery section owns one hue at full strength on its own sign: Plan blue for itinerary and bookings, Vote violet for proposals, Money green for expenses. State is carried by form as well as colour: a confirmed booking is a solid chip, an unbooked plan is dashed, a departed row is struck through and muted, the next row lifts.",
+    "keyCharacteristics": [
+      "Enamel blue sign rail (desktop) or sign header plus white bottom tab bar (phones), never both.",
+      "Signal yellow only for now / next / you-are-here.",
+      "One family, Archivo, using its width axis: narrow tabular figures for times, amounts, counts and codes.",
+      "Flat: colour fields and hairlines, three named shadows for transient states only.",
+      "8px grid, 4 / 8 / 12px corners.",
+      "Short, mechanical motion: the departure row turns over like a split-flap."
+    ],
+    "rules": [
+      { "name": "The Rationed Yellow Rule", "body": "Signal yellow marks only now, next and you-are-here. If a screen has more than a handful of yellow marks, it has become a construction site.", "section": "colors" },
+      { "name": "The One Hue Per Section Rule", "body": "A section's hue lives on that section's sign and never decorates another section. Booking chips are always Plan blue; the 3–5 letter code names the type, not a colour.", "section": "colors" },
+      { "name": "The Signed Money Rule", "body": "Owed and owed-to-you differ in hue and sign (green `+`, red `−` with the real minus), never colour alone.", "section": "colors" },
+      { "name": "The Timetable Figures Rule", "body": "Every time, amount, count and code uses the `figures` treatment (tabular numerals, 82% width). Importance is a size ramp: the figure is big, its label is small.", "section": "typography" },
+      { "name": "The Codes Are Data Rule", "body": "Confirmation codes sit on a white plate in monospace with wide tracking (0.1em), never in body type.", "section": "typography" },
+      { "name": "The Colour Fields Not Shadows Rule", "body": "A panel at rest has no shadow. If it needs to stand out, it moves onto the sign or a section hue.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do set every time, amount, count and code in the figures treatment, and make the figure bigger than its label.",
+      "Do keep signal yellow to now, next, you-are-here, the logo plate and text selection.",
+      "Do show state with form as well as colour: solid booked, dashed unbooked, struck done, lifted next.",
+      "Do keep one primary (sign blue, or Vote violet on Proposals) per region, 44px minimum touch targets, and Meta Ink as the lightest text.",
+      "Do put the screen's main fact on the sign or its section hue rather than raising it with a shadow.",
+      "Do keep motion short and mechanical (200–320ms, no overshoot) and behind `motion-safe`."
+    ],
+    "donts": [
+      "Don't use a section hue outside its section, or colour a booking chip by type.",
+      "Don't use shadows on panels at rest; only Segment, Lifted and Popover exist.",
+      "Don't use gradients, glass, coloured side-stripes on cards, or emoji in UI.",
+      "Don't stack separate cards where a timetable panel with hairline rows belongs.",
+      "Don't set text below 12px (11px only for avatar initials) or use non-white, non-Sign-Mist text on the sign.",
+      "Don't place a destructive action next to the primary, or run it without a confirm."
+    ]
+  }
+}

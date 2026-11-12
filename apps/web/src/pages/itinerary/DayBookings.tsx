@@ -2,9 +2,11 @@ import { Link } from 'react-router';
 import { BOOKING_TYPES, dayShift, localTime } from '../../lib/bookings';
 import { bookedByPlans } from './bookedPlans';
 import type { Day } from './queries';
+import { isPast } from '../../lib/format';
+import { useTrip } from '../../lib/trip';
 import { legOn, type DayBooking } from './timeline';
 
-/** Teal stay strip pinned at the top of a day — rules §2 · 03. Links to the stay. */
+/** Plan-blue stay strip pinned at the top of a day — rules §2 · 03. Links to the stay. */
 export function StayStrip({ day }: { day: Day }) {
   const { stay } = day;
   if (!stay) return null;
@@ -15,7 +17,7 @@ export function StayStrip({ day }: { day: Day }) {
       to={`../bookings/${stay.booking.id}`}
       relative="path"
       title={stay.booking.title}
-      className="flex min-h-11 items-center gap-2 rounded-control bg-member-teal px-2.5 py-1.5 text-xs font-semibold text-member-teal-ink no-underline hover:text-member-teal-ink"
+      className="flex min-h-11 items-center gap-2 rounded-control bg-accent-tint px-2.5 py-1.5 text-xs font-semibold text-accent-strong no-underline hover:text-accent-strong"
     >
       <span aria-hidden="true" className="font-bold tracking-[0.04em]">
         STAY
@@ -43,11 +45,15 @@ export function BookingCard({ booking: b, date }: { booking: DayBooking; date: s
     localTime(endLocal) &&
     `${localTime(endLocal)}${dayShift(leg?.departLocal ?? b.startLocal, endLocal)}`;
   const needs = b.missingFields.length > 0;
+  const { trip } = useTrip();
+  // Done once it has ended (or started, when it has no end) on this day — same rule as Bookings.
+  const doneAt = endLocal?.slice(0, 10) === date ? endLocal : (leg?.departLocal ?? b.startLocal);
+  const done = isPast(date, localTime(doneAt), trip.timeZone);
   return (
     <Link
       to={`../bookings/${b.id}`}
       relative="path"
-      className={`flex flex-col gap-1 rounded-xl border bg-surface px-3 py-2.5 text-ink no-underline hover:text-ink ${needs ? 'border-attention' : 'border-border'}`}
+      className={`flex flex-col gap-1 rounded-card border bg-surface px-3 py-2.5 text-ink no-underline hover:text-ink ${needs ? 'border-[1.5px] border-dashed border-attention-ink' : 'border-border'} ${done ? 'bg-surface/60' : ''}`}
     >
       <span className="flex min-h-7 items-center justify-between gap-2">
         <span
@@ -57,12 +63,15 @@ export function BookingCard({ booking: b, date }: { booking: DayBooking; date: s
           {t.code}
         </span>
         <span
-          className={`text-xs font-semibold tabular-nums ${needs ? 'text-attention-ink' : 'text-ink-secondary'}`}
+          className={`text-xs font-semibold figures ${needs ? 'text-attention-ink' : 'text-ink-secondary'}`}
         >
           {start ? (end ? `${start} – ${end}` : start) : 'Time missing'}
         </span>
       </span>
-      <span className="text-sm leading-snug font-semibold text-balance">
+      <span
+        className={`text-sm leading-snug font-semibold text-balance ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
+      >
+        {done && <span className="sr-only">Done: </span>}
         {leg?.fromCode && leg.toCode ? `${leg.fromCode} → ${leg.toCode}` : b.title}
       </span>
       <span className="truncate text-xs text-ink-muted">

@@ -47,7 +47,7 @@ Success means a group decides together without endless chat threads, everyone fi
 
 - Name: **Tripwise**, with an existing logo component (`apps/web/src/components/Logo.tsx`).
 - Copy is sentence case; buttons are verbs ("Add expense", "Submit for a vote").
-- The visual system in `docs/design-rules.md` and the Tripwise design canvas (screens 01–06 desktop, M1–M4 mobile) is the incumbent reference.
+- The visual world is **Platform** (rail wayfinding: sign blue, rationed signal yellow, timetable rows), specified in `docs/design-rules.md` §1 and DESIGN.md. It replaced the earlier teal design canvas in Nov 2026.
 
 ## Evidence on Hand
 

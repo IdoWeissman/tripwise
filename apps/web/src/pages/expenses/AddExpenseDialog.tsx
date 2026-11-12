@@ -128,7 +128,7 @@ export function AddExpenseDialog({
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(',', '.'))}
-              className="field-sizing-content max-w-full min-w-[4ch] bg-transparent text-center text-[44px] font-bold tracking-[-0.02em] tabular-nums outline-none placeholder:text-ink-muted"
+              className="field-sizing-content max-w-full min-w-[4ch] bg-transparent text-center text-[44px] font-bold tracking-[-0.02em] figures outline-none placeholder:text-ink-muted"
               aria-invalid={amount !== '' && parseCents(amount) === null}
               autoFocus
             />
@@ -166,7 +166,7 @@ export function AddExpenseDialog({
         </div>
 
         {!splitOpen && method === 'EQUAL' && included.size === members.length ? (
-          <div className="flex min-h-14 items-center gap-3 rounded-xl bg-surface-muted px-3.5 py-2">
+          <div className="flex min-h-14 items-center gap-3 rounded-card bg-surface-muted px-3.5 py-2">
             <span className="flex -space-x-2" aria-hidden="true">
               {members.map((m) => (
                 <span key={m.id} className="rounded-full ring-2 ring-surface-muted">
@@ -176,7 +176,7 @@ export function AddExpenseDialog({
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-sm font-semibold">Split equally, everyone</span>
-              <span className="text-[13px] text-ink-secondary tabular-nums">{preview.hint}</span>
+              <span className="text-[13px] text-ink-secondary figures">{preview.hint}</span>
             </span>
             <Button variant="ghost" className="px-3 text-sm" onClick={() => setSplitOpen(true)}>
               Change
@@ -233,7 +233,7 @@ export function AddExpenseDialog({
                           onChange={(e) =>
                             setValues({ ...values, [m.id]: e.target.value.replace(',', '.') })
                           }
-                          className="h-11 w-24 rounded-control border border-border-input px-2 text-right text-sm tabular-nums"
+                          className="h-11 w-24 rounded-control border border-border-input px-2 text-right text-sm figures"
                         />
                         <span className="w-4 text-sm text-ink-muted">
                           {method === 'PERCENT' ? '%' : ''}
@@ -242,7 +242,7 @@ export function AddExpenseDialog({
                     </>
                   )}
                   {method !== 'EXACT' && (
-                    <span className="w-24 text-right text-[15px] font-semibold text-ink-secondary tabular-nums">
+                    <span className="w-24 text-right text-[15px] font-semibold text-ink-secondary figures">
                       {preview.share(m.id)}
                     </span>
                   )}

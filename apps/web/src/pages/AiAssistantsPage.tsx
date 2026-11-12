@@ -187,7 +187,7 @@ export function AiAssistantsPage() {
       </Link>
 
       <div className="flex flex-col gap-2">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em] md:text-[28px]">
+        <h1 className="text-[26px] font-extrabold tracking-[-0.02em] md:text-[34px]">
           Connect an AI assistant
         </h1>
         <p className="text-[15px] text-ink-secondary">

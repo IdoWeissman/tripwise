@@ -11,6 +11,7 @@ import { formatDay, todayIn } from '../lib/format';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 import { useIsDesktop } from '../lib/useMediaQuery';
 import { ActivityCard } from './itinerary/ActivityCard';
+import { DayDateContext } from './itinerary/dayDate';
 import { AddActivityDialog } from './itinerary/AddActivityDialog';
 import { standaloneBookings } from './itinerary/bookedPlans';
 import { Board, type Column } from './itinerary/Board';
@@ -106,7 +107,7 @@ export function ItineraryPage() {
         canEdit && (
           <Link
             to="../proposals"
-            className="flex min-h-11 items-center gap-2 rounded-control bg-accent px-4.5 text-sm font-semibold text-white no-underline hover:bg-accent-hover"
+            className="flex min-h-11 items-center gap-2 rounded-control bg-sign px-4.5 text-sm font-semibold text-white no-underline hover:bg-sign-raised"
           >
             <PlusIcon />
             Propose activity
@@ -121,7 +122,7 @@ export function ItineraryPage() {
       <div className="flex flex-col gap-6" aria-busy="true">
         {header}
         {/* ribbon placeholder, so nothing shifts when the days arrive */}
-        <Skeleton className="-mb-2 h-[69px] rounded-xl" />
+        <Skeleton className="-mb-2 h-[69px] rounded-card" />
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: isDesktop ? 4 : 1 }, (_, i) => (
             <div
@@ -130,8 +131,8 @@ export function ItineraryPage() {
             >
               <Skeleton className="h-6 w-24 rounded-control" />
               <Skeleton className="h-11 rounded-control" />
-              <Skeleton className="h-23 rounded-xl" />
-              <Skeleton className="h-23 rounded-xl" />
+              <Skeleton className="h-23 rounded-card" />
+              <Skeleton className="h-23 rounded-card" />
             </div>
           ))}
         </div>
@@ -290,43 +291,45 @@ function MobileDayList({
           body="Add an activity or propose an idea for the group to vote on."
         />
       )}
-      {entries.map((e) => {
-        if (e.kind === 'booking')
-          return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
-        const a = byId.get(e.id);
-        if (!a) return null;
-        return (
-          <ActivityCard
-            key={e.id}
-            activity={a}
-            currency={currency}
-            avatarIndex={avatarIndex(a.createdBy.id)}
-            control={
-              canEdit && (
-                <span className="w-36">
-                  <Select
-                    aria-label={`Move ${a.title} to another day`}
-                    placeholder="Move to…"
-                    value={undefined}
-                    onValueChange={(col) => onMove(e.id, col)}
-                    options={columns
-                      .filter((c) => c.id !== selected)
-                      .map((c) => ({
-                        value: c.id,
-                        label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
-                      }))}
-                  />
-                </span>
-              )
-            }
-          />
-        );
-      })}
+      <DayDateContext.Provider value={date}>
+        {entries.map((e) => {
+          if (e.kind === 'booking')
+            return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
+          const a = byId.get(e.id);
+          if (!a) return null;
+          return (
+            <ActivityCard
+              key={e.id}
+              activity={a}
+              currency={currency}
+              avatarIndex={avatarIndex(a.createdBy.id)}
+              control={
+                canEdit && (
+                  <span className="w-36">
+                    <Select
+                      aria-label={`Move ${a.title} to another day`}
+                      placeholder="Move to…"
+                      value={undefined}
+                      onValueChange={(col) => onMove(e.id, col)}
+                      options={columns
+                        .filter((c) => c.id !== selected)
+                        .map((c) => ({
+                          value: c.id,
+                          label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
+                        }))}
+                    />
+                  </span>
+                )
+              }
+            />
+          );
+        })}
+      </DayDateContext.Provider>
       {canEdit && (
         <button
           type="button"
           onClick={() => onAdd(column)}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border-input bg-surface text-[15px] font-semibold"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-card border border-border-input bg-surface text-[15px] font-semibold"
         >
           <PlusIcon />
           Add activity

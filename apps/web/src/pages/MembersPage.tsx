@@ -149,7 +149,7 @@ export function MembersPage() {
                       {isSelf ? 'Leave' : 'Remove'}
                     </Button>
                   ) : (
-                    <span className="flex min-h-11 items-center text-[13px] text-ink-muted tabular-nums">
+                    <span className="flex min-h-11 items-center text-[13px] text-ink-muted figures">
                       {balance < 0
                         ? `Owes ${formatMoney(-balance, trip.currency)}`
                         : `Is owed ${formatMoney(balance, trip.currency)}`}{' '}

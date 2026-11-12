@@ -32,11 +32,8 @@ const TripsQuery = graphql(`
   }
 `);
 
-const TINTS = [
-  'bg-accent-tint text-accent-strong',
-  'bg-tint-blue text-member-blue-ink',
-  'bg-tint-orange text-member-orange-ink',
-];
+/** Trip plates: the sign blue, its raised tone, and money green — white type on all three. */
+const TINTS = ['bg-sign text-white', 'bg-sign-raised text-white', 'bg-money text-white'];
 
 type Filter = 'upcoming' | 'past';
 
@@ -58,11 +55,11 @@ function DayStrip({ start, end }: { start: string; end: string }) {
         {Array.from({ length: Math.min(total, 21) }, (_, d) => (
           <span
             key={d}
-            className={`h-1.5 flex-1 rounded-full bg-current ${d < lived ? '' : 'opacity-25'}`}
+            className={`h-1.5 flex-1 rounded-full ${d < lived ? 'bg-signal' : 'bg-current opacity-30'}`}
           />
         ))}
       </span>
-      <span className="shrink-0 text-xs font-semibold tabular-nums">
+      <span className="shrink-0 text-xs font-semibold figures">
         {total} {total === 1 ? 'day' : 'days'}
       </span>
     </span>
@@ -130,13 +127,15 @@ export function TripsPage() {
                 className={`flex h-[132px] flex-col justify-between gap-2 p-4 ${TINTS[i % TINTS.length]}`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="rounded-full bg-surface px-3 py-1.5 text-[13px] font-semibold">
+                  <span
+                    className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${s.countdown || s.label === 'Past' ? 'bg-white/15' : 'bg-signal text-sign'}`}
+                  >
                     {s.label}
                   </span>
                   {s.countdown && <span className="text-[13px] font-semibold">{s.countdown}</span>}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <span className="truncate text-[28px] leading-none font-bold tracking-[-0.02em]">
+                  <span className="truncate text-[28px] leading-none font-extrabold tracking-[-0.02em]">
                     {trip.destination.split(',')[0]}
                   </span>
                   <DayStrip start={trip.startDate} end={trip.endDate} />

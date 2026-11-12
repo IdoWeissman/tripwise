@@ -24,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GripIcon, PlusIcon } from '../../components/Icons';
 import { ActivityCard } from './ActivityCard';
+import { DayDateContext } from './dayDate';
 import { standaloneBookings } from './bookedPlans';
 import { BookingCard, StayStrip } from './DayBookings';
 import type { Day, ItineraryActivity } from './queries';
@@ -228,20 +229,22 @@ export function Board({
                 canEdit={canEdit}
                 onAdd={() => onAdd(c)}
               >
-                {entries.map((e) => {
-                  if (e.kind === 'booking')
-                    return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
-                  const a = byId.get(e.id);
-                  return a ? (
-                    <SortableCard
-                      key={e.id}
-                      activity={a}
-                      currency={currency}
-                      avatarIndex={avatarIndex(a.createdBy.id)}
-                      disabled={!canEdit}
-                    />
-                  ) : null;
-                })}
+                <DayDateContext.Provider value={date}>
+                  {entries.map((e) => {
+                    if (e.kind === 'booking')
+                      return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
+                    const a = byId.get(e.id);
+                    return a ? (
+                      <SortableCard
+                        key={e.id}
+                        activity={a}
+                        currency={currency}
+                        avatarIndex={avatarIndex(a.createdBy.id)}
+                        disabled={!canEdit}
+                      />
+                    ) : null;
+                  })}
+                </DayDateContext.Provider>
               </DayColumn>
             );
           })}
@@ -285,7 +288,7 @@ function DayColumn({
       aria-label={`${column.label}, ${column.sublabel}${column.isToday ? ', today' : ''}`}
       className={`flex w-[272px] flex-none flex-col gap-2.5 rounded-card p-3 transition-colors ${
         isOver ? 'bg-accent-tint' : 'bg-surface-column'
-      } ${column.isToday ? 'outline-2 -outline-offset-2 outline-accent-tint-border' : ''}`}
+      } ${column.isToday ? 'outline-2 -outline-offset-2 outline-sign' : ''}`}
     >
       {column.day ? (
         // The date is the column's landmark: a big numeral, like the times on a flight card.
@@ -297,7 +300,7 @@ function DayColumn({
             </span>
             <span
               aria-hidden="true"
-              className={`text-[28px] leading-none font-bold tracking-[-0.02em] tabular-nums ${column.isToday ? 'text-accent-strong' : ''}`}
+              className={`text-[28px] leading-none font-bold tracking-[-0.02em] figures ${column.isToday ? 'text-accent-strong' : ''}`}
             >
               {new Date(column.day.date).getUTCDate()}
             </span>
@@ -309,7 +312,7 @@ function DayColumn({
             </span>
           </h2>
           {column.isToday && (
-            <span className="mb-0.5 rounded-full bg-accent-tint px-2 py-0.5 text-xs font-semibold text-accent-strong">
+            <span className="mb-0.5 rounded-full bg-signal px-2 py-0.5 text-xs font-bold text-sign">
               Today
             </span>
           )}
@@ -325,7 +328,7 @@ function DayColumn({
         {children}
       </SortableContext>
       {empty && (
-        <p className="rounded-xl border-[1.5px] border-dashed border-border-input px-3 py-5 text-center text-[13px] text-ink-muted">
+        <p className="rounded-card border-[1.5px] border-dashed border-border-input px-3 py-5 text-center text-[13px] text-ink-muted">
           Nothing planned yet
         </p>
       )}
@@ -373,7 +376,7 @@ function SortableCard({
       <div
         ref={setNodeRef}
         style={style}
-        className="flex h-16 items-center justify-center rounded-xl border-[1.5px] border-dashed border-accent bg-accent-tint text-[13px] font-semibold text-accent-strong"
+        className="flex h-16 items-center justify-center rounded-card border-[1.5px] border-dashed border-accent bg-accent-tint text-[13px] font-semibold text-accent-strong"
       >
         Drop here
       </div>

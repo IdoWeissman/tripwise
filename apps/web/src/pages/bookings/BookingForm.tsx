@@ -110,7 +110,7 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
                         : f.legs,
                   })
                 }
-                className={`min-h-10 rounded-full border px-3.5 text-[13px] font-semibold ${on ? 'border-ink bg-ink text-white' : 'border-border-input bg-surface text-ink hover:bg-surface-muted'}`}
+                className={`min-h-10 rounded-full border px-3.5 text-[13px] font-semibold ${on ? 'border-sign bg-sign text-white' : 'border-border-input bg-surface text-ink hover:bg-surface-muted'}`}
               >
                 {BOOKING_TYPES[t].label}
               </button>
@@ -154,7 +154,7 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
             {f.legs.map((l, i) => (
               <div
                 key={i}
-                className="grid grid-cols-2 gap-3 rounded-xl border border-border p-3 sm:grid-cols-4"
+                className="grid grid-cols-2 gap-3 rounded-card border border-border p-3 sm:grid-cols-4"
               >
                 <label className="col-span-2 flex flex-col gap-1.5 text-[13px] font-semibold sm:col-span-1">
                   {f.type === 'FLIGHT' ? 'Flight no.' : 'Number'}
@@ -233,7 +233,7 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
             <button
               type="button"
               onClick={() => set('legs', [...f.legs, emptyLeg()])}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-border-input text-sm font-semibold text-ink-secondary hover:bg-surface-muted"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-card border-[1.5px] border-dashed border-border-input text-sm font-semibold text-ink-secondary hover:bg-surface-muted"
             >
               <PlusIcon size={16} />
               Add {f.type === 'FLIGHT' ? 'flight' : 'leg'}
@@ -316,7 +316,7 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
           {(id) => (
             <input
               id={id}
-              className={`${inputCls} tabular-nums`}
+              className={`${inputCls} figures`}
               inputMode="decimal"
               value={f.price}
               onChange={(e) => set('price', e.target.value)}

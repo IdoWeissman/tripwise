@@ -271,8 +271,8 @@ export function ProposalsPage() {
                     onClick={() => vote(p)}
                     className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-control border px-4 text-[15px] font-semibold transition-colors disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-muted disabled:text-ink-muted sm:w-auto ${
                       p.viewerHasVoted
-                        ? 'border-accent bg-accent text-white hover:bg-accent-hover'
-                        : 'border-border-input bg-surface text-ink hover:bg-surface-muted'
+                        ? 'border-vote bg-vote text-white hover:bg-vote/90'
+                        : 'border-vote bg-surface text-vote hover:bg-vote-tint'
                     }`}
                   >
                     {p.viewerHasVoted ? <CheckIcon size={18} /> : <ChevronUpIcon size={18} />}
@@ -462,7 +462,7 @@ function ProposeForm({
           {messageFromError(error)}
         </p>
       )}
-      <Button type="submit" disabled={loading || !title.trim()}>
+      <Button type="submit" variant="vote" disabled={loading || !title.trim()}>
         {loading ? 'Submitting…' : 'Submit for a vote'}
       </Button>
     </form>

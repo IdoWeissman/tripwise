@@ -151,7 +151,7 @@ export function ExpensesPage() {
                         {name(e.paidBy)} paid · {DATE.format(new Date(e.spentAt))}
                       </span>
                     </span>
-                    <span className="text-sm font-bold tabular-nums">{money(e.amount)}</span>
+                    <span className="text-sm font-bold figures">{money(e.amount)}</span>
                     {canDelete(e) && (
                       <button
                         type="button"
@@ -211,10 +211,10 @@ export function ExpensesPage() {
                             {name(e.paidBy)}
                           </span>
                         </td>
-                        <td className="px-3 py-3.5 text-right font-semibold tabular-nums">
+                        <td className="px-3 py-3.5 text-right font-semibold figures">
                           {money(e.amount)}
                         </td>
-                        <td className="px-3 py-3.5 text-right text-ink-secondary tabular-nums">
+                        <td className="px-3 py-3.5 text-right text-ink-secondary figures">
                           {toNumber(e.viewerShare) ? money(e.viewerShare) : '—'}
                         </td>
                         <td className="px-3 py-1.5">
@@ -256,7 +256,7 @@ export function ExpensesPage() {
               return (
                 <div
                   key={`${s.from.id}-${s.to.id}`}
-                  className={`flex flex-col gap-2.5 rounded-xl p-3 ${involvesMe ? 'bg-accent-tint' : 'bg-bg'}`}
+                  className={`flex flex-col gap-2.5 rounded-card p-3 ${involvesMe ? 'bg-money-tint' : 'bg-bg'}`}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="flex shrink-0 items-center gap-1.5">
@@ -268,7 +268,7 @@ export function ExpensesPage() {
                       {name(s.from)} {s.from.id === viewerId ? 'pay' : 'pays'}{' '}
                       {s.to.id === viewerId ? 'you' : s.to.name}
                     </span>
-                    <span className="text-[15px] font-bold tabular-nums">{money(s.amount)}</span>
+                    <span className="text-[15px] font-bold figures">{money(s.amount)}</span>
                   </div>
                   {canEdit && (involvesMe || isOwner) && (
                     <Button
@@ -311,13 +311,13 @@ export function ExpensesPage() {
                     </div>
                     <div className="flex flex-1">
                       <div
-                        className="rounded-r-full bg-accent"
+                        className="rounded-r-full bg-money"
                         style={{ width: v > 0 ? w : '0%' }}
                       />
                     </div>
                   </div>
                   <span
-                    className={`text-right font-bold tabular-nums ${v >= 0 ? 'text-accent-strong' : 'text-negative-ink'}`}
+                    className={`text-right font-bold figures ${v >= 0 ? 'text-money' : 'text-negative-ink'}`}
                   >
                     {money(b.amount, true)}
                   </span>

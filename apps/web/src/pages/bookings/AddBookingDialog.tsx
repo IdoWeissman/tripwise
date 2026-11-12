@@ -283,7 +283,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                 : 'border-border-input bg-bg hover:bg-surface-muted'
             }`}
           >
-            <span className="flex size-12 items-center justify-center rounded-xl bg-accent-tint text-accent">
+            <span className="flex size-12 items-center justify-center rounded-card bg-accent-tint text-accent">
               <UploadIcon size={22} />
             </span>
             <span className="text-[15px] font-semibold">
@@ -363,7 +363,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
               {files.map((f) => (
                 <li
                   key={f.key}
-                  className="flex items-center gap-3 rounded-[14px] border border-border p-3"
+                  className="flex items-center gap-3 rounded-card border border-border p-3"
                 >
                   <span
                     aria-hidden="true"
@@ -440,7 +440,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
                     type="button"
                     aria-current={i === current ? 'true' : undefined}
                     onClick={() => setCurrent(i)}
-                    className={`flex min-h-14 min-w-[200px] items-center gap-3 rounded-[14px] border px-3 py-2 text-left md:min-w-0 ${
+                    className={`flex min-h-14 min-w-[200px] items-center gap-3 rounded-card border px-3 py-2 text-left md:min-w-0 ${
                       i === current
                         ? 'border-accent bg-accent-tint'
                         : 'border-border bg-surface hover:bg-surface-muted'
@@ -469,7 +469,7 @@ export function AddBookingDialog({ open, onClose }: { open: boolean; onClose: ()
 
             {cur && (
               <div className="flex min-w-0 flex-1 flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-bg px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-bg px-4 py-3">
                   <span className="text-sm text-ink-secondary">
                     {SOURCE_LABEL[cur.source]}
                     {cur.sourceName ? ` · ${cur.sourceName}` : ''}

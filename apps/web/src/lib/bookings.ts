@@ -1,6 +1,9 @@
 import type { BookingSource, BookingType } from '../gql/graphql';
 
-/** Type label + colors — design rules §2 · Bookings. Color is never the only signal: always show the label/code. */
+/**
+ * Type label + chip — design rules §1.5. Every booked thing wears the same solid Plan-blue chip (a plan
+ * nobody has booked is dashed); the 3–5 letter code names the type, so section hues stay with their section.
+ */
 export const BOOKING_TYPES: Record<
   BookingType,
   { label: string; code: string; chip: string; tint: string }
@@ -8,50 +11,50 @@ export const BOOKING_TYPES: Record<
   FLIGHT: {
     label: 'Flight',
     code: 'FLT',
-    chip: 'bg-member-blue text-member-blue-ink',
-    tint: 'bg-tint-blue text-member-blue-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   STAY: {
     label: 'Stay',
     code: 'STAY',
-    chip: 'bg-member-teal text-member-teal-ink',
+    chip: 'bg-accent-tint text-accent-strong',
     tint: 'bg-accent-tint text-accent-strong',
   },
   EVENT: {
     label: 'Event',
     code: 'SHOW',
-    chip: 'bg-member-purple text-member-purple-ink',
-    tint: 'bg-member-purple/40 text-member-purple-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   ATTRACTION: {
     label: 'Attraction',
     code: 'SIGHT',
-    chip: 'bg-member-amber text-member-amber-ink',
-    tint: 'bg-member-amber/40 text-member-amber-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   TOUR: {
     label: 'Tour',
     code: 'TOUR',
-    chip: 'bg-member-amber text-member-amber-ink',
-    tint: 'bg-member-amber/40 text-member-amber-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   TRANSPORT: {
     label: 'Transport',
     code: 'RAIL',
-    chip: 'bg-member-orange text-member-orange-ink',
-    tint: 'bg-tint-orange text-member-orange-ink',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   DINING: {
     label: 'Dining',
     code: 'FOOD',
-    chip: 'bg-surface-muted text-ink-secondary',
-    tint: 'bg-surface-muted text-ink-secondary',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
   OTHER: {
     label: 'Other',
     code: 'MISC',
-    chip: 'bg-surface-muted text-ink-secondary',
-    tint: 'bg-surface-muted text-ink-secondary',
+    chip: 'bg-accent-tint text-accent-strong',
+    tint: 'bg-accent-tint text-accent-strong',
   },
 };
 
@@ -105,6 +108,15 @@ export const localDay = (local: string | null | undefined) =>
   local ? DAY.format(asUtc(local)) : null;
 export const localDayLong = (local: string | null | undefined) =>
   local ? DAY_LONG.format(asUtc(local)) : null;
+/** "Leave by" for a flight: 2 h 30 min before departure, the same rule as the server's reminder. */
+export function leaveBy(departLocal: string | null | undefined): string | null {
+  const t = localTime(departLocal);
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  const mins = (((h! * 60 + m! - 150) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+}
+
 export const localTime = (local: string | null | undefined) =>
   local && local.length > 10 ? local.slice(11, 16) : null;
 export const localDate = (local: string | null | undefined) => (local ? local.slice(0, 10) : '');

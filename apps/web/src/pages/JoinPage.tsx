@@ -70,7 +70,7 @@ export function JoinPage() {
             {invite.alreadyMember ? (
               <Link
                 to={`/trips/${invite.tripId}`}
-                className="flex min-h-12 items-center justify-center rounded-control bg-accent font-semibold text-white no-underline"
+                className="flex min-h-12 items-center justify-center rounded-control bg-sign font-bold text-white no-underline"
               >
                 Open trip
               </Link>
@@ -90,7 +90,7 @@ export function JoinPage() {
               <div className="flex flex-col gap-3">
                 <Link
                   to={`/sign-up?next=${next}`}
-                  className="flex min-h-12 items-center justify-center rounded-control bg-accent font-semibold text-white no-underline"
+                  className="flex min-h-12 items-center justify-center rounded-control bg-sign font-bold text-white no-underline"
                 >
                   Create an account to join
                 </Link>

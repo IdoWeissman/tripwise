@@ -1,4 +1,4 @@
-import '@fontsource-variable/plus-jakarta-sans';
+import '@fontsource-variable/archivo/wdth.css';
 import './styles.css';
 import { ApolloProvider } from '@apollo/client/react';
 import { StrictMode } from 'react';

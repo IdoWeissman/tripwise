@@ -78,3 +78,25 @@ export function daysUntil(iso: string, now = new Date()): number {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Math.round((new Date(iso).getTime() - today) / 86_400_000);
 }
+
+/** "HH:MM" now in a time zone — what has already happened today steps back. */
+export function nowHHMM(timeZone: string, now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone,
+    }).format(now);
+  } catch {
+    return now.toTimeString().slice(0, 5);
+  }
+}
+
+/** True when a day (YYYY-MM-DD) and optional "HH:MM" are already behind us in the trip's zone. */
+export function isPast(date: string, time: string | null | undefined, timeZone: string): boolean {
+  if (!date) return false;
+  const today = todayIn(timeZone);
+  if (date !== today) return date < today;
+  return !!time && time < nowHHMM(timeZone);
+}

@@ -200,12 +200,14 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
         <div className="flex min-w-0 items-center gap-4">
           <span
             aria-hidden="true"
-            className={`flex size-12 shrink-0 items-center justify-center rounded-xl text-xs font-bold tracking-[0.04em] ${t.chip}`}
+            className={`flex size-12 shrink-0 items-center justify-center rounded-card text-xs font-bold tracking-[0.04em] ${t.chip}`}
           >
             {t.code}
           </span>
           <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] md:text-[28px]">{b.title}</h1>
+            <h1 className="text-[26px] font-extrabold tracking-[-0.02em] md:text-[34px]">
+              {b.title}
+            </h1>
             <p className="text-sm text-ink-muted">{subtitle}</p>
           </div>
         </div>
@@ -240,7 +242,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
               href={b.bookingUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 rounded-control bg-accent px-5 text-[15px] font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
+              className="inline-flex min-h-11 items-center gap-2 rounded-control bg-sign px-5 text-[15px] font-semibold text-white no-underline hover:bg-sign-raised hover:text-white"
             >
               {manageLabel}
               <ExternalIcon size={16} />
@@ -252,7 +254,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
       {b.missingFields.length > 0 && (
         <div
           role="status"
-          className="flex flex-wrap items-center gap-3 rounded-[14px] border border-attention bg-tint-orange px-4 py-3.5"
+          className="flex flex-wrap items-center gap-3 rounded-card border border-attention bg-tint-orange px-4 py-3.5"
         >
           <AlertIcon size={20} className="shrink-0 text-attention-ink" />
           <span className="min-w-0 flex-1 text-sm">
@@ -273,7 +275,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
             <div
               role="tablist"
               aria-label="Legs"
-              className="grid grid-flow-col gap-1 rounded-xl bg-surface-muted p-1"
+              className="grid grid-flow-col gap-1 rounded-card bg-surface-muted p-1"
             >
               {segments.map((s, i) => (
                 <button
@@ -295,12 +297,12 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
               aria-label={segments.length > 1 ? legLabel(leg) : 'Schedule'}
               className={`${card} flex flex-col gap-5 px-5 py-5 md:px-6`}
             >
-              <span className="text-xs font-bold tracking-[0.04em] text-member-blue-ink uppercase">
+              <span className="text-xs font-bold tracking-[0.04em] text-accent-strong uppercase">
                 {[localDayLong(seg.departLocal), seg.number].filter(Boolean).join(' · ')}
               </span>
               <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
                 <span className="flex min-w-0 flex-col">
-                  <span className="text-[30px] font-bold tabular-nums">
+                  <span className="text-[30px] font-bold figures">
                     {localTime(seg.departLocal) ?? '—'}
                   </span>
                   <span className="truncate text-sm font-semibold">
@@ -315,7 +317,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
                   {seg.arrivesAt && duration(seg.departsAt, seg.arrivesAt)}
                 </span>
                 <span className="flex min-w-0 flex-col text-right">
-                  <span className="text-[30px] font-bold tabular-nums">
+                  <span className="text-[30px] font-bold figures">
                     {localTime(seg.arriveLocal) ?? '—'}
                     <span className="text-base">{dayShift(seg.departLocal, seg.arriveLocal)}</span>
                   </span>
@@ -459,7 +461,7 @@ function BookingDetail({ booking: b, reminders, canEdit, back }: DetailProps) {
                   type="button"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
-                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-border-input text-sm font-semibold text-ink-secondary hover:bg-surface-muted disabled:opacity-60"
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-card border-[1.5px] border-dashed border-border-input text-sm font-semibold text-ink-secondary hover:bg-surface-muted disabled:opacity-60"
                 >
                   <PlusIcon size={16} />
                   {uploading

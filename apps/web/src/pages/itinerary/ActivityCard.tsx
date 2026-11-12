@@ -1,9 +1,11 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useContext, type HTMLAttributes, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Avatar } from '../../components/Avatar';
 import { ClockIcon, PinIcon } from '../../components/Icons';
 import { BOOKING_TYPES } from '../../lib/bookings';
-import { formatMoney, toNumber } from '../../lib/format';
+import { formatMoney, isPast, toNumber } from '../../lib/format';
+import { useTrip } from '../../lib/trip';
+import { DayDateContext } from './dayDate';
 import type { ItineraryActivity } from './queries';
 
 interface ActivityCardProps extends HTMLAttributes<HTMLElement> {
@@ -24,17 +26,23 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
   ref,
 ) {
   const booked = a.booking ? BOOKING_TYPES[a.booking.type] : null;
+  const { trip } = useTrip();
+  const date = useContext(DayDateContext);
+  // Done steps back a tone and is struck through — never colour alone (rules §1.3).
+  const done = !lifted && isPast(date, a.startTime, trip.timeZone);
   return (
     <article
       ref={ref}
-      className={`flex flex-col gap-1 rounded-xl border bg-surface px-3 py-2.5 ${
+      className={`flex flex-col gap-1 rounded-card border bg-surface px-3 py-2.5 ${
         lifted ? '-rotate-[1.5deg] border-accent shadow-lifted' : 'border-border'
-      } ${className}`}
+      } ${done ? 'bg-surface/60' : ''} ${className}`}
       {...rest}
     >
       <div className="flex min-h-7 items-center justify-between gap-2">
         {a.startTime ? (
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-strong tabular-nums">
+          <span
+            className={`flex items-center gap-1.5 text-sm font-extrabold figures ${done ? 'text-ink-muted' : 'text-accent-strong'}`}
+          >
             <ClockIcon size={14} />
             {a.startTime}
           </span>
@@ -43,7 +51,12 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
         )}
         {control}
       </div>
-      <h3 className="text-sm leading-snug font-semibold text-balance">{a.title}</h3>
+      <h3
+        className={`text-sm leading-snug font-semibold text-balance ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
+      >
+        {done && <span className="sr-only">Done: </span>}
+        {a.title}
+      </h3>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-muted">
           {a.location && (
@@ -53,7 +66,7 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
               <span aria-hidden="true">·</span>
             </>
           )}
-          <span className="shrink-0 tabular-nums">
+          <span className="shrink-0 figures">
             {a.costPerPerson ? `${formatMoney(toNumber(a.costPerPerson), currency)} pp` : 'Free'}
           </span>
         </span>

@@ -6,16 +6,16 @@ import type { Column } from './Board';
 import type { ItineraryActivity } from './queries';
 import { dayTimeline } from './timeline';
 
-/** Mark colour per booking type: the type's ink, so marks match the chips. Plans are accent. */
+/** Ribbon marks: bookings in sign blue, plans in Plan blue. */
 const MARK: Record<BookingType, string> = {
-  FLIGHT: 'bg-member-blue-ink',
-  STAY: 'bg-member-teal-ink',
-  EVENT: 'bg-member-purple-ink',
-  ATTRACTION: 'bg-member-amber-ink',
-  TOUR: 'bg-member-amber-ink',
-  TRANSPORT: 'bg-member-orange-ink',
-  DINING: 'bg-ink-muted',
-  OTHER: 'bg-ink-muted',
+  FLIGHT: 'bg-sign',
+  STAY: 'bg-sign',
+  EVENT: 'bg-sign',
+  ATTRACTION: 'bg-sign',
+  TOUR: 'bg-sign',
+  TRANSPORT: 'bg-sign',
+  DINING: 'bg-sign',
+  OTHER: 'bg-sign',
 };
 const MAX_MARKS = 6;
 
@@ -77,7 +77,7 @@ export function TripRibbon({ columns, items, byId, active, onPick, mode }: Props
       aria-label="Trip days"
       className="relative -mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0"
     >
-      <div className="flex min-w-full gap-1 rounded-xl bg-surface-muted p-1">
+      <div className="flex min-w-full gap-1 rounded-card bg-surface-muted p-1">
         {columns.map((c, index) => {
           const date = c.day?.date.slice(0, 10) ?? '';
           const bookings = c.day ? standaloneBookings(c.day) : [];
@@ -111,7 +111,7 @@ export function TripRibbon({ columns, items, byId, active, onPick, mode }: Props
               >
                 {c.isToday ? 'Today' : c.day ? c.label : 'No day'}
               </span>
-              <span className="text-[15px] leading-none font-bold whitespace-nowrap tabular-nums">
+              <span className="text-[15px] leading-none font-bold whitespace-nowrap figures">
                 {c.day ? formatDayShort(c.day.date) : 'Unplanned'}
               </span>
               <span aria-hidden="true" className="flex h-1.5 w-full gap-0.5">
