@@ -55,7 +55,8 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 
 - Desktop pages are fluid: max content width **1440px** (dashboard 1240px), 32px page padding.
 - Trip screens share one shell (`TripLayout`): **top bar** (logo → breadcrumb → Live indicator, member avatars, Invite for owners) + **left sidebar** (trip summary card + section nav with open-proposal count) + content.
-- Below `md` (768px) the sidebar is replaced by the trip name block above the content and the bottom tab bar; never show both navigations at once.
+- Below `lg` (1024px) — phones **and tablets** — the sidebar is replaced by the trip name block (+ 44px People button) above the content and the bottom tab bar; never show both navigations at once. (A sidebar stacked above the page on tablets pushed the content a screen down.)
+- The top bar is always one row: the breadcrumb's trip name truncates instead of the bar wrapping. Phones (< `sm`) show logo, **Ask** and Live only — owners reach Invite through People; below 360px **Ask** is icon-only (its name stays for screen readers). `sm`+ adds "My trips" and Invite; `lg`+ adds the trip name to the breadcrumb (below that the name block shows it) and the member avatars. Logo and breadcrumb links are 44px targets.
 - The sidebar is part of a `flex-wrap` row and **stacks above the content on narrow screens**; it is never sticky or `100vh`.
 - Wide tables live inside an `overflow-x: auto` box; toolbars and button groups wrap.
 - Mobile: 390×844 reference, 20px side gutters, fixed **bottom tab bar** (Plan · Vote · Money · People) with the active tab in accent color + weight 600.
@@ -76,7 +77,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 - **Dialog**: native `<dialog>`; full-screen sheet on phones, centered card (440px, or 560px for forms with lists) from `sm` up, **as tall as its content** up to 90vh — the body scrolls and sticky footers stay visible; title + 44px close button in the header.
 - **Password field** (`components/PasswordInput.tsx`): every password input has a show/hide eye button inside the field's right edge (44px target, `aria-label` "Show password" / "Hide password", `aria-pressed`); it never submits the form and keeps the typed value.
 - **Confirm dialog**: every destructive action (delete expense, remove member, leave trip, delete trip) asks first; confirm button uses `negative` colors.
-- **Toast**: bottom-center, auto-dismiss after 4s, `role="status"` (or `alert` for errors); sits above the mobile tab bar.
+- **Toast**: bottom-center, auto-dismiss after 4s, `role="status"` (or `alert` for errors); sits above the bottom tab bar (phones and tablets).
 - **Count badge**: `attention` colors, pill, min 22px.
 
 ### 1.6 Accessibility (non-negotiable)
@@ -237,7 +238,7 @@ Status: **draft v0.1** — screens covered: Sign in, Trips dashboard, Itinerary,
 ### 14 · Trip assistant (panel on every trip screen)
 
 - Opened by **Ask** (sparkle icon, secondary style, `aria-expanded`) at the start of the trip top bar. The conversation is kept while the panel is closed or the section changes.
-- Desktop (`md`+): a non-modal panel docked right, 420px wide, full height, `border-l` + `shadow-popover`; the page reserves the width so nothing is hidden beneath it. Phones: a full-screen sheet above the tab bar. Esc and the 44px close button close it and return focus to **Ask**.
+- Desktop (`lg`+): a non-modal panel docked right, 420px wide, full height, `border-l` + `shadow-popover`; the page reserves the width so nothing is hidden beneath it. Phones and tablets: a full-screen sheet above the tab bar (docking 420px on a tablet would leave the page ~350px). Esc and the 44px close button close it and return focus to **Ask**.
 - Empty: one line on what it can do + starter chips (pills, 44px). Loading: a skeleton. Not configured: the dashed empty block. Error: the inline error with **Try again**.
 - Messages: the user's in an `accent-tint` bubble on the right; answers as plain text (paragraphs, bullets, **bold**) on the surface. A status line with a pulsing accent dot ("Checking bookings…") shows while tools run; text streams in.
 - Citations: small inline number chips (`surface-muted`, `accent-strong`, linking to the source) plus a **Sources** row of 44px chips under the answer — the row is the touch target; the inline chips are a shortcut.

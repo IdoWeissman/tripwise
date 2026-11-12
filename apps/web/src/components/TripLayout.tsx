@@ -120,47 +120,55 @@ export function TripLayout() {
   const people = trip.members.map((m, index) => ({ id: m.user.id, name: m.user.name, index }));
 
   return (
-    <div className={`min-h-screen bg-bg pb-24 md:pb-0 ${assistantOpen ? 'md:pr-[420px]' : ''}`}>
+    // Phones and tablets (< lg): trip name + People button, bottom tab bar, assistant as a sheet.
+    // Desktop (lg+): sidebar, docked assistant. Tablets used to get a sidebar stacked above the page.
+    <div className={`min-h-screen bg-bg pb-24 lg:pb-0 ${assistantOpen ? 'lg:pr-[420px]' : ''}`}>
       <a
         href="#main"
         className="sr-only z-50 rounded-control bg-surface px-4 py-3 text-sm font-semibold shadow-popover focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
         Skip to content
       </a>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-3.5 sm:px-8">
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-3 text-sm">
+      {/* One row at every width: the trip name truncates instead of the header wrapping. */}
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3.5 sm:gap-4 sm:px-8">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-3 text-sm">
           <Logo />
           <span aria-hidden="true" className="hidden text-border-input sm:inline">
             /
           </span>
-          <Link to="/" className="hidden text-ink-muted no-underline hover:text-ink sm:inline">
+          <Link
+            to="/"
+            className="hidden min-h-11 shrink-0 items-center text-ink-muted no-underline hover:text-ink sm:flex"
+          >
             My trips
           </Link>
-          <span aria-hidden="true" className="hidden text-border-input sm:inline">
+          <span aria-hidden="true" className="hidden text-border-input lg:inline">
             /
           </span>
-          <span className="hidden truncate font-semibold sm:inline">{trip.name}</span>
+          <span className="hidden min-w-0 truncate font-semibold lg:block">{trip.name}</span>
         </nav>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex shrink-0 items-center gap-3 sm:gap-4">
           <button
             ref={assistantButton}
             type="button"
             aria-expanded={assistantOpen}
             aria-controls="trip-assistant"
             onClick={() => (assistantOpen ? closeAssistant() : setAssistantOpen(true))}
-            className="flex min-h-11 items-center gap-2 rounded-control border border-border-input bg-surface px-4 text-sm font-semibold text-ink hover:bg-surface-muted aria-expanded:border-accent aria-expanded:text-accent-strong"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-control border border-border-input bg-surface px-3 text-sm font-semibold text-ink hover:bg-surface-muted aria-expanded:border-accent aria-expanded:text-accent-strong min-[360px]:px-4"
           >
             <SparkleIcon size={16} className="text-accent" />
-            Ask
+            {/* the narrowest phones keep the icon; the name stays for screen readers */}
+            <span className="max-[359px]:sr-only">Ask</span>
           </button>
           <LiveIndicator online={!liveError} />
-          <div className="hidden sm:block">
+          <div className="hidden lg:block">
             <AvatarStack people={people} />
           </div>
           {ctx.isOwner && (
+            // Phones reach Invite through the People button (Members) — the header keeps to Ask + Live.
             <Link
               to="members"
-              className="flex min-h-11 items-center rounded-control border border-border-input bg-surface px-4 text-sm font-semibold text-ink no-underline hover:bg-surface-muted"
+              className="hidden min-h-11 items-center rounded-control border border-border-input bg-surface px-4 text-sm font-semibold text-ink no-underline hover:bg-surface-muted sm:flex"
             >
               Invite
             </Link>
@@ -169,7 +177,7 @@ export function TripLayout() {
       </header>
 
       <div className="mx-auto flex max-w-[1440px] flex-wrap gap-8 px-4 py-6 sm:px-8 md:py-8">
-        <aside className="hidden max-w-[260px] flex-[1_1_220px] flex-col gap-5 md:flex">
+        <aside className="hidden max-w-[260px] flex-[1_1_220px] flex-col gap-5 lg:flex">
           <div className="flex flex-col gap-1 rounded-[14px] bg-accent-tint p-4">
             <span className="font-bold text-accent-deep">{trip.name}</span>
             <span className="text-[13px] text-accent-ink-soft">
@@ -198,8 +206,8 @@ export function TripLayout() {
           </nav>
         </aside>
 
-        {/* Mobile: trip name above content, People as a button */}
-        <div className="flex w-full items-center gap-3 md:hidden">
+        {/* Phones and tablets: trip name above content, People as a button */}
+        <div className="flex w-full items-center gap-3 lg:hidden">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[17px] font-bold">{trip.name}</p>
             <p className="text-[13px] text-ink-muted">
@@ -235,10 +243,10 @@ export function TripLayout() {
         </div>
       )}
 
-      {/* Mobile bottom tab bar — M1–M7 */}
+      {/* Bottom tab bar on phones and tablets — M1–M7 */}
       <nav
         aria-label="Trip sections"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-surface px-1 pt-1.5 pb-[22px] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-surface px-1 pt-1.5 pb-[max(22px,env(safe-area-inset-bottom))] lg:hidden"
       >
         {SECTIONS.filter((s) => s.mobile).map((s) => (
           <NavLink
@@ -279,7 +287,7 @@ function ShellSkeleton() {
     <div className="min-h-screen bg-bg">
       <Skeleton className="h-[72px] rounded-none" />
       <div className="mx-auto flex max-w-[1440px] gap-8 p-8">
-        <Skeleton className="hidden h-64 w-[240px] md:block" />
+        <Skeleton className="hidden h-64 w-[240px] lg:block" />
         <div className="flex flex-1 flex-col gap-4">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-80" />

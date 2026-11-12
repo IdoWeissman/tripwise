@@ -2,7 +2,10 @@ import { Link } from 'react-router';
 
 export function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-2.5 text-lg font-bold text-ink no-underline">
+    <Link
+      to="/"
+      className="flex min-h-11 shrink-0 items-center gap-2.5 text-lg font-bold text-ink no-underline"
+    >
       <span className="flex size-8 items-center justify-center rounded-control bg-accent">
         <svg
           width="18"
