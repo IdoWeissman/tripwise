@@ -22,12 +22,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, GripIcon, PlusIcon } from '../../components/Icons';
+import { GripIcon, PlusIcon } from '../../components/Icons';
 import { ActivityCard } from './ActivityCard';
 import { standaloneBookings } from './bookedPlans';
 import { BookingCard, StayStrip } from './DayBookings';
 import type { Day, ItineraryActivity } from './queries';
 import { dayTimeline } from './timeline';
+import { TripRibbon } from './TripRibbon';
 
 export interface Column {
   id: string;
@@ -52,10 +53,13 @@ interface BoardProps {
   onAdd: (column: Column) => void;
 }
 
-const COLUMN_STEP = 288; // 272px column + 16px gap
-
 const findColumn = (items: Items, id: UniqueIdentifier) =>
   String(id) in items ? String(id) : Object.keys(items).find((k) => items[k]!.includes(String(id)));
+
+/** "Sun, May" beside the day numeral (Intl alone would give "May Sun"). */
+const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
+const MONTH = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
+const WEEKDAY_MONTH = { format: (d: Date) => `${WEEKDAY.format(d)}, ${MONTH.format(d)}` };
 
 const SCREEN_READER_INSTRUCTIONS =
   'To move an activity to another day, press Space to pick it up, use the arrow keys to move it, ' +
@@ -81,16 +85,23 @@ export function Board({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // --- horizontal scrolling: prev / next / today, so later days are discoverable ---
+  // --- horizontal scrolling: the trip ribbon shows which days are in view and jumps to any day ---
   const scroller = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ prev: false, next: false });
+  const [inView, setInView] = useState<Set<string>>(new Set());
   const measure = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
-    setEdges({
-      prev: el.scrollLeft > 4,
-      next: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    const left = el.scrollLeft;
+    const right = left + el.clientWidth;
+    const seen = new Set<string>();
+    el.querySelectorAll<HTMLElement>('[data-column]').forEach((col) => {
+      // at least ~a third of the column visible
+      if (col.offsetLeft + col.offsetWidth - 96 > left && col.offsetLeft + 96 < right)
+        seen.add(col.dataset.column!);
     });
+    setInView((prev) =>
+      prev.size === seen.size && [...seen].every((x) => prev.has(x)) ? prev : seen,
+    );
   }, []);
   const todayId = columns.find((c) => c.isToday)?.id;
   const scrollToColumn = useCallback((id: string, behavior: ScrollBehavior = 'smooth') => {
@@ -104,8 +115,6 @@ export function Board({
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, [todayId, scrollToColumn, measure]);
-  const scrollBy = (dir: 1 | -1) =>
-    scroller.current?.scrollBy({ left: dir * COLUMN_STEP, behavior: 'smooth' });
 
   // --- screen-reader announcements in the user's terms (never raw ids) ---
   const title = (id: UniqueIdentifier) => byId.get(String(id))?.title ?? 'activity';
@@ -192,37 +201,16 @@ export function Board({
         if (snapshot) onItemsChange(snapshot);
       }}
     >
-      {(edges.prev || edges.next) && (
-        <div className="-mt-2 flex items-center justify-end gap-2">
-          {todayId && (
-            <button
-              type="button"
-              onClick={() => scrollToColumn(todayId)}
-              className="flex min-h-11 items-center rounded-control px-3 text-sm font-semibold text-accent-strong hover:bg-accent-tint"
-            >
-              Today
-            </button>
-          )}
-          <button
-            type="button"
-            aria-label="Earlier days"
-            disabled={!edges.prev}
-            onClick={() => scrollBy(-1)}
-            className="flex size-11 items-center justify-center rounded-control border border-border-input bg-surface text-ink-secondary hover:bg-surface-muted disabled:cursor-not-allowed disabled:text-border-input disabled:hover:bg-surface"
-          >
-            <ChevronLeftIcon size={18} />
-          </button>
-          <button
-            type="button"
-            aria-label="Later days"
-            disabled={!edges.next}
-            onClick={() => scrollBy(1)}
-            className="flex size-11 items-center justify-center rounded-control border border-border-input bg-surface text-ink-secondary hover:bg-surface-muted disabled:cursor-not-allowed disabled:text-border-input disabled:hover:bg-surface"
-          >
-            <ChevronRightIcon size={18} />
-          </button>
-        </div>
-      )}
+      <div className="mb-4">
+        <TripRibbon
+          columns={columns}
+          items={items}
+          byId={byId}
+          active={inView}
+          mode="scroll"
+          onPick={(id) => scrollToColumn(id)}
+        />
+      </div>
       <div ref={scroller} onScroll={measure} className="relative overflow-x-auto pb-2">
         {/* trailing padding so the last column never sits flush against the edge */}
         <div className="flex w-max items-start gap-4 pr-8">
@@ -299,17 +287,39 @@ function DayColumn({
         isOver ? 'bg-accent-tint' : 'bg-surface-column'
       } ${column.isToday ? 'outline-2 -outline-offset-2 outline-accent-tint-border' : ''}`}
     >
-      <div className="flex min-h-7 items-center justify-between gap-2 px-1 pt-1">
-        <h2 className="flex items-center gap-2 text-[15px] font-bold">
-          {column.label}
+      {column.day ? (
+        // The date is the column's landmark: a big numeral, like the times on a flight card.
+        <div className="flex items-end justify-between gap-2 px-1 pt-1">
+          <h2 className="flex items-end gap-2.5">
+            <span className="sr-only">
+              {column.label}, {column.sublabel}
+              {column.isToday ? ', today' : ''}
+            </span>
+            <span
+              aria-hidden="true"
+              className={`text-[28px] leading-none font-bold tracking-[-0.02em] tabular-nums ${column.isToday ? 'text-accent-strong' : ''}`}
+            >
+              {new Date(column.day.date).getUTCDate()}
+            </span>
+            <span aria-hidden="true" className="flex flex-col pb-px text-[13px] leading-tight">
+              <span className="font-semibold">
+                {WEEKDAY_MONTH.format(new Date(column.day.date))}
+              </span>
+              <span className="text-ink-muted">{column.label}</span>
+            </span>
+          </h2>
           {column.isToday && (
-            <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-semibold text-accent-strong">
+            <span className="mb-0.5 rounded-full bg-accent-tint px-2 py-0.5 text-xs font-semibold text-accent-strong">
               Today
             </span>
           )}
-        </h2>
-        <span className="text-[13px] text-ink-muted">{column.sublabel}</span>
-      </div>
+        </div>
+      ) : (
+        <div className="flex min-h-7 items-center justify-between gap-2 px-1 pt-1">
+          <h2 className="text-[15px] font-bold">{column.label}</h2>
+          <span className="text-[13px] text-ink-muted">{column.sublabel}</span>
+        </div>
+      )}
       {column.day && <StayStrip day={column.day} />}
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {children}

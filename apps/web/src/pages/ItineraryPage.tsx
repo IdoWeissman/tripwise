@@ -1,14 +1,13 @@
 import { useMutation, useQuery } from '@apollo/client/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '../components/Bits';
 import { PlusIcon } from '../components/Icons';
-import { Segmented } from '../components/Segmented';
 import { Select } from '../components/Select';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { messageFromError } from '../lib/errors';
-import { formatDay, formatDayShort, todayIn } from '../lib/format';
+import { formatDay, todayIn } from '../lib/format';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 import { useIsDesktop } from '../lib/useMediaQuery';
 import { ActivityCard } from './itinerary/ActivityCard';
@@ -23,6 +22,7 @@ import {
   type ItineraryActivity,
 } from './itinerary/queries';
 import { dayTimeline, orderedActivities } from './itinerary/timeline';
+import { TripRibbon } from './itinerary/TripRibbon';
 
 type Items = Record<string, string[]>;
 
@@ -120,6 +120,8 @@ export function ItineraryPage() {
     return (
       <div className="flex flex-col gap-6" aria-busy="true">
         {header}
+        {/* ribbon placeholder, so nothing shifts when the days arrive */}
+        <Skeleton className="-mb-2 h-[69px] rounded-xl" />
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: isDesktop ? 4 : 1 }, (_, i) => (
             <div
@@ -233,7 +235,6 @@ interface MobileProps {
 /** "2 bookings · 3 activities" — every card on the day is counted. */
 function dayCount(activities: number, bookings: number) {
   const part = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  if (!activities && !bookings) return 'Nothing yet';
   return [
     bookings ? part(bookings, 'booking', 'bookings') : null,
     activities ? part(activities, 'activity', 'activities') : null,
@@ -241,10 +242,6 @@ function dayCount(activities: number, bookings: number) {
     .filter(Boolean)
     .join(' · ');
 }
-
-/** Picker label: "Today · Sun 16" or "Day 3 · Sun 16" — the date is always visible. */
-const pickerLabel = (c: Column) =>
-  !c.day ? 'Unplanned' : `${c.isToday ? 'Today' : c.label} · ${formatDayShort(c.day.date)}`;
 
 /** M1 — one day at a time with a day picker; "Move to" replaces drag on touch. */
 function MobileDayList({
@@ -265,31 +262,26 @@ function MobileDayList({
   const ids = items[selected] ?? [];
   const entries = dayTimeline(ids, (id) => byId.get(id)?.startTime, bookings, date);
 
-  // Keep the chosen day visible in the scrolling picker (e.g. today on Day 5).
-  const picker = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    picker.current
-      ?.querySelector<HTMLElement>('[aria-selected="true"]')
-      ?.scrollIntoView({ inline: 'center', block: 'nearest' });
-  }, [selected]);
-
   return (
     <div className="flex flex-col gap-4">
-      <div ref={picker} className="relative -mx-4 overflow-x-auto px-4 pb-1">
-        <Segmented
-          label="Day"
-          value={selected}
-          onChange={onSelect}
-          options={columns.map((c) => ({ value: c.id, label: pickerLabel(c) }))}
-          className="w-max"
-        />
-      </div>
+      <TripRibbon
+        columns={columns}
+        items={items}
+        byId={byId}
+        active={new Set([selected])}
+        mode="select"
+        onPick={onSelect}
+      />
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <h2 className="text-xl font-bold">
           {column.label} · {column.sublabel}
           {column.isToday && <span className="sr-only">, today</span>}
         </h2>
-        <span className="text-[13px] text-ink-muted">{dayCount(ids.length, bookings.length)}</span>
+        {(ids.length > 0 || bookings.length > 0) && (
+          <span className="text-[13px] text-ink-muted">
+            {dayCount(ids.length, bookings.length)}
+          </span>
+        )}
       </div>
       {column.day && <StayStrip day={column.day} />}
       {ids.length === 0 && bookings.length === 0 && (
