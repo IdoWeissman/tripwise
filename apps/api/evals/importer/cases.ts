@@ -12,6 +12,7 @@
  */
 import { makePdf } from '../../test/fixtures/makePdf.js';
 import {
+  eticketPdf,
   flightEmail,
   forwardedAirlineEmail,
   forwardedHebrewHotelEmail,
@@ -206,6 +207,27 @@ export const CASES: EvalCase[] = [
         travellers: 4,
         price: '80.00',
         currency: 'EUR',
+      },
+    ],
+  },
+  {
+    id: 'flight-eticket-pdf',
+    group: 'seen',
+    about:
+      'Airline e-ticket receipt PDF (Amadeus layout): legs as blocks, compact dates, total > 1,000',
+    input: { kind: 'PDF', fileName: 'QWX4TR.pdf', file: eticketPdf },
+    expect: [
+      {
+        type: 'FLIGHT',
+        title: 'Tel Aviv ⇄ Rome',
+        provider: 'EXAMPLE AIR',
+        code: 'QWX4TR',
+        start: '2027-03-03T06:40',
+        end: '2027-03-10T03:35',
+        legs: ['XQ 381', 'XQ 382'],
+        travellers: 1,
+        price: '1450.00',
+        currency: 'USD',
       },
     ],
   },

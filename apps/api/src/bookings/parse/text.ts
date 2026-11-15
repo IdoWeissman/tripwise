@@ -2,6 +2,8 @@
  * Best-effort extraction from plain text (PDF tickets, pasted emails, emails without markup).
  * Conservative on purpose: it only fills fields it is fairly sure about; the user reviews everything.
  */
+import { AIRPORTS } from './airports.js';
+import { eticketLegs } from './eticket.js';
 import { flightTitle } from './title.js';
 import { withProvenance, type BookingTypeName, type Draft, type SegmentDraft } from './types.js';
 
@@ -108,6 +110,11 @@ export function findDates(text: string): string[] {
   }
   for (const m of text.matchAll(/\b(\d{1,2})[/.](\d{1,2})[/.](\d{4})\b/g))
     add(m.index!, +m[3]!, +m[2]!, +m[1]!);
+  // Airline systems: "03MAR2027".
+  for (const m of text.matchAll(
+    /\b(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{4})\b/g,
+  ))
+    add(m.index!, +m[3]!, MONTHS.indexOf(m[2]!.toLowerCase()) + 1, +m[1]!);
   // Hebrew: "נוב׳ 17, 2026", "17 בנובמבר 2026", "12 בנוב׳ 2026".
   const he = `(${HE_MONTHS.join('|')})[\u05d0-\u05ea]*[׳'’]?`;
   for (const m of text.matchAll(new RegExp(`${he}\\s+(\\d{1,2}),?\\s+(\\d{4})`, 'g')))
@@ -140,7 +147,7 @@ const PRICE_LABELS: [RegExp, number][] = [
 
 export function findPrice(text: string): { price: string; currency: string } | null {
   const re =
-    /(€|\$|£|₪|\b(?:EUR|USD|GBP|ILS|CHF|JPY)\b)[ \t\u00a0]{0,3}(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)|(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)[ \t\u00a0]{0,3}(€|₪|\b(?:EUR|USD|GBP|ILS|CHF|JPY)\b)/gi;
+    /(€|\$|£|₪|\b(?:EUR|USD|GBP|ILS|CHF|JPY)\b)[ \t\u00a0]{0,3}(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?(?![\d])|\d+(?:[.,]\d{2})?)|(\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?(?![\d])|\d+(?:[.,]\d{2})?)[ \t\u00a0]{0,3}(€|₪|\b(?:EUR|USD|GBP|ILS|CHF|JPY)\b)/gi;
   let best: { price: string; currency: string; weight: number } | null = null;
   for (const m of text.matchAll(re)) {
     const raw = (m[2] ?? m[3]!).trim();
@@ -179,6 +186,9 @@ export function findTravellers(text: string): number | null {
     /\b(?:tickets?|adults?|passengers?|guests?)[ \t]*(?:x|:)[ \t]*([1-9]\d?)\b/i.exec(text) ??
     /\b(?:table|party) (?:for|of) ([1-9]\d?)\b/i.exec(text);
   if (counted) return Number(counted[1]);
+  // Airline tickets list each passenger with a type code: "Passenger: Levi Dana Ms (ADT)".
+  const typed = text.match(/^[ \t]*Passenger:?[ \t]+[^\n]+\((?:ADT|CHD|CNN|INF|YTH|SRC)\)/gim);
+  if (typed?.length) return typed.length;
   // Named passengers: "Ms Adi Cohen", "MR JOHN SMITH" (two or more name words).
   const names = new Set(
     [
@@ -657,6 +667,15 @@ export function findStreetLine(text: string): { address: string; above: string |
   return null;
 }
 
+/** City names for the airport codes we know ("TLV" → "Tel Aviv"); text and subject names win. */
+function airportCities(legs: SegmentDraft[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const l of legs)
+    for (const code of [l.fromCode, l.toCode])
+      if (code && AIRPORTS[code]) out[code] = AIRPORTS[code].city;
+  return out;
+}
+
 /** One draft from free text. Returns null when the text clearly isn't a booking. */
 export function draftFromText(
   raw: string,
@@ -665,7 +684,9 @@ export function draftFromText(
   // Dates, times, codes and amounts come from the message itself, not forwarding headers.
   const text = stripForwardHeaders(raw);
   const haystack = `${(opts.subject ?? '').replace(BIDI, '')}\n${text}`.slice(0, 50_000);
-  const type = guessType(haystack);
+  // Flight rows of an airline e-ticket settle the type, whatever words the page uses.
+  const ticket = eticketLegs(text);
+  const type = ticket.legs.length ? 'FLIGHT' : guessType(haystack);
   const labelledCode = labelValue(text, CODE_LABELS)
     ?.match(/^#?\s*([A-Z0-9][A-Z0-9-]{3,20})\b/i)?.[1]
     ?.toUpperCase();
@@ -675,8 +696,12 @@ export function draftFromText(
   const money = findPrice(haystack);
   if (!code && !dates.length && type === 'OTHER') return null;
 
-  const segments =
-    type === 'FLIGHT' || type === 'TRANSPORT' ? flightSegments(haystack, dates, times) : [];
+  const eticket = ticket.legs.length ? ticket : null;
+  const segments = eticket
+    ? eticket.legs
+    : type === 'FLIGHT' || type === 'TRANSPORT'
+      ? flightSegments(haystack, dates, times)
+      : [];
   const first = segments[0];
   const at = (date: string | undefined, time: string | undefined) =>
     date ? `${date}${time ? `T${time}` : ''}` : null;
@@ -686,7 +711,11 @@ export function draftFromText(
   let provider = findProvider(raw, opts.sender);
   let notes: string | null = null;
   let title: string | null = first
-    ? flightTitle(segments, cityNames(text, opts.subject, segments))
+    ? flightTitle(segments, {
+        ...airportCities(segments),
+        ...cityNames(text, opts.subject, segments),
+        ...eticket?.cities,
+      })
     : null;
   if (type === 'STAY') {
     // Prefer labelled values ("Check-in: Nov 17, 2026", "Check-in time: from 14:00").

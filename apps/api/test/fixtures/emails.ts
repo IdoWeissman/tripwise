@@ -1,3 +1,5 @@
+import { makePdf } from './makePdf.js';
+
 const flightLeg = (
   who: string,
   num: string,
@@ -332,3 +334,65 @@ export const forwardedHebrewTourEmail = (): Buffer => {
     ].join('\r\n'),
   );
 };
+
+/**
+ * An airline e-ticket receipt PDF (Amadeus-style layout), invented values. Lines follow the order
+ * a PDF text layer gives them: labels after their values ("02FEB2027Date:"), each leg as four
+ * place lines then "XQ381 06:40" / date / arrival time / date, footnote markers like "(2)",
+ * a baggage table headed by code pairs ("TLVFCO"), and a total above 1,000 with no separator.
+ */
+export const eticketPdf = (): Buffer =>
+  makePdf([
+    '_Issuing officeINTERNET BOOKING,EXAMPLE AIR',
+    'AIRWAYS,HEAD OFFICE, AIRPORT CITY',
+    'ISRAEL',
+    'Telephone: 972 3 5550000',
+    '02FEB2027Date:',
+    'Passenger: Levi Dana Ms (ADT)',
+    'XQ Booking code: QWX4TR',
+    '1239990001111Ticket number:',
+    'TICKET RECEIPT',
+    'Please note this document is your ticket receipt. For your Boarding Pass, please contact the check-in counters.',
+    'FlightTo Departure Arrival Last check-inFrom',
+    'TEL AVIV YAFO',
+    'BEN GURION INTL',
+    'ROME',
+    'FIUMICINO',
+    'XQ381 06:40',
+    '03MAR2027',
+    '09:55',
+    '03MAR2027',
+    '____',
+    '3Terminal: 1Terminal:',
+    'Operated by:',
+    'EXAMPLE AIR',
+    'Seat: Marketed by:',
+    'EXAMPLE AIR 03MAR2027 (2)',
+    'NVA:Booking status:',
+    'OK (1)1PC (4)',
+    '_',
+    'ROME',
+    'FIUMICINO',
+    'TEL AVIV YAFO',
+    'BEN GURION INTL',
+    'XQ382 23:10',
+    '09MAR2027',
+    '03:35',
+    '10MAR2027',
+    '____',
+    'Operated by:',
+    'EXAMPLE AIR',
+    'EXAMPLE AIR 09MAR2027 (2)',
+    'OK (1)1PC (4)',
+    '(1) OK = Confirmed (2) NVB = Not valid before (3) NVA = Not valid after',
+    'Baggage Policy',
+    'TLVFCO',
+    'Free of Charge UPTO50LB 23KG1st Checked Bag:',
+    'FCOTLV',
+    'Free of Charge UPTO50LB 23KG1st Checked Bag:',
+    'PAYMENT DETAILS FARE DETAILS',
+    'Fare: USD 1310.00',
+    'Taxes/Fees/Charges: USD 24.00AP',
+    'USD 116.00IL',
+    'Total Amount: USD 1450.00',
+  ]);

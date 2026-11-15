@@ -15,6 +15,7 @@ import {
 } from '../src/bookings/parse/text.js';
 import { flightTitle } from '../src/bookings/parse/title.js';
 import {
+  eticketPdf,
   forwardedAirlineEmail,
   forwardedHebrewHotelEmail,
   forwardedHebrewTourEmail,
@@ -129,6 +130,58 @@ describe('forwarded Hebrew tour ticket', () => {
     expect(isNoiseSubject('Your tickets for La Traviata')).toBe(false);
     expect(findDurationMinutes('Duration: 2 hours')).toBe(120);
     expect(findTimeSpan('Wed 18 Nov, 21:00–00:30')).toEqual({ start: '21:00', end: '00:30' });
+  });
+});
+
+describe('airline e-ticket receipt PDF', () => {
+  it('reads both legs, codes, zones, the round-trip title, passengers and the total', async () => {
+    const [d, ...rest] = await parseFile(eticketPdf(), 'PDF', 'QWX4TR.pdf');
+    expect(rest).toHaveLength(0);
+    expect(d).toMatchObject({
+      type: 'FLIGHT',
+      title: 'Tel Aviv ⇄ Rome',
+      confirmationCode: 'QWX4TR',
+      provider: 'EXAMPLE AIR',
+      startLocal: '2027-03-03T06:40',
+      travellers: 1,
+      price: '1450.00',
+      currency: 'USD',
+    });
+    expect(d!.segments).toEqual([
+      {
+        carrier: 'XQ',
+        number: 'XQ 381',
+        fromCode: 'TLV',
+        fromName: 'Ben Gurion Intl',
+        toCode: 'FCO',
+        toName: 'Fiumicino',
+        departLocal: '2027-03-03T06:40',
+        arriveLocal: '2027-03-03T09:55',
+        departTz: 'Asia/Jerusalem',
+        arriveTz: 'Europe/Rome',
+      },
+      {
+        carrier: 'XQ',
+        number: 'XQ 382',
+        fromCode: 'FCO',
+        fromName: 'Fiumicino',
+        toCode: 'TLV',
+        toName: 'Ben Gurion Intl',
+        departLocal: '2027-03-09T23:10',
+        arriveLocal: '2027-03-10T03:35',
+        departTz: 'Europe/Rome',
+        arriveTz: 'Asia/Jerusalem',
+      },
+    ]);
+  });
+
+  it('reads totals of 1,000 or more written without a thousands separator', () => {
+    expect(findPrice('Fare: USD 1310.00\nTotal Amount: USD 1450.00')).toEqual({
+      price: '1450.00',
+      currency: 'USD',
+    });
+    expect(findPrice('Total 2450 EUR')).toEqual({ price: '2450.00', currency: 'EUR' });
+    expect(findPrice('Total: €1,248.50')).toEqual({ price: '1248.50', currency: 'EUR' });
   });
 });
 
