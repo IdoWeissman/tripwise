@@ -168,6 +168,7 @@ The API serves the built web app, so the whole thing is **one Render web service
 1. **Neon:** run `neon deploy` (see above) to provision Postgres and the `documents` bucket; the values land in `.env.local`.
 2. **Render:** _New → Blueprint_, pick this repo, fill in `DATABASE_URL`, `DATABASE_URL_UNPOOLED` and the `AWS_*` storage variables from `.env.local`, then **Apply**.
 3. Wait for the first deploy, then open the `*.onrender.com` URL and use **Explore with the demo account**.
+4. **Email (optional, needed for password reset):** create a free [Brevo](https://www.brevo.com/) account, verify a sender address, then set `SMTP_URL` (`smtp://LOGIN:SMTP_KEY@smtp-relay.brevo.com:587`) and `MAIL_FROM` (`Tripwise <that-address>`) on Render. Moving to another provider (e.g. Resend with your own domain) only changes these two values. Locally, without `SMTP_URL`, the API writes reset links to its log.
 
 On every start the service runs migrations and (with `SEED_DEMO=true`) resets the demo account's sample trip. The free instance sleeps after ~15 minutes idle; the first request then takes ~30–60 s.
 
