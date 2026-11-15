@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { readCookie, signSession, verifySession } from '../src/auth/tokens.js';
+import { readCookie, readSession, signSession } from '../src/auth/tokens.js';
 
 const secret = 'test-secret-test-secret-test-secret-123';
 
 describe('session tokens', () => {
   it('round-trips a user id', () => {
-    expect(verifySession(signSession('user-1', secret), secret)).toBe('user-1');
+    expect(readSession(signSession('user-1', secret), secret)?.userId).toBe('user-1');
   });
 
   it('rejects tampered tokens', () => {
-    expect(verifySession(signSession('user-1', secret) + 'x', secret)).toBeNull();
+    expect(readSession(signSession('user-1', secret) + 'x', secret)).toBeNull();
   });
 
   it('reads a cookie from a header', () => {

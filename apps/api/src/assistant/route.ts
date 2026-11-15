@@ -2,7 +2,7 @@ import type { ApolloServer } from '@apollo/server';
 import express, { Router, type Request, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { AUTH_COOKIE, verifySession } from '../auth/tokens.js';
+import { sessionFromRequest } from '../auth/session.js';
 import type { Env } from '../config.js';
 import type { Db } from '../db.js';
 import type { Context } from '../graphql/context.js';
@@ -51,7 +51,7 @@ export function assistantRouter(opts: {
 
   /** Signed-in trip member, or an error response. */
   async function member(req: Request, res: Response) {
-    const userId = verifySession(req.cookies?.[AUTH_COOKIE] as string | undefined, env.JWT_SECRET);
+    const userId = await sessionFromRequest(req, env.JWT_SECRET, db);
     if (!userId) {
       res.status(401).json({ error: 'You must be signed in.' });
       return null;

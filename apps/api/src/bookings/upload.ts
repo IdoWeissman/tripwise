@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type ErrorRequestHandler } from 'express';
 import multer from 'multer';
-import { AUTH_COOKIE, verifySession } from '../auth/tokens.js';
+import { sessionFromRequest } from '../auth/session.js';
 import type { Env } from '../config.js';
 import type { Db } from '../db.js';
 import { publishTripEvent } from '../graphql/pubsub.js';
@@ -31,7 +31,7 @@ export function uploadRouter(env: Env, db: Db, storage: Storage) {
   });
 
   router.post('/api/trips/:tripId/attachments', upload.single('file'), async (req, res) => {
-    const userId = verifySession(req.cookies?.[AUTH_COOKIE] as string | undefined, env.JWT_SECRET);
+    const userId = await sessionFromRequest(req, env.JWT_SECRET, db);
     if (!userId) {
       res.status(401).json({ error: 'You must be signed in.' });
       return;

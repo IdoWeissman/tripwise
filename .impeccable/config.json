@@ -4,6 +4,13 @@
     "ignoreFiles": [
       ".impeccable/mocks/decision/*.html"
     ],
-    "ignoreValues": []
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "arial",
+        "createdAt": "2026-11-15T11:20:41.485Z",
+        "reason": "agent: transactional email HTML (apps/api/src/mail) cannot load Archivo; email clients need a system font stack"
+      }
+    ]
   }
 }

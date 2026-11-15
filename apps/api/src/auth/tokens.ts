@@ -6,19 +6,27 @@ const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 interface TokenPayload {
   sub: string;
   typ: 'session';
+  /** Issue time in ms — JWT's iat is whole seconds, too coarse to order against a password change. */
+  iatMs?: number;
 }
 
-export function signSession(userId: string, secret: string): string {
-  return jwt.sign({ sub: userId, typ: 'session' } satisfies TokenPayload, secret, {
+export function signSession(userId: string, secret: string, now = Date.now()): string {
+  return jwt.sign({ sub: userId, typ: 'session', iatMs: now } satisfies TokenPayload, secret, {
     expiresIn: TTL_SECONDS,
   });
 }
 
-export function verifySession(token: string | undefined, secret: string): string | null {
+/** A validly signed, unexpired session: who, and when it was issued. Use resolveSession() to authenticate. */
+export function readSession(
+  token: string | undefined,
+  secret: string,
+): { userId: string; issuedAtMs: number } | null {
   if (!token) return null;
   try {
-    const payload = jwt.verify(token, secret) as Partial<TokenPayload>;
-    return payload.typ === 'session' && payload.sub ? payload.sub : null;
+    const payload = jwt.verify(token, secret) as Partial<TokenPayload> & { iat?: number };
+    if (payload.typ !== 'session' || !payload.sub) return null;
+    // Sessions from before iatMs existed fall back to the second-precision iat.
+    return { userId: payload.sub, issuedAtMs: payload.iatMs ?? (payload.iat ?? 0) * 1000 };
   } catch {
     return null;
   }

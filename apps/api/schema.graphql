@@ -379,6 +379,11 @@ type Activity {
   booking: Booking
 }
 
+"Who a valid reset link is for — shown on the reset screen."
+type PasswordResetPreview {
+  email: String!
+}
+
 type AuthPayload {
   user: User!
 }
@@ -508,14 +513,28 @@ type Query {
   placeSearch(query: String!): [PlaceSuggestion!]!
   trip(id: ID!): Trip
   invitePreview(token: String!): InvitePreview
+  "The account a reset link is for, or null when the link has expired or was already used."
+  passwordResetPreview(token: String!): PasswordResetPreview
   "The viewer's active (not revoked) AI assistant tokens, newest first."
   myApiTokens: [ApiToken!]!
 }
 
 type Mutation {
+  "Error codes: ACCOUNT_EXISTS (that email already has an account), BAD_USER_INPUT."
   signUp(input: SignUpInput!): AuthPayload!
   signIn(input: SignInInput!): AuthPayload!
   signOut: Boolean!
+  """
+  Emails a reset link (30 minutes). `next` (an in-app path) is carried through the link.
+  Error codes: ACCOUNT_NOT_FOUND, RATE_LIMITED (3 emails per address per hour), EMAIL_UNAVAILABLE.
+  The Demo account gets true but is never emailed.
+  """
+  requestPasswordReset(email: String!, next: String): Boolean!
+  """
+  Sets a new password from a reset link, signs out every other session, and signs this one in.
+  Error codes: INVALID_RESET_LINK (expired, already used, or not a link), BAD_USER_INPUT (too short).
+  """
+  resetPassword(token: String!, password: String!): AuthPayload!
   createTrip(input: CreateTripInput!): Trip!
   "Owner only. Deletes the trip and everything in it, including uploaded documents."
   deleteTrip(id: ID!): Boolean!

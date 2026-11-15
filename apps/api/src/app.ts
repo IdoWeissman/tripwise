@@ -11,7 +11,10 @@ import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import { useServer } from 'graphql-ws/use/ws';
 import { WebSocketServer } from 'ws';
-import { AUTH_COOKIE, readCookie, verifySession } from './auth/tokens.js';
+import { createResetLimiter } from './auth/resetLimiter.js';
+import { resolveSession, sessionFromRequest } from './auth/session.js';
+import { createSmtpMailer, type Mailer } from './mail/mailer.js';
+import { AUTH_COOKIE, readCookie } from './auth/tokens.js';
 import type { Env } from './config.js';
 import type { Db } from './db.js';
 import { calendarRouter } from './bookings/calendar.js';
@@ -33,20 +36,34 @@ export async function createApp(
   db: Db,
   storage: Storage = createStorage(env),
   /** Test seam: replaces fetch for outgoing AI calls (Claude, Voyage). */
-  options: { fetch?: typeof fetch } = {},
+  options: {
+    fetch?: typeof fetch;
+    /** Test seam: replaces the SMTP mailer (null = email not configured). */
+    mailer?: Mailer | null;
+  } = {},
 ): Promise<App> {
   const app = express();
   const httpServer = createServer(app);
   const isProd = env.NODE_ENV === 'production';
+  const services = {
+    db,
+    env,
+    storage,
+    mailer: options.mailer !== undefined ? options.mailer : createSmtpMailer(env),
+    resetLimiter: createResetLimiter(),
+  };
 
   // --- WebSocket transport for subscriptions (graphql-ws) ---
   const wsServer = new WebSocketServer({ server: httpServer, path: '/graphql' });
   const wsCleanup = useServer(
     {
       schema,
-      context: (ctx) => {
+      context: async (ctx) => {
         const token = readCookie(ctx.extra.request.headers.cookie, AUTH_COOKIE);
-        return buildContext({ db, env, storage, viewerId: verifySession(token, env.JWT_SECRET) });
+        return buildContext({
+          ...services,
+          viewerId: await resolveSession(token, env.JWT_SECRET, db),
+        });
       },
     },
     wsServer,
@@ -109,13 +126,8 @@ export async function createApp(
       context: async ({ req, res }) =>
         buildContext(
           {
-            db,
-            env,
-            storage,
-            viewerId: verifySession(
-              req.cookies?.[AUTH_COOKIE] as string | undefined,
-              env.JWT_SECRET,
-            ),
+            ...services,
+            viewerId: await sessionFromRequest(req, env.JWT_SECRET, db),
           },
           { req, res },
         ),

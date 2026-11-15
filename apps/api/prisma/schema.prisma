@@ -58,6 +58,8 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  /// Sessions issued before this are rejected (ADR 0001: sign out everywhere on password change).
+  passwordChangedAt DateTime?
   createdAt    DateTime @default(now())
 
   memberships         TripMember[]
