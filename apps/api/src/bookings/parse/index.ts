@@ -36,12 +36,22 @@ export function sniff(buf: Buffer): { mime: string; kind: SourceKind } | null {
   return null;
 }
 
-/** Plain text of a PDF (first 20 pages). */
+/**
+ * Plain text of a PDF, plus the targets of its clickable links ("To manage your booking please
+ * click here" hides the URL in a link, not in the text).
+ */
 async function pdfText(buf: Buffer): Promise<string> {
   const { extractText, getDocumentProxy } = await import('unpdf');
   const doc = await getDocumentProxy(new Uint8Array(buf));
   const { text } = await extractText(doc, { mergePages: true });
-  return text.slice(0, 200_000);
+  const links = new Set<string>();
+  for (let p = 1; p <= Math.min(doc.numPages, 3); p++) {
+    const annotations = await (await doc.getPage(p)).getAnnotations().catch(() => []);
+    for (const a of annotations as { url?: string }[])
+      if (a.url && /^https?:\/\//.test(a.url)) links.add(a.url);
+  }
+  const suffix = links.size ? `\n\nLinks:\n${[...links].join('\n')}` : '';
+  return (text + suffix).slice(0, 200_000);
 }
 
 const baseName = (fileName: string) =>

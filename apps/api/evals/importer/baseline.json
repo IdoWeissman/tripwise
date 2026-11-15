@@ -1,7 +1,7 @@
 {
   "mode": "rules",
-  "passed": 146,
-  "total": 146,
+  "passed": 157,
+  "total": 157,
   "cases": {
     "flight-jsonld": {
       "passed": 12,
@@ -30,6 +30,10 @@
     "attraction-pdf": {
       "passed": 8,
       "total": 8
+    },
+    "flight-eticket-pdf": {
+      "passed": 11,
+      "total": 11
     },
     "event-pasted": {
       "passed": 8,
