@@ -3,7 +3,10 @@ import { runAssistant, type AssistantEvent } from '../src/assistant/agent.js';
 import type { TripwiseTool } from '../src/mcp/tools.js';
 
 /** A Messages API stream: an (optionally empty) text block, then a tool call or an answer. */
-function stream(blocks: ({ type: 'text'; text: string } | { type: 'tool_use'; name: string })[]) {
+function stream(
+  blocks: ({ type: 'text'; text: string } | { type: 'tool_use'; name: string })[],
+  stopReason?: string,
+) {
   const frames: unknown[] = [{ type: 'message_start', message: { usage: { input_tokens: 10 } } }];
   blocks.forEach((b, index) => {
     if (b.type === 'text') {
@@ -35,7 +38,7 @@ function stream(blocks: ({ type: 'text'; text: string } | { type: 'tool_use'; na
   const toolUse = blocks.some((b) => b.type === 'tool_use');
   frames.push({
     type: 'message_delta',
-    delta: { stop_reason: toolUse ? 'tool_use' : 'end_turn' },
+    delta: { stop_reason: stopReason ?? (toolUse ? 'tool_use' : 'end_turn') },
     usage: { output_tokens: 5 },
   });
   return new Response(frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join(''));
@@ -146,5 +149,42 @@ describe('assistant agent loop', () => {
       'Hi',
       'Suggest some attractions we could add, with name, price and a little info',
     ]);
+  });
+
+  it('continues an answer that hit the output limit instead of stopping mid-sentence', async () => {
+    const api = strictApi([
+      stream([{ type: 'text', text: 'Ideas:\n- **The Met' }], 'max_tokens'),
+      stream([{ type: 'text', text: 'ropolitan Museum**: about $30.' }]),
+    ]);
+    const events = await run(api.fetch);
+    const text = events
+      .filter((e) => e.type === 'text')
+      .map((e) => (e as { text: string }).text)
+      .join('');
+    expect(text).toBe('Ideas:\n- **The Metropolitan Museum**: about $30.');
+    const second = api.bodies[1] as unknown as {
+      max_tokens: number;
+      tool_choice: unknown;
+      messages: { role: string; content: unknown }[];
+    };
+    expect(second.max_tokens).toBe(4096);
+    expect(second.tool_choice).toEqual({ type: 'none' });
+    expect(second.messages.at(-1)).toEqual({ role: 'assistant', content: 'Ideas:\n- **The Met' });
+  });
+
+  it('says so when the answer is still cut short', async () => {
+    const api = strictApi([
+      stream([{ type: 'text', text: 'One ' }], 'max_tokens'),
+      stream([{ type: 'text', text: 'two ' }], 'max_tokens'),
+      stream([{ type: 'text', text: 'three' }], 'max_tokens'),
+    ]);
+    const events = await run(api.fetch);
+    expect(api.bodies).toHaveLength(3);
+    // A prefilled turn never ends with whitespace (the API rejects it).
+    expect((api.bodies[1]!.messages.at(-1) as { content: string }).content).toBe('One');
+    expect(events.at(-1)).toEqual({
+      type: 'text',
+      text: '\n\n(The answer was cut short. Ask me to continue, or narrow the question.)',
+    });
   });
 });

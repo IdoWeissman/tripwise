@@ -60,6 +60,11 @@ export function pathFor(hit: Pick<SearchHit, 'kind' | 'sourceId' | 'content'>): 
   }
 }
 
+/** Room for a full answer (a list of places with prices runs past 1,000 tokens). */
+const MAX_ANSWER_TOKENS = 4096;
+/** How many times a cut-off answer is continued before we say it was cut short. */
+const MAX_CONTINUATIONS = 2;
+
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -334,26 +339,54 @@ export async function runAssistant(
   }
 
   const maxSteps = opts.maxSteps ?? 6;
+  const request = (extra: Record<string, unknown>) => ({
+    model: opts.model,
+    max_tokens: MAX_ANSWER_TOKENS,
+    system: [{ type: 'text', text: system(opts.trip), cache_control: { type: 'ephemeral' } }],
+    tools: toolDefs,
+    messages,
+    ...extra,
+  });
+  const emitText = (text: string) => opts.emit({ type: 'text', text });
   for (let step = 0; step < maxSteps; step++) {
     const last = step === maxSteps - 1;
     const res = await streamMessage(
       opts,
-      {
-        model: opts.model,
-        max_tokens: 1024,
-        system: [{ type: 'text', text: system(opts.trip), cache_control: { type: 'ephemeral' } }],
-        tools: toolDefs,
-        // On the last step, force a written answer from what was gathered.
-        ...(last ? { tool_choice: { type: 'none' } } : {}),
-        messages,
-      },
-      (text) => opts.emit({ type: 'text', text }),
+      // On the last step, force a written answer from what was gathered.
+      request(last ? { tool_choice: { type: 'none' } } : {}),
+      emitText,
     );
     inputTokens += res.inputTokens;
     outputTokens += res.outputTokens;
     const uses = res.content.filter(
       (b): b is { type: 'tool_use' } & ToolUse => b.type === 'tool_use',
     );
+
+    if (res.stopReason === 'max_tokens' && uses.length === 0) {
+      // The answer hit the output limit mid-sentence. Hand Claude what it wrote so far as the
+      // start of its turn and let it carry on (tools off: it only has to finish writing).
+      let answer = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+      let stop: string | null = res.stopReason;
+      for (let i = 0; i < MAX_CONTINUATIONS && stop === 'max_tokens'; i++) {
+        // The API rejects a prefilled turn that ends with whitespace.
+        answer = answer.trimEnd();
+        const more = await streamMessage(
+          opts,
+          request({
+            tool_choice: { type: 'none' },
+            messages: [...messages, { role: 'assistant', content: answer }],
+          }),
+          emitText,
+        );
+        inputTokens += more.inputTokens;
+        outputTokens += more.outputTokens;
+        answer += more.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+        stop = more.stopReason;
+      }
+      if (stop === 'max_tokens')
+        emitText('\n\n(The answer was cut short. Ask me to continue, or narrow the question.)');
+      break;
+    }
     if (res.stopReason !== 'tool_use' || uses.length === 0) break;
 
     // Keep any "let me check…" text apart from the answer that follows.
