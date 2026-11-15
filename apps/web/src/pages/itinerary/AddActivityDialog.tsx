@@ -3,6 +3,8 @@ import { useState, type FormEvent } from 'react';
 import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
 import { TextField, TimeInputField } from '../../components/Fields';
+import { PlaceSearchField, type PlaceMatch } from '../../components/PlaceSearchField';
+import { useMaps } from '../../lib/maps';
 import { messageFromError } from '../../lib/errors';
 import { currencySymbol } from '../../lib/format';
 import { useTrip } from '../../lib/trip';
@@ -19,6 +21,8 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('');
   const [location, setLocation] = useState('');
+  const [place, setPlace] = useState<PlaceMatch | null>(null);
+  const { placesEnabled } = useMaps();
   const [cost, setCost] = useState('');
   const { currency } = useTrip().trip;
   const [add, { loading, error }] = useMutation(AddActivityDocument, {
@@ -36,9 +40,10 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
           dayId,
           title,
           startTime: startTime || null,
-          location: location || null,
+          location: place ? place.address || place.name : location || null,
           costPerPerson: cost || null,
           scheduleNow: true,
+          googlePlaceId: place?.googlePlaceId ?? null,
         },
       },
     }).catch(() => {});
@@ -47,12 +52,15 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
   return (
     <Dialog open onClose={onClose} title={`Add activity · ${dayLabel}`}>
       <form onSubmit={submit} className="flex min-h-full flex-col gap-4">
-        <TextField
-          label="Title"
-          required
+        <PlaceSearchField
+          tripId={tripId}
+          label="What"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Fado night"
+          onChange={setTitle}
+          place={place}
+          onPick={setPlace}
+          enabled={placesEnabled}
+          placeholder="e.g. Time Out Market, or Pack day"
           autoFocus
         />
         <div className="grid grid-cols-2 gap-3">
@@ -65,12 +73,14 @@ export function AddActivityDialog({ tripId, dayId, dayLabel, onClose }: Props) {
             onChange={(e) => setCost(e.target.value)}
           />
         </div>
-        <TextField
-          label="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Neighbourhood or address"
-        />
+        {!place && (
+          <TextField
+            label="Location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Neighbourhood or address"
+          />
+        )}
         {error && (
           <p role="alert" className="text-sm text-negative-ink">
             {messageFromError(error)}

@@ -55,6 +55,13 @@ services:
       # Optional: semantic search for the trip assistant (Voyage AI). Without it, keyword search only.
       - key: VOYAGE_API_KEY
         sync: false
+      # Optional: real places and the trip map (Google Maps Platform).
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_BROWSER_KEY
+        sync: false
+      - key: GOOGLE_MAPS_MAP_ID
+        sync: false
       # Trip assistant caps for the public demo: questions per user and for the whole site, per day.
       - key: ASSISTANT_DAILY_QUESTIONS
         value: '20'

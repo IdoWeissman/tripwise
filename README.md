@@ -117,6 +117,22 @@ pnpm --filter @tripwise/api eval:import --update   # accept improved scores as t
 CI runs `eval:import --check` and fails if any case scores below `evals/importer/baseline.json`, so a parser or
 prompt change can't make extraction worse unnoticed. Current rules-only score: seen formats 100%, unseen 81%.
 
+### Real places and the trip map
+
+Ideas and activities can be **real places**: the "What" field searches Google Places near the trip's
+destination, and the itinerary has a **Board · Map** switch with numbered stops per day, ideas and the stay.
+Opening a place shows live details — photo, rating, price level, opening hours, website and a Google Maps link.
+
+- **Within Google's terms**: only the place ID and coordinates are stored (coordinates refreshed after 30
+  days); names, ratings, hours and photos are fetched live when a place is opened, with the photo credit and
+  Google Maps link shown.
+- **Cheapest fields per call**: search uses Text Search Pro fields only; coordinates use Place Details
+  Essentials; the full card (Enterprise fields) runs only when someone opens a place.
+- **Two keys**: `GOOGLE_PLACES_API_KEY` (server only, Places API) and `GOOGLE_MAPS_BROWSER_KEY` (Maps
+  JavaScript API, restrict it to your domains). `GOOGLE_MAPS_MAP_ID` defaults to `DEMO_MAP_ID`. Without keys
+  the app works as before: free-text activities and no map.
+- **Stays** are matched to a place from their address once (failed lookups retry after a week).
+
 ### Trip assistant (RAG)
 
 An **Ask** panel on every trip screen answers questions like "what's the key box code?" or "who owes whom?",

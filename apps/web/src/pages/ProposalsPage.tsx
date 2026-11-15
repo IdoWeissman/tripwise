@@ -4,6 +4,8 @@ import { Avatar } from '../components/Avatar';
 import { PageHeader } from '../components/Bits';
 import { Button } from '../components/Button';
 import { TextAreaField, SelectField, TextField } from '../components/Fields';
+import { PlaceSearchField, type PlaceMatch } from '../components/PlaceSearchField';
+import { useMaps } from '../lib/maps';
 import { CheckIcon, ChevronUpIcon, PlusIcon } from '../components/Icons';
 import { Segmented } from '../components/Segmented';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
@@ -385,6 +387,8 @@ function ProposeForm({
   const [dayId, setDayId] = useState('');
   const [cost, setCost] = useState('');
   const [description, setDescription] = useState('');
+  const [place, setPlace] = useState<PlaceMatch | null>(null);
+  const { placesEnabled } = useMaps();
   const { currency } = useTrip().trip;
   const toast = useToast();
   const [propose, { loading, error }] = useMutation(ProposeDocument, {
@@ -402,6 +406,8 @@ function ProposeForm({
             dayId: dayId || null,
             costPerPerson: cost || null,
             description: description || null,
+            location: place ? place.address || place.name : null,
+            googlePlaceId: place?.googlePlaceId ?? null,
           },
         },
       });
@@ -409,6 +415,7 @@ function ProposeForm({
       setDayId('');
       setCost('');
       setDescription('');
+      setPlace(null);
       toast('Proposal submitted for a vote.');
       onDone();
     } catch {
@@ -422,11 +429,14 @@ function ProposeForm({
       className="flex flex-col gap-4 rounded-card border border-border bg-surface p-6"
     >
       <h2 className="text-lg font-bold">Propose an activity</h2>
-      <TextField
-        label="Title"
-        required
+      <PlaceSearchField
+        tripId={tripId}
+        label="What"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={setTitle}
+        place={place}
+        onPick={setPlace}
+        enabled={placesEnabled}
         placeholder="e.g. Surf lesson in Ericeira"
       />
       <div className="grid grid-cols-2 gap-3">

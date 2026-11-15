@@ -41,6 +41,11 @@ export const ItineraryDocument = graphql(`
             title
             startLocal
             endLocal
+            place {
+              id
+              lat
+              lng
+            }
           }
         }
       }
@@ -64,6 +69,11 @@ export const ItineraryDocument = graphql(`
       id
       type
       confirmationCode
+    }
+    place {
+      id
+      lat
+      lng
     }
   }
 `);

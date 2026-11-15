@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql';
 import { matchBooking } from '../../bookings/match.js';
 import { dateKey } from '../../lib/time.js';
+import { placeForInput } from './places.js';
 import type { Resolvers } from '../__generated__/resolvers-types.js';
 import { badInput, requireTripRole } from '../errors.js';
 import { publishTripEvent, pubsub, tripTopic } from '../pubsub.js';
@@ -26,6 +27,8 @@ export const activityResolvers: Resolvers = {
           throw badInput('That day is not part of this trip.');
       }
 
+      const place = input.googlePlaceId ? await placeForInput(ctx, input.googlePlaceId) : null;
+
       const schedule = input.scheduleNow === true;
       const position = schedule
         ? await ctx.db.activity.count({
@@ -43,6 +46,7 @@ export const activityResolvers: Resolvers = {
           dayId: input.dayId ?? null,
           startTime: input.startTime || null,
           costPerPerson: input.costPerPerson || null,
+          placeId: place?.id ?? null,
           status: schedule ? 'SCHEDULED' : 'PROPOSED',
           position,
         },
@@ -52,6 +56,22 @@ export const activityResolvers: Resolvers = {
         actorId: ctx.viewerId,
       });
       return activity;
+    },
+
+    setActivityPlace: async (_p, { activityId, googlePlaceId }, ctx) => {
+      const activity = await ctx.db.activity.findUnique({ where: { id: activityId } });
+      if (!activity) throw badInput('That activity no longer exists.');
+      await requireTripRole(ctx, activity.tripId, 'EDITOR');
+      const place = googlePlaceId ? await placeForInput(ctx, googlePlaceId) : null;
+      const updated = await ctx.db.activity.update({
+        where: { id: activityId },
+        data: { placeId: place?.id ?? null },
+      });
+      await publishTripEvent(updated.tripId, 'ACTIVITY_UPDATED', {
+        activityId,
+        actorId: ctx.viewerId,
+      });
+      return updated;
     },
 
     toggleVote: async (_p, { activityId }, ctx) => {

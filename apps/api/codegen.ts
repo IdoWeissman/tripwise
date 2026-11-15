@@ -17,6 +17,8 @@ const config: CodegenConfig = {
         mappers: {
           User: `${prisma}#User as UserModel`,
           ApiToken: `${prisma}#ApiToken as ApiTokenModel`,
+          Place: `${prisma}#Place as PlaceModel`,
+          PlaceDetails: '../../places/google.js#PlaceDetails as PlaceDetailsModel',
           Trip: `${prisma}#Trip as TripModel`,
           TripMember: `${prisma}#TripMember as TripMemberModel`,
           Day: `${prisma}#Day as DayModel`,

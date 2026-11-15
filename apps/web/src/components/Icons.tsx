@@ -186,3 +186,13 @@ export const SendIcon = (p: IconProps) => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </Icon>
 );
+export const StarIcon = (p: IconProps) => (
+  <Icon {...p} fill="currentColor" stroke="none">
+    <path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z" />
+  </Icon>
+);
+export const MapIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" />
+  </Icon>
+);
