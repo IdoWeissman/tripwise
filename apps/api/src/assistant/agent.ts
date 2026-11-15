@@ -60,6 +60,17 @@ export function pathFor(hit: Pick<SearchHit, 'kind' | 'sourceId' | 'content'>): 
   }
 }
 
+/** Room for a full answer (a list of places with prices runs past 1,000 tokens). */
+const MAX_ANSWER_TOKENS = 4096;
+/** How many times a cut-off answer is continued before we say it was cut short. */
+const MAX_CONTINUATIONS = 2;
+
+/** The user turn that asks Claude to finish an answer the output limit cut off. */
+const continueFrom = (answer: string) =>
+  `Your previous answer was cut off by the length limit. It ended with:\n\n${answer.slice(-300)}\n\n` +
+  'Continue from exactly that point, mid-word if needed. Do not repeat anything, do not add a ' +
+  'preamble, and keep the same formatting.';
+
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -272,7 +283,11 @@ export async function runAssistant(
   } as never;
 
   const messages: { role: 'user' | 'assistant'; content: unknown }[] = [
-    ...opts.history.slice(-10).map((t) => ({ role: t.role, content: t.content })),
+    // Empty turns (an answer that failed before any text) would be rejected by the API.
+    ...opts.history
+      .filter((t) => t.content.trim())
+      .slice(-10)
+      .map((t) => ({ role: t.role, content: t.content })),
     { role: 'user', content: opts.question },
   ];
   let inputTokens = 0;
@@ -330,32 +345,68 @@ export async function runAssistant(
   }
 
   const maxSteps = opts.maxSteps ?? 6;
+  const request = (extra: Record<string, unknown>) => ({
+    model: opts.model,
+    max_tokens: MAX_ANSWER_TOKENS,
+    system: [{ type: 'text', text: system(opts.trip), cache_control: { type: 'ephemeral' } }],
+    tools: toolDefs,
+    messages,
+    ...extra,
+  });
+  const emitText = (text: string) => opts.emit({ type: 'text', text });
   for (let step = 0; step < maxSteps; step++) {
     const last = step === maxSteps - 1;
     const res = await streamMessage(
       opts,
-      {
-        model: opts.model,
-        max_tokens: 1024,
-        system: [{ type: 'text', text: system(opts.trip), cache_control: { type: 'ephemeral' } }],
-        tools: toolDefs,
-        // On the last step, force a written answer from what was gathered.
-        ...(last ? { tool_choice: { type: 'none' } } : {}),
-        messages,
-      },
-      (text) => opts.emit({ type: 'text', text }),
+      // On the last step, force a written answer from what was gathered.
+      request(last ? { tool_choice: { type: 'none' } } : {}),
+      emitText,
     );
     inputTokens += res.inputTokens;
     outputTokens += res.outputTokens;
     const uses = res.content.filter(
       (b): b is { type: 'tool_use' } & ToolUse => b.type === 'tool_use',
     );
+
+    if (res.stopReason === 'max_tokens' && uses.length === 0) {
+      // The answer hit the output limit mid-sentence. Current models reject an assistant-turn
+      // prefill (400), so the answer so far goes back as an ordinary assistant turn and a user
+      // turn asks Claude to carry on from where it stopped (tools off: it only has to finish).
+      let answer = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+      let stop: string | null = res.stopReason;
+      for (let i = 0; i < MAX_CONTINUATIONS && stop === 'max_tokens'; i++) {
+        const more = await streamMessage(
+          opts,
+          request({
+            tool_choice: { type: 'none' },
+            messages: [
+              ...messages,
+              { role: 'assistant', content: answer },
+              { role: 'user', content: continueFrom(answer) },
+            ],
+          }),
+          emitText,
+        );
+        inputTokens += more.inputTokens;
+        outputTokens += more.outputTokens;
+        answer += more.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+        stop = more.stopReason;
+      }
+      if (stop === 'max_tokens')
+        emitText('\n\n(The answer was cut short. Ask me to continue, or narrow the question.)');
+      break;
+    }
     if (res.stopReason !== 'tool_use' || uses.length === 0) break;
 
     // Keep any "let me check…" text apart from the answer that follows.
     if (res.content.some((b) => b.type === 'text' && b.text.trim()))
       opts.emit({ type: 'text', text: '\n\n' });
-    messages.push({ role: 'assistant', content: res.content });
+    // Replay the turn without empty text blocks: Claude often opens one before a tool call, and
+    // the API rejects empty text when it's sent back ("text content blocks must be non-empty").
+    messages.push({
+      role: 'assistant',
+      content: res.content.filter((b) => b.type !== 'text' || b.text.trim()),
+    });
     const results = [];
     for (const use of uses) {
       if (STATUS[use.name]) opts.emit({ type: 'status', text: STATUS[use.name]! });
