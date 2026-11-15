@@ -275,6 +275,7 @@ export const bookingResolvers: Resolvers = {
   },
 
   BookingDraft: {
+    toCheck: (d) => d.toCheck ?? [],
     segments: (d) => d.segments,
   },
 

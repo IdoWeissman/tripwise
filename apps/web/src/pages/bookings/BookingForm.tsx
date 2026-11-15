@@ -18,7 +18,7 @@ function Field({
   children,
 }: {
   label: string;
-  badge?: 'read' | 'missing' | null;
+  badge?: 'read' | 'check' | 'missing' | null;
   error?: boolean;
   hint?: string;
   wide?: boolean;
@@ -33,6 +33,9 @@ function Field({
         </label>
         {badge === 'read' && (
           <span className="text-xs font-semibold text-accent-strong">Read from file</span>
+        )}
+        {badge === 'check' && (
+          <span className="text-xs font-semibold text-attention-ink">Check this</span>
         )}
         {badge === 'missing' && (
           <span className="text-xs font-semibold text-attention-ink">Not found</span>
@@ -62,7 +65,13 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
   const set = <K extends keyof BookingFormState>(k: K, v: BookingFormState[K]) =>
     onChange({ ...f, [k]: v });
   const badge = (...keys: string[]) =>
-    showProvenance && keys.some((k) => f.fromSource.includes(k)) ? 'read' : null;
+    !showProvenance
+      ? null
+      : keys.some((k) => f.toCheck.includes(k))
+        ? 'check'
+        : keys.some((k) => f.fromSource.includes(k))
+          ? 'read'
+          : null;
   const usesLegs = f.type === 'FLIGHT' || f.type === 'TRANSPORT';
   const showLegs = usesLegs && (f.legs.length > 0 || f.type === 'FLIGHT');
   const missingStart = !showLegs && !f.startDate;
@@ -147,8 +156,12 @@ export function BookingForm({ value: f, onChange, showProvenance = false, tripTi
           <div className="col-span-2 flex flex-col gap-3">
             <span className="flex items-center justify-between text-sm font-semibold">
               {f.type === 'FLIGHT' ? 'Flights' : 'Legs'}
-              {badge('segments') && (
-                <span className="text-xs font-semibold text-accent-strong">Read from file</span>
+              {badge('segments') === 'check' ? (
+                <span className="text-xs font-semibold text-attention-ink">Check this</span>
+              ) : (
+                badge('segments') && (
+                  <span className="text-xs font-semibold text-accent-strong">Read from file</span>
+                )
               )}
             </span>
             {f.legs.map((l, i) => (

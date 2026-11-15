@@ -14,6 +14,7 @@ import {
   stripForwardHeaders,
 } from '../src/bookings/parse/text.js';
 import { flightTitle } from '../src/bookings/parse/title.js';
+import { makePdf } from './fixtures/makePdf.js';
 import {
   eticketPdf,
   forwardedAirlineEmail,
@@ -364,6 +365,168 @@ describe('AI extraction', () => {
           }) as typeof fetch,
         },
         { text: 'x' },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('AI-first extraction', () => {
+  const doc = [
+    'Hotel Voucher',
+    'Hotel Name: Example Suites Midtown',
+    'Reservation ID: QX-4471',
+    'Arrival Date: Mar 3, 2027',
+    'Departure Date: Mar 6, 2027',
+    'Traveler(s): Dana Levi +1 Guest',
+    'Optional Fees: Parking: USD 60 Per Day. Pet Fee: USD 100.00 Per Stay.',
+  ].join('\n');
+
+  const stay = (over: Record<string, unknown> = {}) => ({
+    type: 'stay', // strict mode may change only the casing of enum values
+    title: 'Example Suites Midtown',
+    provider: '',
+    confirmationCode: 'QX-4471',
+    bookingUrl: '',
+    startLocal: '2027-03-03',
+    endLocal: '2027-03-06',
+    timeZone: '',
+    location: '',
+    address: '',
+    price: '',
+    currency: '',
+    travellers: 2,
+    notes: '',
+    segments: [],
+    evidence: {
+      confirmationCode: 'Reservation ID: QX-4471',
+      startLocal: 'Arrival Date: Mar 3, 2027',
+      endLocal: 'Departure Date: Mar 6, 2027',
+      price: '',
+    },
+    ...over,
+  });
+
+  const reply = (bookings: unknown[]) =>
+    new Response(
+      JSON.stringify({
+        stop_reason: 'tool_use',
+        content: [{ type: 'tool_use', name: 'record_bookings', input: { bookings } }],
+      }),
+    );
+
+  it('uses a strict schema with no optional fields or unions', async () => {
+    let tool: { strict?: boolean; input_schema: unknown } | undefined;
+    const fake = vi.fn(async (_u: unknown, init?: RequestInit) => {
+      tool = JSON.parse(String(init!.body)).tools[0];
+      return reply([stay()]);
+    });
+    await extractWithAi(
+      { apiKey: 'k', model: 'm', fetch: fake as unknown as typeof fetch },
+      { text: doc, docText: doc },
+    );
+    expect(tool!.strict).toBe(true);
+    const walk = (node: any): void => {
+      if (!node || typeof node !== 'object') return;
+      expect(Array.isArray(node.type)).toBe(false);
+      expect(node.anyOf).toBeUndefined();
+      if (node.type === 'object') {
+        expect(node.additionalProperties).toBe(false);
+        expect([...node.required].sort()).toEqual(Object.keys(node.properties).sort());
+      }
+      Object.values(node.properties ?? {}).forEach(walk);
+      walk(node.items);
+    };
+    walk(tool!.input_schema);
+  });
+
+  it('trusts values whose quotes are in the document, and flags the rest', () => {
+    const [ok] = draftsFromAi({ bookings: [stay()] }, doc);
+    expect(ok).toMatchObject({ type: 'STAY', price: null, travellers: 2, toCheck: [] });
+
+    const [made_up] = draftsFromAi(
+      {
+        bookings: [
+          stay({
+            confirmationCode: 'QX-4417', // quote doesn't state this code
+            price: '100.00',
+            currency: 'USD',
+            evidence: { ...stay().evidence, price: 'Total paid: USD 100.00' }, // not in the document
+          }),
+        ],
+      },
+      doc,
+    );
+    expect(made_up!.toCheck!.sort()).toEqual(['confirmationCode', 'price']);
+
+    const [backwards] = draftsFromAi(
+      {
+        bookings: [
+          stay({ endLocal: '2027-03-01', evidence: { ...stay().evidence, endLocal: '' } }),
+        ],
+      },
+      doc,
+    );
+    expect(backwards!.toCheck).toContain('endLocal');
+  });
+
+  it('retries with the stronger model when the answer fails verification', async () => {
+    const models: string[] = [];
+    const fake = vi.fn(async (_u: unknown, init?: RequestInit) => {
+      const { model } = JSON.parse(String(init!.body));
+      models.push(model);
+      return reply([model === 'fast' ? stay({ evidence: {} }) : stay()]);
+    });
+    const drafts = await extractWithAi(
+      {
+        apiKey: 'k',
+        model: 'fast',
+        escalationModel: 'strong',
+        fetch: fake as unknown as typeof fetch,
+      },
+      { text: doc, docText: doc },
+    );
+    expect(models).toEqual(['fast', 'strong']);
+    expect(drafts![0]!.toCheck).toEqual([]);
+
+    models.length = 0;
+    await extractWithAi(
+      {
+        apiKey: 'k',
+        model: 'fast',
+        escalationModel: 'strong',
+        fetch: (async (_u: unknown, init?: RequestInit) => {
+          models.push(JSON.parse(String(init!.body)).model);
+          return reply([stay()]);
+        }) as typeof fetch,
+      },
+      { text: doc, docText: doc },
+    );
+    expect(models).toEqual(['fast']); // verified on the first try: no second call
+  });
+
+  it("sends PDFs as documents and never lets rule guesses fill the model's answer", async () => {
+    let content: { type: string }[] = [];
+    const fake = vi.fn(async (_u: unknown, init?: RequestInit) => {
+      content = JSON.parse(String(init!.body)).messages[0].content;
+      return reply([stay({ title: 'Example Suites Midtown' })]);
+    });
+    const pdf = makePdf(doc.split('\n'));
+    const [d] = await parseFile(pdf, 'PDF', 'voucher.pdf', {
+      ai: { apiKey: 'k', model: 'm', fetch: fake as unknown as typeof fetch },
+    });
+    expect(content.map((c) => c.type)).toContain('document');
+    // The voucher states no price; the pet fee must not become one.
+    expect(d).toMatchObject({ title: 'Example Suites Midtown', price: null, toCheck: [] });
+  });
+
+  it('treats a refusal or a cut-off answer as a failed call', async () => {
+    const cut = vi.fn(
+      async () => new Response(JSON.stringify({ stop_reason: 'max_tokens', content: [] })),
+    );
+    expect(
+      await extractWithAi(
+        { apiKey: 'k', model: 'm', fetch: cut as unknown as typeof fetch },
+        { text: doc },
       ),
     ).toBeNull();
   });

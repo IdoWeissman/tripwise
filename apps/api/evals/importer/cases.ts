@@ -30,8 +30,9 @@ export interface Expected {
   end?: string;
   legs?: string[];
   travellers?: number;
-  price?: string;
-  currency?: string;
+  /** null: the document states no price, and none may be invented (vouchers, packages). */
+  price?: string | null;
+  currency?: string | null;
   location?: string | string[];
   address?: string;
   bookingUrl?: string;

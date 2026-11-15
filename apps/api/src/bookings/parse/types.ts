@@ -33,18 +33,23 @@ export interface Draft {
   segments: SegmentDraft[];
   /** Field names that came from the source (shown as "Read from file"). */
   fromSource: string[];
+  /**
+   * Field names whose value couldn't be verified against the document (the model's quote wasn't
+   * found, or a sanity check failed). Shown as "Check this" in the review step.
+   */
+  toCheck?: string[];
 }
 
 /** Marks every non-empty field as read from the source. */
 export function withProvenance(
   input: Omit<Draft, 'fromSource'> & { fromSource?: string[] },
 ): Draft {
-  const { fromSource: _previous, ...d } = input;
+  const { fromSource: _previous, toCheck = [], ...d } = input;
   const fromSource = Object.entries(d)
     .filter(
       ([k, v]) => k !== 'type' && k !== 'segments' && v !== null && v !== undefined && v !== '',
     )
     .map(([k]) => k);
   if (d.segments.length) fromSource.push('segments');
-  return { ...d, fromSource };
+  return { ...d, fromSource, toCheck };
 }

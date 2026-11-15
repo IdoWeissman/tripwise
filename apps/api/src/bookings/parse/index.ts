@@ -69,9 +69,14 @@ export interface ParseOptions {
 export function aiConfig(env: {
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL: string;
+  ANTHROPIC_ESCALATION_MODEL?: string;
 }): AiConfig | null {
   return env.ANTHROPIC_API_KEY
-    ? { apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL }
+    ? {
+        apiKey: env.ANTHROPIC_API_KEY,
+        model: env.ANTHROPIC_MODEL,
+        escalationModel: env.ANTHROPIC_ESCALATION_MODEL ?? null,
+      }
     : null;
 }
 
@@ -81,63 +86,83 @@ const legKey = (s: SegmentDraft) =>
     : `${s.fromCode}-${s.toCode}-${s.departLocal.slice(0, 10)}`;
 
 /**
- * Combines what the model read with what the rules read. Calendar legs are exact, so their times
- * win; any field the model left empty is filled from the matching rule-based draft.
+ * Combines the model's drafts with what the rule-based readers found. The model's answer wins:
+ * heuristic rules never overwrite it or fill its price, dates, title or travellers (a guessed
+ * pet fee is worse than "not stated"). Only exact data beats it — calendar legs and schema.org
+ * values — and rules fill just the two fields they read precisely: a labelled confirmation code
+ * and a manage-booking link.
  */
-export function reconcile(ai: Draft[], rules: Draft[], exactLegs: SegmentDraft[]): Draft[] {
+export function reconcile(
+  ai: Draft[],
+  rules: Draft[],
+  exactLegs: SegmentDraft[],
+  opts: { exact?: boolean } = {},
+): Draft[] {
   const exact = new Map(exactLegs.map((l) => [legKey(l), l]));
   return ai.map((d) => {
     const match =
       rules.find((r) => r.type === d.type) ?? (rules.length === 1 ? rules[0] : undefined);
+    let toCheck = [...(d.toCheck ?? [])];
     const segments = d.segments.map((s) => {
       const e = exact.get(legKey(s));
-      return e
-        ? {
-            ...s,
-            departLocal: e.departLocal,
-            arriveLocal: e.arriveLocal ?? s.arriveLocal,
-            departTz: s.departTz ?? e.departTz,
-            arriveTz: s.arriveTz ?? e.arriveTz,
-            fromName: s.fromName ?? e.fromName,
-            toName: s.toName ?? e.toName,
-          }
-        : s;
+      if (!e) return s;
+      toCheck = toCheck.filter((f) => f !== 'segments');
+      return {
+        ...s,
+        departLocal: e.departLocal,
+        arriveLocal: e.arriveLocal ?? s.arriveLocal,
+        departTz: s.departTz ?? e.departTz,
+        arriveTz: s.arriveTz ?? e.arriveTz,
+        fromName: s.fromName ?? e.fromName,
+        toName: s.toName ?? e.toName,
+      };
     });
     const merged: Omit<Draft, 'fromSource'> = { ...d, segments };
-    if (match) {
-      for (const k of [
-        'provider',
-        'confirmationCode',
-        'bookingUrl',
-        'startLocal',
-        'endLocal',
-        'location',
-        'address',
-        'price',
-        'currency',
-        'travellers',
-      ] as const) {
-        if (merged[k] === null || merged[k] === undefined)
-          (merged as Record<string, unknown>)[k] = match[k] ?? null;
+    if (match && opts.exact) {
+      for (const k of EXACT_FIELDS) {
+        if (match[k] !== null && match[k] !== undefined) {
+          (merged as Record<string, unknown>)[k] = match[k];
+          toCheck = toCheck.filter((f) => f !== k);
+        }
       }
-      if (!segments.length && match.segments.length) merged.segments = match.segments;
+    } else if (match) {
+      merged.confirmationCode ??= match.confirmationCode ?? null;
+      merged.bookingUrl ??= match.bookingUrl ?? null;
     }
-    return withProvenance(merged);
+    return withProvenance({ ...merged, toCheck });
   });
 }
+
+/** Fields a schema.org block states exactly. */
+const EXACT_FIELDS = [
+  'confirmationCode',
+  'startLocal',
+  'endLocal',
+  'price',
+  'currency',
+  'address',
+  'bookingUrl',
+] as const;
 
 /** Rule-based drafts for an email: structured data, then calendar attachments, then the text. */
 function ruleDrafts(
   mail: ParsedMail,
   fileName: string,
-): { drafts: Draft[]; exactLegs: SegmentDraft[]; text: string; calendars: string[] } {
+): {
+  drafts: Draft[];
+  exactLegs: SegmentDraft[];
+  text: string;
+  calendars: string[];
+  /** Drafts read from schema.org data: their values are exact and beat the model's. */
+  exact: boolean;
+} {
   const html = typeof mail.html === 'string' ? mail.html : '';
   const text = mail.text ?? html.replace(/<[^>]+>/g, ' ');
   const calendars = mail.attachments
     .filter((a) => /calendar/i.test(a.contentType) || /\.(ics|vcs)$/i.test(a.filename ?? ''))
     .map((a) => a.content.toString('utf8'));
   const structured = html ? draftsFromJsonLd(html) : [];
-  if (structured.length) return { drafts: structured, exactLegs: [], text, calendars };
+  if (structured.length) return { drafts: structured, exactLegs: [], text, calendars, exact: true };
 
   const sender = mail.from?.value[0] ?? null;
   const fromText = draftFromText(text, {
@@ -147,7 +172,8 @@ function ruleDrafts(
   });
   const fromCal = draftsFromCalendar(calendars.flatMap(parseCalendar));
   const exactLegs = fromCal.flatMap((d) => d.segments);
-  if (!fromCal.length) return { drafts: fromText ? [fromText] : [], exactLegs, text, calendars };
+  if (!fromCal.length)
+    return { drafts: fromText ? [fromText] : [], exactLegs, text, calendars, exact: false };
 
   // Calendar events give exact legs/times; the text adds price, people, links and city names.
   const drafts = fromCal.map((d) => {
@@ -164,7 +190,7 @@ function ruleDrafts(
       travellers: fromText.travellers ?? null,
     });
   });
-  return { drafts, exactLegs, text, calendars };
+  return { drafts, exactLegs, text, calendars, exact: false };
 }
 
 /** Plain text of an email or PDF, kept with the file so the trip assistant can search it. */
@@ -195,24 +221,37 @@ export async function parseFile(
       const mail = await simpleParser(buf);
       const rules = ruleDrafts(mail, fileName);
       if (!opts.ai) return rules.drafts;
+      // Attached e-tickets and vouchers go to the model as documents, as they are.
+      const pdfs = mail.attachments
+        .filter((a) => /pdf/i.test(a.contentType) && a.size <= MAX_AI_PDF)
+        .slice(0, 3)
+        .map((a) => a.content);
+      const pdfTexts = await Promise.all(pdfs.map((p) => pdfText(p).catch(() => '')));
       const ai = await extractWithAi(opts.ai, {
         subject: mail.subject,
         text: rules.text,
         calendars: rules.calendars,
+        pdfs,
+        docText: [mail.subject, rules.text, ...rules.calendars, ...pdfTexts].join('\n'),
       });
-      return ai?.length ? reconcile(ai, rules.drafts, rules.exactLegs) : rules.drafts;
+      return ai?.length
+        ? reconcile(ai, rules.drafts, rules.exactLegs, { exact: rules.exact })
+        : rules.drafts;
     }
     if (kind === 'PDF') {
       const text = await pdfText(buf);
       const d = draftFromText(text, { fallbackTitle: baseName(fileName) });
       const rules = d ? [d] : [];
-      if (!opts.ai) return rules;
-      // Scanned PDFs have no text layer: let the model look at the pages instead.
+      if (!opts.ai || buf.length > MAX_AI_PDF) return rules;
+      // The model gets the PDF itself (page images + text), not our flattened text layer, which
+      // loses the layout ("27AUG2026Date:"). Scanned PDFs have no text to check quotes against.
       const scanned = text.replace(/\s+/g, '').length < 40;
-      const ai = await extractWithAi(
-        opts.ai,
-        scanned && buf.length <= 20 * 1024 * 1024 ? { pdf: buf } : { text },
-      );
+      const links = /\n\nLinks:\n[\s\S]*$/.exec(text)?.[0].trim();
+      const ai = await extractWithAi(opts.ai, {
+        pdfs: [buf],
+        text: links ? `Links in the file (they are not visible in the text):\n${links}` : null,
+        docText: scanned ? null : text,
+      });
       return ai?.length ? reconcile(ai, rules, []) : rules;
     }
     if (kind === 'IMAGE' && opts.ai && buf.length <= 5 * 1024 * 1024) {
@@ -225,16 +264,20 @@ export async function parseFile(
   return [];
 }
 
+/** Larger PDFs are read by the rules only (the API accepts up to 32 MB per request). */
+const MAX_AI_PDF = 20 * 1024 * 1024;
+
 /** Bookings from pasted email text (HTML with markup also works). */
 export async function parseText(text: string, opts: ParseOptions = {}): Promise<Draft[]> {
   let rules: Draft[] = [];
   if (/application\/ld\+json/i.test(text)) rules = draftsFromJsonLd(text);
+  const exactFromJsonLd = rules.length > 0;
   if (!rules.length) {
     const subject = /^subject:\s*(.+)$/im.exec(text)?.[1];
     const d = draftFromText(text, { subject });
     rules = d ? [d] : [];
   }
   if (!opts.ai) return rules;
-  const ai = await extractWithAi(opts.ai, { text });
-  return ai?.length ? reconcile(ai, rules, []) : rules;
+  const ai = await extractWithAi(opts.ai, { text, docText: text });
+  return ai?.length ? reconcile(ai, rules, [], { exact: exactFromJsonLd }) : rules;
 }

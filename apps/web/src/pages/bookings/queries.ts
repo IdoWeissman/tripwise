@@ -173,6 +173,7 @@ export const ParseTextDocument = graphql(`
       travellers
       notes
       fromSource
+      toCheck
       source
       segments {
         carrier
