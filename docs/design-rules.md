@@ -37,6 +37,7 @@ The visual world is **Platform**: the trip runs like a well-run station. Enamel 
 | `color.attention` / `attention-ink`                          | `#FDE2DA` / `#9E2A12`                         | Missing-details alerts                                                                                 |
 | `color.tint-orange`                                          | `#FDEEE6`                                     | Missing-details alert wash (with `attention` border)                                                   |
 
+- **Emails** (`apps/api/src/mail/`) inline `sign`, `ink`, `ink-muted` and `bg` as hex, because email clients ignore stylesheets. They are copies of these tokens: change both together.
 - **Section hues**: each section owns one hue at full strength on its sign — Today yellow, Plan blue (Itinerary, Bookings), Vote violet (Proposals), Money green (Expenses). A section's hue never decorates another section.
 - **Yellow is rationed** to now / next / you-are-here and counts that need you. If it spreads further the screen turns into a construction site.
 - Owed vs owed-to-you differ in **hue and sign** (green `+` vs red `−`), never colour alone.
@@ -129,7 +130,8 @@ The visual world is **Platform**: the trip runs like a well-run station. Enamel 
 ### 01 · Sign in
 
 - Split layout: brand/value panel on the sign (`sign` field, white 52px headline, yellow check plates, logo plate) + white form panel. Panels stack on mobile (form first).
-- Max form width 400px. Order: Email → Password → Sign in → divider → **Explore with the demo account** → Create account link. ("Forgot password?" is added together with the reset flow.)
+- Max form width 400px. Order: Email → Password → **Forgot password?** (right-aligned under the field, 44px target, carries the typed email and `?next`) → Sign in → divider → **Explore with the demo account** → Create account link. The split layout is the shared `AuthLayout` (also used by §2 · 16).
+- The two dead ends offer the way out: a failed sign-in shows the error followed by **Forgot password?**; sign-up's "An account with this email already exists." (API code `ACCOUNT_EXISTS`) is followed by **Sign in** · **Reset your password**.
 - **Sign up** (`/sign-up`) reuses this layout with a Name field first and the heading "Create your account".
 - Both honour `?next=` (in-app paths only) so an invite link returns the user to the join screen.
 - The demo-account entry must always be visible (portfolio visitors).
@@ -270,6 +272,15 @@ The visual world is **Platform**: the trip runs like a well-run station. Enamel 
 - **"Get the trip ready"** (owners only, top of Today's main column, above the board): a white panel with a 2px `sign` border; header "Get the trip ready" · "N of 3 done" · **Hide**. Three rows, any order, all optional, each a whole-row link (≥ 64px): **Add your bookings** (`bookings?add&from=setup`, importer first), **Invite the group** (`members?invite&from=setup`: focuses Create invite link; after a link exists, "Back to setup"), **Add expenses already paid** (`expenses?add&from=setup`). The first unfinished row is primary (a `sign` arrow button); done rows show a money-green check, a struck title, "Done:" for screen readers and "Add more". Once the trip has started, phones drop the helper lines. While the checklist shows, an empty departure board ("No departures yet") is left out — it would only repeat the first row.
 - **Done means**: a booking exists · someone else joined **or** an invite link was created (`TripMember.inviteSharedAt`) · an expense exists — computed by `Trip.setup`. A save that started from the checklist (`from=setup`) returns to Today, which revalidates on arrival so the tick shows.
 - **All done**: the panel becomes one money-tint line, "You're set — the trip is ready for the group." with **Done**. **Hide**/**Done** call `hideTripSetup`, stored per member on the server (`TripMember.setupHiddenAt`), so it stays hidden on every device.
+
+### 16 · Forgot password and reset (`/forgot-password`, `/reset-password/:token`)
+
+- Signed-out screens on the shared `AuthLayout` (form first on phones). Not available for the Demo account: a request for it answers "sent" but nothing is emailed and its password never changes (GLOSSARY).
+- **Forgot password** (`/forgot-password?email=&next=`; an in-app `next` rides through the emailed link, so after the reset the person lands where they were heading, e.g. an invite): "Forgot your password?" + one Email field (pre-filled from `?email`) + **Send reset link** (primary, 48px) + **Back to sign in**. Errors under the field, naming the problem: "No account found for that email." (with **Create an account**), "We've already sent a reset link to this address. Check your inbox and spam folder, or try again in an hour." (3 per address per hour), "Password reset isn't available right now. Please try again later." (email not set up).
+- **Sent**: "Check your email" — "We've sent a reset link to {email}. It works for 30 minutes." (`role="status"`), "Didn't get it? Check your spam folder, or send it again." with **Send it again** (secondary; the hourly limit applies) and **Back to sign in**.
+- **Reset** (`/reset-password/:token?email=`, opened from the email): loading = skeleton fields; the link is checked first (`passwordResetPreview`). Valid → "Choose a new password", "For {email}. You'll be signed out on every other device.", **New password** and **Confirm password** (both `PasswordInput` with the eye, at least 8 characters, `new-password` autocomplete), errors under each field ("Password must be at least 8 characters", "Passwords don't match" — shown live once the confirmation differs), **Save new password**. Success signs this device in and opens the trips list.
+- **Expired or used link**: "This link has expired or was already used" — "Reset links work once, for 30 minutes. Send yourself a new one." — **Send a new link** (primary) opens Forgot password with the email filled in. A failed check of the link shows an error with **Try again**.
+- **Emails** (plain text + simple HTML, one button): "Reset your Tripwise password" (link, 30 minutes, "If you didn't ask for this, ignore this email — your password stays the same.") and, after a reset, "Your Tripwise password was changed" (with a link to reset again).
 
 ### M1–M4 · Mobile
 

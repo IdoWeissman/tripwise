@@ -42,6 +42,13 @@ services:
         generateValue: true
       - key: WEB_DIST
         value: ../web/dist
+      # Email (password reset, reminder emails): an SMTP URL from a transactional provider, e.g. Brevo
+      # smtp://LOGIN:SMTP_KEY@smtp-relay.brevo.com:587, and MAIL_FROM set to its verified sender.
+      # Without SMTP_URL, "Forgot password" answers that reset is unavailable.
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM # e.g. Tripwise <you@gmail.com>
+        sync: false
       # Optional: Claude reads uploaded bookings (emails, PDFs, photos). Leave empty to use the built-in readers only.
       - key: ANTHROPIC_API_KEY
         sync: false

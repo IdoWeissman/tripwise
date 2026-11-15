@@ -8,6 +8,10 @@ export const unauthenticated = () =>
 export const forbidden = (message = 'You do not have access to this trip.') =>
   new GraphQLError(message, { extensions: { code: 'FORBIDDEN' } });
 
+/** An error the client branches on by code (e.g. 'ACCOUNT_NOT_FOUND'); codes are listed in schema.graphql. */
+export const errorWithCode = (message: string, code: string) =>
+  new GraphQLError(message, { extensions: { code } });
+
 export const badInput = (message: string) =>
   new GraphQLError(message, { extensions: { code: 'BAD_USER_INPUT' } });
 
