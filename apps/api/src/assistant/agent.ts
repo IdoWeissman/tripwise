@@ -272,7 +272,11 @@ export async function runAssistant(
   } as never;
 
   const messages: { role: 'user' | 'assistant'; content: unknown }[] = [
-    ...opts.history.slice(-10).map((t) => ({ role: t.role, content: t.content })),
+    // Empty turns (an answer that failed before any text) would be rejected by the API.
+    ...opts.history
+      .filter((t) => t.content.trim())
+      .slice(-10)
+      .map((t) => ({ role: t.role, content: t.content })),
     { role: 'user', content: opts.question },
   ];
   let inputTokens = 0;
@@ -355,7 +359,12 @@ export async function runAssistant(
     // Keep any "let me check…" text apart from the answer that follows.
     if (res.content.some((b) => b.type === 'text' && b.text.trim()))
       opts.emit({ type: 'text', text: '\n\n' });
-    messages.push({ role: 'assistant', content: res.content });
+    // Replay the turn without empty text blocks: Claude often opens one before a tool call, and
+    // the API rejects empty text when it's sent back ("text content blocks must be non-empty").
+    messages.push({
+      role: 'assistant',
+      content: res.content.filter((b) => b.type !== 'text' || b.text.trim()),
+    });
     const results = [];
     for (const use of uses) {
       if (STATUS[use.name]) opts.emit({ type: 'status', text: STATUS[use.name]! });
