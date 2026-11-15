@@ -6,7 +6,9 @@ import { BookingDetailPage } from './pages/BookingDetailPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { ItineraryPage } from './pages/ItineraryPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { JoinPage } from './pages/JoinPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { MembersPage } from './pages/MembersPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { OverviewPage } from './pages/OverviewPage';
@@ -18,6 +20,8 @@ import { WelcomePage } from './pages/WelcomePage';
 const router = createBrowserRouter([
   { path: '/sign-in', element: <SignInPage /> },
   { path: '/sign-up', element: <SignInPage mode="signUp" /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password/:token', element: <ResetPasswordPage /> },
   { path: '/join/:token', element: <JoinPage /> },
   {
     element: <RequireAuth />,

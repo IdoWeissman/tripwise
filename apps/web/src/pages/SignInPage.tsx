@@ -2,11 +2,11 @@ import { useMutation } from '@apollo/client/react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/Button';
-import { Logo } from '../components/Logo';
+import { AuthLayout, authInputCls as inputCls } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
 import { graphql } from '../gql';
 import { afterAuthPath, safeNext } from '../lib/authRedirect';
-import { messageFromError } from '../lib/errors';
+import { codeFromError, messageFromError } from '../lib/errors';
 import { MeDocument } from '../lib/session';
 
 const SignInMutation = graphql(`
@@ -35,16 +35,6 @@ const SignUpMutation = graphql(`
 
 const DEMO = { email: 'demo@tripwise.app', password: 'tripwise-demo' };
 
-/** Only allow in-app redirects. */
-const POINTS = [
-  { t: 'One shared itinerary', d: 'Drag activities between days. Everyone sees changes live.' },
-  { t: 'Vote on ideas', d: 'Proposals with enough votes land on the plan automatically.' },
-  { t: 'Split costs fairly', d: 'Log expenses and settle up in as few payments as possible.' },
-];
-
-const inputCls =
-  'h-12 rounded-control border border-border-input bg-surface px-3.5 text-[15px] font-normal text-ink placeholder:text-ink-muted';
-
 export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -71,129 +61,117 @@ export function SignInPage({ mode = 'signIn' }: { mode?: 'signIn' | 'signUp' }) 
     else submit({ email, password });
   };
   const switchHref = `${isSignUp ? '/sign-in' : '/sign-up'}${params.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // The reset screens carry the typed email (and where to go after) so nothing is retyped.
+  const forgotHref = `/forgot-password?${new URLSearchParams({
+    ...(email.trim() ? { email: email.trim() } : {}),
+    ...(params.get('next') ? { next } : {}),
+  })}`;
+  const accountExists = isSignUp && codeFromError(error) === 'ACCOUNT_EXISTS';
+  // Only a wrong email/password points at a reset — not a network error.
+  const wrongCredentials = !isSignUp && codeFromError(error) === 'BAD_USER_INPUT';
 
   return (
-    <div className="flex min-h-screen flex-wrap bg-surface">
-      {/* Form first on mobile (rules §2 · Sign in) */}
-      <section
-        aria-label="Sign in"
-        className="order-1 flex flex-[1_1_480px] items-center justify-center px-8 py-12 md:order-2"
-      >
-        <form onSubmit={onSubmit} className="flex w-full max-w-[400px] flex-col gap-5" noValidate>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-[28px] font-bold tracking-[-0.02em]">
-              {isSignUp ? 'Create your account' : 'Welcome back'}
-            </h1>
-            <p className="text-[15px] text-ink-muted">
-              {isSignUp ? 'Start planning trips with your friends.' : 'Sign in to see your trips.'}
-            </p>
-          </div>
-          {isSignUp && (
-            <label className="flex flex-col gap-1.5 text-sm font-semibold">
-              Name
-              <input
-                type="text"
-                autoComplete="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="What friends call you"
-                className={inputCls}
-              />
-            </label>
-          )}
-          <label className="flex flex-col gap-1.5 text-sm font-semibold">
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className={inputCls}
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm font-semibold">
-            Password
-            <PasswordInput
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className={inputCls}
-            />
-          </label>
-          {error && (
-            <p role="alert" className="text-sm text-negative-ink">
-              {messageFromError(error)}
-            </p>
-          )}
-          <Button type="submit" disabled={loading} className="h-12">
-            {loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
-          </Button>
-          <div className="flex items-center gap-3 text-[13px] text-ink-muted">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-          <Button
-            variant="secondary"
-            className="h-12"
-            disabled={loading}
-            onClick={() => submit(DEMO)}
-          >
-            Explore with the demo account
-          </Button>
-          <p className="text-center text-sm text-ink-muted">
-            {isSignUp ? 'Already have an account? ' : 'New to Tripwise? '}
-            <Link to={switchHref} className="font-semibold text-accent">
-              {isSignUp ? 'Sign in' : 'Create an account'}
-            </Link>
+    <AuthLayout label={isSignUp ? 'Create account' : 'Sign in'}>
+      <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-headline-sm font-extrabold tracking-[-0.02em]">
+            {isSignUp ? 'Create your account' : 'Welcome back'}
+          </h1>
+          <p className="text-[15px] text-ink-muted">
+            {isSignUp ? 'Start planning trips with your friends.' : 'Sign in to see your trips.'}
           </p>
-        </form>
-      </section>
-
-      <section
-        aria-label="About Tripwise"
-        className="order-2 flex flex-[1_1_480px] flex-col justify-between gap-12 bg-sign px-8 py-12 text-white md:order-1 md:px-16"
-      >
-        <Logo onSign />
-        <div className="flex max-w-[520px] flex-col gap-8">
-          <h2 className="text-4xl leading-[1.08] font-extrabold tracking-[-0.025em] text-white md:text-[52px]">
-            Plan the trip together. Skip the group-chat chaos.
-          </h2>
-          <ul className="flex flex-col gap-4.5">
-            {POINTS.map((p) => (
-              <li key={p.t} className="flex items-start gap-3.5">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-sign-raised text-white">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M5 12l5 5 9-10" />
-                  </svg>
-                </span>
-                <span className="flex flex-col gap-0.5">
-                  <strong className="font-bold text-white">{p.t}</strong>
-                  <span className="text-[15px] text-sign-ink-soft">{p.d}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
         </div>
-        <p className="text-[13px] text-sign-ink-soft">
-          An open-source portfolio project · React, GraphQL, PostgreSQL
+        {isSignUp && (
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            Name
+            <input
+              type="text"
+              autoComplete="name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="What friends call you"
+              className={inputCls}
+            />
+          </label>
+        )}
+        <label className="flex flex-col gap-1.5 text-sm font-semibold">
+          Email
+          <input
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={inputCls}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm font-semibold">
+          Password
+          <PasswordInput
+            autoComplete={isSignUp ? 'new-password' : 'current-password'}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            className={inputCls}
+          />
+        </label>
+        {/* after a failed sign-in the error carries this link instead */}
+        {!isSignUp && !error && (
+          <Link
+            to={forgotHref}
+            className="-mt-3 flex min-h-11 items-center self-end text-[13px] font-bold"
+          >
+            Forgot password?
+          </Link>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-negative-ink">
+            {messageFromError(error)} {/* the two dead ends offer the way out (rules §2 · 01) */}
+            {accountExists ? (
+              <>
+                <Link to={switchHref} className="font-bold">
+                  Sign in
+                </Link>{' '}
+                ·{' '}
+                <Link to={forgotHref} className="font-bold">
+                  Reset your password
+                </Link>
+              </>
+            ) : (
+              wrongCredentials && (
+                <Link to={forgotHref} className="font-bold">
+                  Forgot password?
+                </Link>
+              )
+            )}
+          </p>
+        )}
+        <Button type="submit" disabled={loading} className="h-12">
+          {loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
+        </Button>
+        <div className="flex items-center gap-3 text-[13px] text-ink-muted">
+          <span className="h-px flex-1 bg-border" />
+          or
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <Button
+          variant="secondary"
+          className="h-12"
+          disabled={loading}
+          onClick={() => submit(DEMO)}
+        >
+          Explore with the demo account
+        </Button>
+        <p className="text-center text-sm text-ink-muted">
+          {isSignUp ? 'Already have an account? ' : 'New to Tripwise? '}
+          <Link to={switchHref} className="font-semibold text-accent">
+            {isSignUp ? 'Sign in' : 'Create an account'}
+          </Link>
         </p>
-      </section>
-    </div>
+      </form>
+    </AuthLayout>
   );
 }
