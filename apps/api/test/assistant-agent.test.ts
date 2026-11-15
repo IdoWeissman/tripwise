@@ -64,12 +64,25 @@ const TOOLS = [
   'add_expense',
 ].map(tool);
 
-/** Rejects requests the real API rejects: any empty or whitespace-only text block. */
+const apiError = (message: string) =>
+  new Response(
+    JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message } }),
+    {
+      status: 400,
+    },
+  );
+
+/**
+ * Rejects requests the real API rejects: any empty or whitespace-only text block, and a
+ * conversation ending in an assistant turn (prefill returns a 400 on current models).
+ */
 function strictApi(script: Response[]) {
   const bodies: { messages: { role: string; content: unknown }[] }[] = [];
   const fetch = (async (_url: unknown, init?: RequestInit) => {
     const body = JSON.parse(String(init!.body));
     bodies.push(body);
+    if (body.messages.at(-1)?.role === 'assistant')
+      return apiError('This model does not support assistant message prefill.');
     for (const m of body.messages) {
       const blocks =
         typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content;
@@ -169,7 +182,10 @@ describe('assistant agent loop', () => {
     };
     expect(second.max_tokens).toBe(4096);
     expect(second.tool_choice).toEqual({ type: 'none' });
-    expect(second.messages.at(-1)).toEqual({ role: 'assistant', content: 'Ideas:\n- **The Met' });
+    // No prefill: the cut-off answer is an ordinary assistant turn, and a user turn asks to go on.
+    expect(second.messages.at(-2)).toEqual({ role: 'assistant', content: 'Ideas:\n- **The Met' });
+    expect(second.messages.at(-1)!.role).toBe('user');
+    expect(second.messages.at(-1)!.content).toContain('**The Met');
   });
 
   it('says so when the answer is still cut short', async () => {
@@ -180,8 +196,9 @@ describe('assistant agent loop', () => {
     ]);
     const events = await run(api.fetch);
     expect(api.bodies).toHaveLength(3);
-    // A prefilled turn never ends with whitespace (the API rejects it).
-    expect((api.bodies[1]!.messages.at(-1) as { content: string }).content).toBe('One');
+    // Each try carries the whole answer so far as one assistant turn, then the user's "go on".
+    expect(api.bodies[2]!.messages.at(-2)).toEqual({ role: 'assistant', content: 'One two ' });
+    expect(api.bodies[2]!.messages.at(-1)!.role).toBe('user');
     expect(events.at(-1)).toEqual({
       type: 'text',
       text: '\n\n(The answer was cut short. Ask me to continue, or narrow the question.)',

@@ -65,6 +65,12 @@ const MAX_ANSWER_TOKENS = 4096;
 /** How many times a cut-off answer is continued before we say it was cut short. */
 const MAX_CONTINUATIONS = 2;
 
+/** The user turn that asks Claude to finish an answer the output limit cut off. */
+const continueFrom = (answer: string) =>
+  `Your previous answer was cut off by the length limit. It ended with:\n\n${answer.slice(-300)}\n\n` +
+  'Continue from exactly that point, mid-word if needed. Do not repeat anything, do not add a ' +
+  'preamble, and keep the same formatting.';
+
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -363,18 +369,21 @@ export async function runAssistant(
     );
 
     if (res.stopReason === 'max_tokens' && uses.length === 0) {
-      // The answer hit the output limit mid-sentence. Hand Claude what it wrote so far as the
-      // start of its turn and let it carry on (tools off: it only has to finish writing).
+      // The answer hit the output limit mid-sentence. Current models reject an assistant-turn
+      // prefill (400), so the answer so far goes back as an ordinary assistant turn and a user
+      // turn asks Claude to carry on from where it stopped (tools off: it only has to finish).
       let answer = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
       let stop: string | null = res.stopReason;
       for (let i = 0; i < MAX_CONTINUATIONS && stop === 'max_tokens'; i++) {
-        // The API rejects a prefilled turn that ends with whitespace.
-        answer = answer.trimEnd();
         const more = await streamMessage(
           opts,
           request({
             tool_choice: { type: 'none' },
-            messages: [...messages, { role: 'assistant', content: answer }],
+            messages: [
+              ...messages,
+              { role: 'assistant', content: answer },
+              { role: 'user', content: continueFrom(answer) },
+            ],
           }),
           emitText,
         );
