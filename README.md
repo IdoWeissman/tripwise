@@ -78,12 +78,26 @@ uses the pooled `DATABASE_URL`, and migrations use `DATABASE_URL_UNPOOLED`.
 
 ### Smart booking import
 
-Uploaded confirmations are read in layers, and you review everything before it's saved:
+Uploaded confirmations are read **AI first**, checked, and reviewed by you before anything is saved:
 
-1. **schema.org data** that airlines and hotels embed in emails (exact).
-2. **Calendar attachments** (`.ics` / `.vcs`) — one event per flight or reservation, with exact times.
-3. **Text rules** — route titles ("Tel Aviv ⇄ Rome"), labelled totals, travellers, provider and manage-booking link.
-4. **Claude (optional)** — set `ANTHROPIC_API_KEY` and the email, PDF (including scans) or ticket photo is also read by Claude through a strict tool schema. Exact calendar times always win, and anything the model leaves empty is filled from the rules. If the call fails, the rules' result is used. Uploaded content is sent to the Anthropic API only when a key is set.
+1. **Claude reads the original file** — the PDF itself (page images + text, so layout survives), the
+   email with its attached PDFs and calendar files, or the photo — through a **strict tool schema**
+   (`strict: true`), so the answer always has the right shape.
+2. **Every key value comes with evidence**: the model quotes the text it read the code, dates and
+   price from. The server checks each quote is really in the document and states that value, and
+   runs consistency checks (check-out after check-in, legs in order, flight numbers present).
+3. **Escalation**: when something fails verification, the same file goes to a stronger model
+   (`ANTHROPIC_MODEL`, default Haiku → `ANTHROPIC_ESCALATION_MODEL`, default Sonnet; `none` turns it
+   off) and the better-verified answer is kept.
+4. **Exact data wins**: schema.org blocks and calendar attachments override the model where they
+   apply. Heuristic text rules never overwrite or fill the model's answer — a guessed "price" (say, a
+   pet fee on a voucher that states no price) is worse than an empty field — except for a labelled
+   confirmation code and a manage-booking link.
+5. **Review**: fields that couldn't be verified are tagged **Check this**; the rest **Read from file**.
+
+Without `ANTHROPIC_API_KEY` (or if the API is down) the rule-based readers — schema.org, calendar
+files and text rules — produce the drafts on their own. Uploaded content is sent to the Anthropic API
+only when a key is set.
 
 **Destination search** — the trip form suggests real places as you type. The API asks the free [Open-Meteo Geocoding API](https://open-meteo.com/en/docs/geocoding-api) on the user's behalf (no key; the browser never calls it, so the visitor's IP isn't shared). Only the typed place name is sent. A picked place sets the trip's time zone and currency; free text still works if the service is down.
 

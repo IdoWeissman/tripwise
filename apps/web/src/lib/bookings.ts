@@ -202,6 +202,8 @@ export interface BookingDraft {
   notes?: string | null;
   segments: SegmentDraft[];
   fromSource: string[];
+  /** Fields the importer couldn't verify against the file. */
+  toCheck?: string[];
   source: BookingSource;
   attachmentId?: string | null;
   sourceName?: string | null;

@@ -5,10 +5,13 @@
  */
 import { z } from 'zod';
 import { withProvenance, type Draft } from './types.js';
+import { fieldsToCheck, type Evidence } from './verify.js';
 
 export interface AiConfig {
   apiKey: string;
   model: string;
+  /** Stronger model to retry with when the first result fails verification (optional). */
+  escalationModel?: string | null;
   /** Override for tests. */
   fetch?: typeof fetch;
   /** Called after each API call with token usage and latency (used by the evals). */
@@ -30,8 +33,13 @@ export interface AiInput {
   calendars?: string[];
   /** A photo or screenshot of a ticket. */
   image?: { mediaType: 'image/png' | 'image/jpeg'; data: Buffer } | null;
-  /** A PDF without a text layer (scanned). */
-  pdf?: Buffer | null;
+  /** PDFs, sent as documents so the model sees the pages, not just their text layer. */
+  pdfs?: Buffer[];
+  /**
+   * Plain text of everything sent, used to check the model's quotes. Null for photos and
+   * scanned PDFs, where there is no text to check against.
+   */
+  docText?: string | null;
 }
 
 const TYPES = [
@@ -52,68 +60,73 @@ Rules:
 - title: short and human, never the email subject. Flights/trains: city names, "Tel Aviv ⇄ Rome" for a round trip, "Tel Aviv → Rome" one way (connections don't count as destinations). Stays: the property name. Events, tours, attractions, restaurants: the name of the show, place or venue.
 - Times are local wall-clock times at that place, formatted "YYYY-MM-DDTHH:mm" (or "YYYY-MM-DD" when there is no time). Never convert to UTC. departTz/arriveTz/timeZone: IANA zone (e.g. "Europe/Rome") when you can tell the city, else null.
 - Stays: startLocal = check-in, endLocal = check-out.
-- price: the total actually paid for the whole booking including taxes and fees, as a decimal string with a dot ("324.97"); currency: ISO 4217 code. Not a per-person fare or a single tax line.
-- travellers: number of people on the booking.
+- price: the total actually paid for the whole booking including taxes and fees, as a decimal string with a dot ("324.97"); currency: ISO 4217 code. Not a per-person fare or a single tax line. Vouchers and package bookings often state no price: then leave it empty. Never use optional fees, deposits, parking, pet or resort fees as the price.
+- travellers: number of people on the booking ("Dana Levi +1 guest" is 2). 0 when not stated.
+- Stays: when check-in/check-out times appear only in the policy text ("Check-in from 4:00 PM", "Check-out by 11:00 AM"), use them.
 - provider: the airline, hotel, venue or ticket seller (not the email service).
 - bookingUrl: the link to view or manage this booking, if present. Not images, unsubscribe or marketing links.
 - fromCode/toCode: 3-letter IATA airport codes for flights; fromName/toName: airport or station name.
 - notes: short practical facts worth keeping (baggage allowance, terminal, seat, check-in instructions). One line each, max 5 lines.
-- Use null for anything not stated. Never guess codes, numbers, prices or times.
+- Use an empty string (or 0 for travellers) for anything not stated. Never guess codes, numbers, prices or times.
+- evidence: for confirmationCode, startLocal, endLocal and price, copy the exact text from the document you read each value from (a short verbatim snippet, e.g. "Total Amount: USD 1450.00"). Empty when the field is empty. Never paraphrase.
 - If there is no booking at all, call the tool with an empty list.`;
 
-const nullableString = { type: ['string', 'null'] };
+const str = { type: 'string' } as const;
+const obj = (properties: Record<string, unknown>) => ({
+  type: 'object',
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
 
+const SEGMENT = obj({
+  carrier: str,
+  number: str,
+  fromCode: str,
+  fromName: str,
+  toCode: str,
+  toName: str,
+  departLocal: str,
+  arriveLocal: str,
+  departTz: str,
+  arriveTz: str,
+});
+
+/** Verbatim snippets the values were read from; checked against the document. */
+export const EVIDENCE_FIELDS = ['confirmationCode', 'startLocal', 'endLocal', 'price'] as const;
+
+/**
+ * Strict tool: the API guarantees the answer matches this schema. Every field is required and
+ * "not stated" is an empty string, which keeps the schema free of optional fields and unions
+ * (both are limited in strict mode); validation below turns "" into null.
+ */
 const TOOL = {
   name: 'record_bookings',
   description: 'Record the bookings found in the document.',
-  input_schema: {
-    type: 'object',
-    required: ['bookings'],
-    properties: {
-      bookings: {
-        type: 'array',
-        items: {
-          type: 'object',
-          required: ['type', 'title', 'segments'],
-          properties: {
-            type: { type: 'string', enum: TYPES },
-            title: { type: 'string' },
-            provider: nullableString,
-            confirmationCode: nullableString,
-            bookingUrl: nullableString,
-            startLocal: nullableString,
-            endLocal: nullableString,
-            timeZone: nullableString,
-            location: nullableString,
-            address: nullableString,
-            price: nullableString,
-            currency: nullableString,
-            travellers: { type: ['integer', 'null'] },
-            notes: nullableString,
-            segments: {
-              type: 'array',
-              items: {
-                type: 'object',
-                required: ['departLocal'],
-                properties: {
-                  carrier: nullableString,
-                  number: nullableString,
-                  fromCode: nullableString,
-                  fromName: nullableString,
-                  toCode: nullableString,
-                  toName: nullableString,
-                  departLocal: { type: 'string' },
-                  arriveLocal: nullableString,
-                  departTz: nullableString,
-                  arriveTz: nullableString,
-                },
-              },
-            },
-          },
-        },
-      },
+  strict: true,
+  input_schema: obj({
+    bookings: {
+      type: 'array',
+      items: obj({
+        type: { type: 'string', enum: TYPES },
+        title: str,
+        provider: str,
+        confirmationCode: str,
+        bookingUrl: str,
+        startLocal: str,
+        endLocal: str,
+        timeZone: str,
+        location: str,
+        address: str,
+        price: str,
+        currency: str,
+        travellers: { type: 'integer' },
+        notes: str,
+        segments: { type: 'array', items: SEGMENT },
+        evidence: obj(Object.fromEntries(EVIDENCE_FIELDS.map((f) => [f, str]))),
+      }),
     },
-  },
+  }),
 } as const;
 
 // --- validation: anything malformed becomes null instead of failing the whole import ---
@@ -160,7 +173,9 @@ const Segment = z.object({
 });
 
 const Booking = z.object({
-  type: z.enum(TYPES).catch('OTHER'),
+  type: z
+    .preprocess((v) => (typeof v === 'string' ? v.toUpperCase() : v), z.enum(TYPES))
+    .catch('OTHER'),
   title: z.string().trim().min(1).max(120),
   provider: text(120),
   confirmationCode: z
@@ -198,8 +213,16 @@ const Booking = z.object({
 
 const Result = z.object({ bookings: z.array(z.unknown()).max(10) });
 
-/** Validated drafts from the model's tool input. Invalid bookings are dropped one by one. */
-export function draftsFromAi(input: unknown): Draft[] {
+const EvidenceSchema = z
+  .object(Object.fromEntries(EVIDENCE_FIELDS.map((f) => [f, z.string().max(500).catch('')])))
+  .partial()
+  .catch({});
+
+/**
+ * Validated drafts from the model's tool input. Invalid bookings are dropped one by one, and each
+ * draft lists the fields its evidence doesn't support (`toCheck`).
+ */
+export function draftsFromAi(input: unknown, docText: string | null = null): Draft[] {
   const parsed = Result.safeParse(input);
   if (!parsed.success) return [];
   const drafts: Draft[] = [];
@@ -209,13 +232,34 @@ export function draftsFromAi(input: unknown): Draft[] {
     const segments = b.data.segments
       .filter((s) => s.departLocal)
       .map((s) => ({ ...s, departLocal: s.departLocal! }));
-    drafts.push(withProvenance({ ...b.data, segments }));
+    const draft = withProvenance({ ...b.data, segments });
+    const evidence = EvidenceSchema.parse(
+      (raw as { evidence?: unknown }).evidence ?? {},
+    ) as Evidence;
+    draft.toCheck = fieldsToCheck(draft, evidence, docText);
+    drafts.push(draft);
   }
   return drafts;
 }
 
-/** Asks Claude for the bookings. Returns null when the call fails, so callers fall back to rules. */
+/** How much of a result needs checking; lower is better. A failed call is worst. */
+const doubt = (drafts: Draft[] | null) =>
+  drafts === null ? Infinity : drafts.reduce((n, d) => n + (d.toCheck?.length ?? 0), 0);
+
+/**
+ * Reads the bookings with Claude: the fast model first, and the stronger model when the first
+ * answer fails verification. Returns null when the calls fail, so callers fall back to rules.
+ */
 export async function extractWithAi(cfg: AiConfig, input: AiInput): Promise<Draft[] | null> {
+  const first = await callModel(cfg, cfg.model, input);
+  const stronger = cfg.escalationModel;
+  if (!stronger || stronger === 'none' || stronger === cfg.model || doubt(first) === 0)
+    return first;
+  const second = await callModel(cfg, stronger, input);
+  return doubt(second) <= doubt(first) ? second : first;
+}
+
+async function callModel(cfg: AiConfig, model: string, input: AiInput): Promise<Draft[] | null> {
   const content: unknown[] = [];
   if (input.image)
     content.push({
@@ -226,10 +270,10 @@ export async function extractWithAi(cfg: AiConfig, input: AiInput): Promise<Draf
         data: input.image.data.toString('base64'),
       },
     });
-  if (input.pdf)
+  for (const pdf of input.pdfs ?? [])
     content.push({
       type: 'document',
-      source: { type: 'base64', media_type: 'application/pdf', data: input.pdf.toString('base64') },
+      source: { type: 'base64', media_type: 'application/pdf', data: pdf.toString('base64') },
     });
   const parts = [
     input.subject ? `Subject: ${input.subject}` : null,
@@ -251,33 +295,47 @@ export async function extractWithAi(cfg: AiConfig, input: AiInput): Promise<Draf
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: cfg.model,
+        model,
         max_tokens: 4096,
-        system: SYSTEM,
+        // The prompt and schema never change: cache them across imports.
+        system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
         tools: [TOOL],
         tool_choice: { type: 'tool', name: TOOL.name },
         messages: [{ role: 'user', content }],
       }),
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) {
-      console.warn(`AI extraction failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+      console.warn(
+        `AI extraction failed (${model}): HTTP ${res.status} ${(await res.text()).slice(0, 200)}`,
+      );
       return null;
     }
     const json = (await res.json()) as {
       content?: { type: string; name?: string; input?: unknown }[];
-      usage?: { input_tokens?: number; output_tokens?: number };
+      stop_reason?: string;
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_read_input_tokens?: number;
+        cache_creation_input_tokens?: number;
+      };
     };
     cfg.onUsage?.({
-      model: cfg.model,
-      inputTokens: json.usage?.input_tokens ?? 0,
+      model,
+      inputTokens:
+        (json.usage?.input_tokens ?? 0) +
+        (json.usage?.cache_read_input_tokens ?? 0) +
+        (json.usage?.cache_creation_input_tokens ?? 0),
       outputTokens: json.usage?.output_tokens ?? 0,
       ms: Date.now() - started,
     });
+    // A refusal or a cut-off answer may not match the schema: treat it as a failed call.
+    if (json.stop_reason === 'refusal' || json.stop_reason === 'max_tokens') return null;
     const call = json.content?.find((c) => c.type === 'tool_use' && c.name === TOOL.name);
-    return call ? draftsFromAi(call.input) : null;
+    return call ? draftsFromAi(call.input, input.docText ?? null) : null;
   } catch (err) {
-    console.warn('AI extraction failed:', err instanceof Error ? err.message : err);
+    console.warn(`AI extraction failed (${model}):`, err instanceof Error ? err.message : err);
     return null;
   }
 }

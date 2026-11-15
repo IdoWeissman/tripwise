@@ -35,6 +35,8 @@ export interface BookingFormState {
   legs: LegState[];
   /** Fields that came from the uploaded file. */
   fromSource: string[];
+  /** Fields read from the file that the importer couldn't verify. */
+  toCheck: string[];
 }
 
 const legFrom = (s: SegmentDraft): LegState => ({
@@ -73,6 +75,7 @@ export function formStateFrom(
     notes: d.notes ?? '',
     legs: (d.segments ?? []).map(legFrom),
     fromSource: d.fromSource ?? [],
+    toCheck: d.toCheck ?? [],
   };
 }
 

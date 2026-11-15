@@ -43,3 +43,4 @@ apps/api/evals/*/report*.md
 
 # Impeccable: binary downloaded per machine on first run
 **/skills/impeccable/scripts/bin/
+apps/api/evals/importer/private/

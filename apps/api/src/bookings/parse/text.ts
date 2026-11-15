@@ -170,6 +170,13 @@ export function findPrice(text: string): { price: string; currency: string } | n
     const ownLine = lines.at(-1) ?? '';
     const before = /\p{L}/u.test(ownLine) ? ownLine : lines.slice(-2).join(' ');
     const label = PRICE_LABELS.find(([l]) => l.test(before))?.[1] ?? 0;
+    // Optional extras are not the price: "Pet Fee: USD 100.00 Per Stay", "Parking USD 66 Per Day".
+    const context = text.slice(Math.max(0, m.index! - 40), m.index! + m[0].length + 20);
+    if (
+      label < 3 &&
+      /\b(fees?|deposits?|parking|per (?:day|night|stay|person)|incidental)\b/i.test(context)
+    )
+      continue;
     const weight = label * 1_000_000_000 + value; // labelled totals first, then the largest amount
     if (!best || weight > best.weight)
       best = { price: value.toFixed(2), currency: SYMBOLS[cur] ?? cur, weight };

@@ -134,6 +134,7 @@ export function AddBookingDialog({
                   title: file.name.replace(/\.[^.]+$/, ''),
                   segments: [],
                   fromSource: [],
+                  toCheck: [],
                   source: res.kind,
                 } as BookingDraft,
               ];
