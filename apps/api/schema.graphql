@@ -270,6 +270,8 @@ type BookingDraft {
   segments: [SegmentDraft!]!
   "Names of fields that were read from the source."
   fromSource: [String!]!
+  "Fields the importer couldn't verify against the file (shown as \"Check this\")."
+  toCheck: [String!]!
   source: BookingSource!
   attachmentId: ID
   sourceName: String

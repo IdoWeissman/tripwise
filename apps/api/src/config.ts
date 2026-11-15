@@ -25,6 +25,8 @@ const EnvSchema = z.object({
   // Optional AI reading of booking emails, PDFs and ticket photos (Claude). Off when unset.
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_MODEL: z.string().default('claude-haiku-5-5'),
+  /** Second, stronger model for imports whose result fails verification. "none" turns it off. */
+  ANTHROPIC_ESCALATION_MODEL: z.string().default('claude-sonnet-5-5'),
 
   // Trip assistant (RAG chat on trip screens). Needs ANTHROPIC_API_KEY; VOYAGE_API_KEY adds
   // semantic search (pgvector) on top of keyword search.

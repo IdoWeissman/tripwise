@@ -6,13 +6,14 @@
  *   pnpm --filter @tripwise/api eval:import --update   # accept the current rules scores as the baseline
  *   pnpm --filter @tripwise/api eval:import --ai       # rules + Claude (needs ANTHROPIC_API_KEY)
  *   pnpm --filter @tripwise/api eval:import --case train-pdf --verbose
+ *   pnpm --filter @tripwise/api eval:import --private --ai   # your real files (see private/README)
  *
  * AI cost is shown when EVAL_PRICE_IN / EVAL_PRICE_OUT (USD per million tokens) are set — prices
  * change, so they aren't hard-coded. Writes evals/importer/report.md and, in GitHub Actions, the
  * job summary.
  */
 import '../../src/env.js';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from '../../src/config.js';
 import { aiConfig, parseFile, parseText } from '../../src/bookings/parse/index.js';
@@ -60,9 +61,52 @@ async function run(c: EvalCase): Promise<Result> {
   return { c, drafts, ms: performance.now() - started, score: scoreCase(c.expect, drafts) };
 }
 
+/**
+ * Real confirmations live in evals/importer/private/ (gitignored, never committed): the files plus
+ * a cases.json with the right answers. They measure the importer on documents nobody tuned for.
+ */
+function privateCases(): EvalCase[] {
+  const dir = here('private/');
+  const file = `${dir}cases.json`;
+  if (!existsSync(file)) {
+    console.error(`No private cases: create ${file} (see evals/importer/README.md).`);
+    process.exit(2);
+  }
+  const list = JSON.parse(readFileSync(file, 'utf8')) as {
+    id: string;
+    about?: string;
+    file: string;
+    expect: EvalCase['expect'];
+  }[];
+  return list.map((c) => {
+    const ext = c.file.split('.').pop()!.toLowerCase();
+    const path = `${dir}${c.file}`;
+    return {
+      id: c.id,
+      group: 'unseen',
+      about: c.about ?? c.file,
+      expect: c.expect,
+      input:
+        ext === 'txt'
+          ? { kind: 'TEXT', text: readFileSync(path, 'utf8') }
+          : {
+              kind: ext === 'pdf' ? 'PDF' : 'EMAIL',
+              fileName: c.file,
+              file: () => readFileSync(path),
+            },
+    } satisfies EvalCase;
+  });
+}
+
+const usePrivate = has('--private');
+if (usePrivate && (has('--update') || has('--check'))) {
+  console.error('The baseline gate covers the committed cases only; drop --update/--check.');
+  process.exit(2);
+}
 const only = has('--case') ? value('--case') : null;
 const results: Result[] = [];
-for (const c of CASES) if (!only || c.id === only) results.push(await run(c));
+for (const c of usePrivate ? privateCases() : CASES)
+  if (!only || c.id === only) results.push(await run(c));
 
 // ---------------------------------------------------------------- report
 const pct = (p: number, t: number) => (t ? `${Math.round((p / t) * 100)}%` : '—');
@@ -88,20 +132,22 @@ const short = (v: unknown) => {
 };
 
 const md: string[] = [];
-md.push(`## Booking importer evals — ${useAi ? `rules + AI (${ai!.model})` : 'rules only'}`);
+md.push(
+  `## Booking importer evals${usePrivate ? ' (private, real files)' : ''} — ${useAi ? `AI first (${ai!.model}${ai!.escalationModel && ai!.escalationModel !== 'none' ? ` → ${ai!.escalationModel}` : ''})` : 'rules only'}`,
+);
 md.push('');
 md.push(
   `**Overall ${pct(all.p, all.t)}** (${all.p}/${all.t} fields) · seen formats ${pct(seen.p, seen.t)} · unseen formats ${pct(unseen.p, unseen.t)} · ${results.length} cases`,
 );
 md.push('');
-md.push('| Case | Group | Score | Time | Misses |');
-md.push('| --- | --- | --- | --- | --- |');
+md.push('| Case | Group | Score | Time | Flagged "Check this" | Misses |');
+md.push('| --- | --- | --- | --- | --- | --- |');
 for (const r of results) {
   const misses = r.score.misses.map(
     (m) => `${m.field}: expected ${short(m.expected)}, got ${short(m.actual)}`,
   );
   md.push(
-    `| ${r.c.id} | ${r.c.group} | ${r.score.passed}/${r.score.total} | ${Math.round(r.ms)} ms | ${misses.join('<br>') || '✔'} |`,
+    `| ${r.c.id} | ${r.c.group} | ${r.score.passed}/${r.score.total} | ${Math.round(r.ms)} ms | ${r.drafts.flatMap((d) => d.toCheck ?? []).join(', ') || '—'} | ${misses.join('<br>') || '✔'} |`,
   );
 }
 md.push('');
@@ -127,7 +173,11 @@ if (usage.length) {
 
 const report = md.join('\n');
 console.log(report);
-if (!only) writeFileSync(here(`report${useAi ? '-ai' : ''}.md`), `${report}\n`);
+if (!only)
+  writeFileSync(
+    here(`${usePrivate ? 'private/' : ''}report${useAi ? '-ai' : ''}.md`),
+    `${report}\n`,
+  );
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${report}\n`);
 
 if (has('--verbose'))

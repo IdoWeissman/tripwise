@@ -52,6 +52,7 @@ function view(d: Draft) {
 }
 
 function fieldOk(field: keyof Expected, expected: unknown, actual: unknown): boolean {
+  if (expected === null) return actual === null || actual === undefined;
   switch (field) {
     case 'title':
     case 'provider':
