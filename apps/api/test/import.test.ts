@@ -186,15 +186,19 @@ describe('airline e-ticket receipt PDF', () => {
   });
 });
 
+const JSON_HEADERS = { headers: { 'content-type': 'application/json' } };
+
 describe('AI usage reporting', () => {
   it('reports tokens and latency for each call (used by the evals)', async () => {
     const seen: { inputTokens: number; outputTokens: number; model: string }[] = [];
     const fake = (async () =>
       new Response(
         JSON.stringify({
-          content: [{ type: 'tool_use', name: 'record_bookings', input: { bookings: [] } }],
+          content: [{ type: 'text', text: JSON.stringify({ bookings: [] }) }],
+          stop_reason: 'end_turn',
           usage: { input_tokens: 1200, output_tokens: 90 },
         }),
+        JSON_HEADERS,
       )) as unknown as typeof fetch;
     await extractWithAi(
       { apiKey: 'k', model: 'test-model', fetch: fake, onUsage: (u) => seen.push(u) },
@@ -327,17 +331,21 @@ describe('AI extraction', () => {
     });
   });
 
-  it('sends the email to Claude with a forced tool call and falls back on errors', async () => {
+  it('sends the email to Claude with a JSON schema answer and falls back on errors', async () => {
     const fake = vi.fn(async (_url: unknown, init?: RequestInit) => {
       const body = JSON.parse(String(init!.body));
-      expect(body.tool_choice).toEqual({ type: 'tool', name: 'record_bookings' });
+      // Structured outputs, not forced tool use (which the newest models reject).
+      expect(body.output_config.format.type).toBe('json_schema');
+      expect(body.tool_choice).toBeUndefined();
+      expect(body.tools).toBeUndefined();
       expect(body.messages[0].content.at(-1).text).toContain('Subject: FW: Thank you');
       return new Response(
         JSON.stringify({
-          content: [
-            { type: 'tool_use', name: 'record_bookings', input: { bookings: [aiBooking] } },
-          ],
+          content: [{ type: 'text', text: JSON.stringify({ bookings: [aiBooking] }) }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 10, output_tokens: 10 },
         }),
+        JSON_HEADERS,
       );
     });
     const drafts = await parseFile(forwardedAirlineEmail(), 'EMAIL', 'x.eml', {
@@ -409,22 +417,24 @@ describe('AI-first extraction', () => {
   const reply = (bookings: unknown[]) =>
     new Response(
       JSON.stringify({
-        stop_reason: 'tool_use',
-        content: [{ type: 'tool_use', name: 'record_bookings', input: { bookings } }],
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: JSON.stringify({ bookings }) }],
+        usage: { input_tokens: 10, output_tokens: 10 },
       }),
+      JSON_HEADERS,
     );
 
   it('uses a strict schema with no optional fields or unions', async () => {
-    let tool: { strict?: boolean; input_schema: unknown } | undefined;
+    let schema: unknown;
     const fake = vi.fn(async (_u: unknown, init?: RequestInit) => {
-      tool = JSON.parse(String(init!.body)).tools[0];
+      schema = JSON.parse(String(init!.body)).output_config.format.schema;
       return reply([stay()]);
     });
     await extractWithAi(
       { apiKey: 'k', model: 'm', fetch: fake as unknown as typeof fetch },
       { text: doc, docText: doc },
     );
-    expect(tool!.strict).toBe(true);
+    expect(schema).toBeDefined();
     const walk = (node: any): void => {
       if (!node || typeof node !== 'object') return;
       expect(Array.isArray(node.type)).toBe(false);
@@ -436,7 +446,7 @@ describe('AI-first extraction', () => {
       Object.values(node.properties ?? {}).forEach(walk);
       walk(node.items);
     };
-    walk(tool!.input_schema);
+    walk(schema);
   });
 
   it('trusts values whose quotes are in the document, and flags the rest', () => {
