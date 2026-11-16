@@ -84,6 +84,10 @@ model Trip {
   voteThreshold Int      @default(3)
   /// IANA zone used for activity times and manual bookings, e.g. "Europe/Lisbon".
   timeZone      String   @default("UTC")
+  /// How full a day should be; the day planner's checks follow it.
+  pace          Pace      @default(BALANCED)
+  /// How the group gets between stops; sets the travel times the planner uses.
+  getAround     GetAround @default(WALK_TRANSIT)
   /// Secret for the read-only calendar feed; null until first requested.
   calendarToken String?  @unique
   createdAt     DateTime @default(now())
@@ -137,6 +141,8 @@ model Activity {
   description   String?
   location      String?
   startTime     String? // "HH:mm" local to the trip
+  /// How long it takes; null = estimated from the kind of place.
+  durationMinutes Int?
   costPerPerson Decimal?       @db.Decimal(12, 2)
   /// The real place this activity happens at (Google Places), if one was picked.
   placeId       String?        @db.Uuid
@@ -366,4 +372,15 @@ model Place {
   coordsAt      DateTime
   activities    Activity[]
   bookings      Booking[]
+}
+
+enum Pace {
+  RELAXED
+  BALANCED
+  PACKED
+}
+
+enum GetAround {
+  WALK_TRANSIT
+  DRIVE
 }

@@ -1,8 +1,10 @@
 /**
  * Optional AI extraction with Claude. Used when ANTHROPIC_API_KEY is set; otherwise (or when the
- * call fails) the rule-based readers are used on their own. The model must answer through a
- * tool with a strict schema, and every value is validated before it reaches a draft.
+ * call fails) the rule-based readers are used on their own. The model answers in JSON that the API
+ * guarantees matches a schema (structured outputs), and every value is validated before it
+ * reaches a draft.
  */
+import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { withProvenance, type Draft } from './types.js';
 import { fieldsToCheck, type Evidence } from './verify.js';
@@ -53,7 +55,7 @@ const TYPES = [
   'OTHER',
 ] as const;
 
-const SYSTEM = `You read travel booking confirmations (emails, PDFs, ticket photos) and record every booking in them with the record_bookings tool.
+const SYSTEM = `You read travel booking confirmations (emails, PDFs, ticket photos) and record every booking in them, answering in the JSON format you were given.
 
 Rules:
 - One booking per reservation. A round trip or multi-leg itinerary on one confirmation is ONE booking of type FLIGHT (or TRANSPORT for trains/buses/ferries) with one segment per leg, in order.
@@ -69,7 +71,7 @@ Rules:
 - notes: short practical facts worth keeping (baggage allowance, terminal, seat, check-in instructions). One line each, max 5 lines.
 - Use an empty string (or 0 for travellers) for anything not stated. Never guess codes, numbers, prices or times.
 - evidence: for confirmationCode, startLocal, endLocal and price, copy the exact text from the document you read each value from (a short verbatim snippet, e.g. "Total Amount: USD 1450.00"). Empty when the field is empty. Never paraphrase.
-- If there is no booking at all, call the tool with an empty list.`;
+- If there is no booking at all, answer with an empty bookings list.`;
 
 const str = { type: 'string' } as const;
 const obj = (properties: Record<string, unknown>) => ({
@@ -96,38 +98,34 @@ const SEGMENT = obj({
 export const EVIDENCE_FIELDS = ['confirmationCode', 'startLocal', 'endLocal', 'price'] as const;
 
 /**
- * Strict tool: the API guarantees the answer matches this schema. Every field is required and
- * "not stated" is an empty string, which keeps the schema free of optional fields and unions
- * (both are limited in strict mode); validation below turns "" into null.
+ * The answer's shape (structured outputs: the API guarantees JSON matching it, on every model —
+ * forced tool use isn't supported on the newest ones). Every field is required and "not stated"
+ * is an empty string, which keeps the schema free of optional fields and unions (both are limited);
+ * validation below turns "" into null.
  */
-const TOOL = {
-  name: 'record_bookings',
-  description: 'Record the bookings found in the document.',
-  strict: true,
-  input_schema: obj({
-    bookings: {
-      type: 'array',
-      items: obj({
-        type: { type: 'string', enum: TYPES },
-        title: str,
-        provider: str,
-        confirmationCode: str,
-        bookingUrl: str,
-        startLocal: str,
-        endLocal: str,
-        timeZone: str,
-        location: str,
-        address: str,
-        price: str,
-        currency: str,
-        travellers: { type: 'integer' },
-        notes: str,
-        segments: { type: 'array', items: SEGMENT },
-        evidence: obj(Object.fromEntries(EVIDENCE_FIELDS.map((f) => [f, str]))),
-      }),
-    },
-  }),
-} as const;
+const SCHEMA = obj({
+  bookings: {
+    type: 'array',
+    items: obj({
+      type: { type: 'string', enum: TYPES },
+      title: str,
+      provider: str,
+      confirmationCode: str,
+      bookingUrl: str,
+      startLocal: str,
+      endLocal: str,
+      timeZone: str,
+      location: str,
+      address: str,
+      price: str,
+      currency: str,
+      travellers: { type: 'integer' },
+      notes: str,
+      segments: { type: 'array', items: SEGMENT },
+      evidence: obj(Object.fromEntries(EVIDENCE_FIELDS.map((f) => [f, str]))),
+    }),
+  },
+});
 
 // --- validation: anything malformed becomes null instead of failing the whole import ---
 
@@ -260,7 +258,7 @@ export async function extractWithAi(cfg: AiConfig, input: AiInput): Promise<Draf
 }
 
 async function callModel(cfg: AiConfig, model: string, input: AiInput): Promise<Draft[] | null> {
-  const content: unknown[] = [];
+  const content: Anthropic.ContentBlockParam[] = [];
   if (input.image)
     content.push({
       type: 'image',
@@ -287,55 +285,41 @@ async function callModel(cfg: AiConfig, model: string, input: AiInput): Promise<
 
   const started = Date.now();
   try {
-    const res = await (cfg.fetch ?? fetch)('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': cfg.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        // The prompt and schema never change: cache them across imports.
-        system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-        tools: [TOOL],
-        tool_choice: { type: 'tool', name: TOOL.name },
-        messages: [{ role: 'user', content }],
-      }),
-      signal: AbortSignal.timeout(60_000),
+    const client = new Anthropic({
+      apiKey: cfg.apiKey,
+      fetch: cfg.fetch,
+      timeout: 60_000,
+      maxRetries: 1,
     });
-    if (!res.ok) {
-      console.warn(
-        `AI extraction failed (${model}): HTTP ${res.status} ${(await res.text()).slice(0, 200)}`,
-      );
-      return null;
-    }
-    const json = (await res.json()) as {
-      content?: { type: string; name?: string; input?: unknown }[];
-      stop_reason?: string;
-      usage?: {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_read_input_tokens?: number;
-        cache_creation_input_tokens?: number;
-      };
-    };
+    const res = await client.messages.create({
+      model,
+      max_tokens: 4096,
+      // The prompt and schema never change: cache them across imports.
+      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      output_config: { format: { type: 'json_schema', schema: SCHEMA } },
+      messages: [{ role: 'user', content }],
+    });
     cfg.onUsage?.({
       model,
       inputTokens:
-        (json.usage?.input_tokens ?? 0) +
-        (json.usage?.cache_read_input_tokens ?? 0) +
-        (json.usage?.cache_creation_input_tokens ?? 0),
-      outputTokens: json.usage?.output_tokens ?? 0,
+        (res.usage?.input_tokens ?? 0) +
+        (res.usage?.cache_read_input_tokens ?? 0) +
+        (res.usage?.cache_creation_input_tokens ?? 0),
+      outputTokens: res.usage?.output_tokens ?? 0,
       ms: Date.now() - started,
     });
     // A refusal or a cut-off answer may not match the schema: treat it as a failed call.
-    if (json.stop_reason === 'refusal' || json.stop_reason === 'max_tokens') return null;
-    const call = json.content?.find((c) => c.type === 'tool_use' && c.name === TOOL.name);
-    return call ? draftsFromAi(call.input, input.docText ?? null) : null;
+    if (res.stop_reason === 'refusal' || res.stop_reason === 'max_tokens') return null;
+    const text = res.content.flatMap((c) => (c.type === 'text' ? [c.text] : [])).join('');
+    return text ? draftsFromAi(JSON.parse(text), input.docText ?? null) : null;
   } catch (err) {
-    console.warn(`AI extraction failed (${model}):`, err instanceof Error ? err.message : err);
+    const why =
+      err instanceof Anthropic.APIError
+        ? `HTTP ${err.status ?? '?'} ${err.message.slice(0, 200)}`
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    console.warn(`AI extraction failed (${model}): ${why}`);
     return null;
   }
 }

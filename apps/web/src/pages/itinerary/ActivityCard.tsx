@@ -2,7 +2,7 @@ import { forwardRef, useContext, useState, type HTMLAttributes, type ReactNode }
 import { Link } from 'react-router';
 import { Avatar } from '../../components/Avatar';
 import { PlaceSheet } from '../../components/PlaceSheet';
-import { ClockIcon, PinIcon } from '../../components/Icons';
+import { AlertIcon, ClockIcon, PinIcon } from '../../components/Icons';
 import { BOOKING_TYPES } from '../../lib/bookings';
 import { formatMoney, isPast, toNumber } from '../../lib/format';
 import { useTrip } from '../../lib/trip';
@@ -16,6 +16,8 @@ interface ActivityCardProps extends HTMLAttributes<HTMLElement> {
   /** Drag handle or "Move to" control. */
   control?: ReactNode;
   lifted?: boolean;
+  /** What the day plan found wrong with this stop ("Closed on Mondays …"). */
+  issues?: string[];
 }
 
 /**
@@ -23,7 +25,7 @@ interface ActivityCardProps extends HTMLAttributes<HTMLElement> {
  * a plan that stands for a booking carries that booking instead of appearing twice.
  */
 export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function ActivityCard(
-  { activity: a, currency, avatarIndex, control, lifted = false, className = '', ...rest },
+  { activity: a, currency, avatarIndex, control, lifted = false, issues, className = '', ...rest },
   ref,
 ) {
   const booked = a.booking ? BOOKING_TYPES[a.booking.type] : null;
@@ -36,7 +38,11 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
     <article
       ref={ref}
       className={`flex flex-col gap-1 rounded-card border bg-surface px-3 py-2.5 ${
-        lifted ? '-rotate-[1.5deg] border-accent shadow-lifted' : 'border-border'
+        lifted
+          ? '-rotate-[1.5deg] border-accent shadow-lifted'
+          : issues?.length
+            ? 'border-attention'
+            : 'border-border'
       } ${done ? 'bg-surface/60' : ''} ${className}`}
       {...rest}
     >
@@ -96,6 +102,13 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
           </span>
         </span>
       </div>
+      {!lifted &&
+        issues?.map((m, i) => (
+          <p key={i} className="flex items-start gap-1.5 text-xs font-semibold text-attention-ink">
+            <AlertIcon size={14} className="mt-px shrink-0" />
+            {m}
+          </p>
+        ))}
       {a.booking && booked && (
         <Link
           to={`../bookings/${a.booking.id}`}

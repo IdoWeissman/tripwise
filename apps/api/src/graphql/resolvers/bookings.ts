@@ -6,10 +6,11 @@ import { computeReminders, DEFAULT_PREFS, upcoming } from '../../bookings/remind
 import {
   BookingInputError,
   missingFields,
+  stayNight,
   timedParts,
   toBookingData,
 } from '../../bookings/service.js';
-import { dateKey, daysBetween, instantToLocal, localDate, localTime } from '../../lib/time.js';
+import { dateKey, instantToLocal, localDate, localTime } from '../../lib/time.js';
 import type { Resolvers } from '../__generated__/resolvers-types.js';
 import type { Context } from '../context.js';
 import { badInput, forbidden, requireTripRole } from '../errors.js';
@@ -211,27 +212,12 @@ export const bookingResolvers: Resolvers = {
         );
       });
     },
-    stay: async (day, _a, ctx) => {
-      const tz = await tripZone(ctx, day.tripId);
-      const date = dateKey(day.date);
-      for (const b of await ctx.loaders.bookingsByTrip.load(day.tripId)) {
-        if (b.type !== 'STAY' || b.status === 'CANCELLED' || !b.startsAt || !b.endsAt) continue;
-        const zone = b.timeZone ?? tz;
-        const inDate = localDate(b.startsAt, zone);
-        const outDate = localDate(b.endsAt, zone);
-        if (date < inDate || date > outDate) continue;
-        const nights = Math.max(1, daysBetween(inDate, outDate));
-        const isCheckOut = date === outDate;
-        return {
-          booking: b,
-          nights,
-          night: isCheckOut ? 0 : daysBetween(inDate, date) + 1,
-          isCheckIn: date === inDate,
-          isCheckOut,
-        };
-      }
-      return null;
-    },
+    stay: async (day, _a, ctx) =>
+      stayNight(
+        await ctx.loaders.bookingsByTrip.load(day.tripId),
+        dateKey(day.date),
+        await tripZone(ctx, day.tripId),
+      ),
   },
 
   Booking: {

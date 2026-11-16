@@ -1,6 +1,6 @@
 import type { BookingSegment, Prisma } from '../generated/prisma/client.js';
-import type { BookingModel } from '../graphql/models.js';
-import { isValidZone, localToInstant } from '../lib/time.js';
+import type { BookingModel, StayNightModel } from '../graphql/models.js';
+import { daysBetween, isValidZone, localDate, localToInstant } from '../lib/time.js';
 
 export class BookingInputError extends Error {}
 
@@ -151,4 +151,29 @@ export function timedParts(b: BookingModel): { at: Date; segment: BookingSegment
   if (b.status === 'CANCELLED') return [];
   if (b.segments?.length) return b.segments.map((s) => ({ at: s.departsAt, segment: s }));
   return b.startsAt ? [{ at: b.startsAt, segment: null }] : [];
+}
+
+/** The stay covering `date` ("YYYY-MM-DD"): its nights, or its check-out morning. */
+export function stayNight(
+  bookings: BookingModel[],
+  date: string,
+  tripZone: string,
+): StayNightModel | null {
+  for (const b of bookings) {
+    if (b.type !== 'STAY' || b.status === 'CANCELLED' || !b.startsAt || !b.endsAt) continue;
+    const zone = b.timeZone ?? tripZone;
+    const inDate = localDate(b.startsAt, zone);
+    const outDate = localDate(b.endsAt, zone);
+    if (date < inDate || date > outDate) continue;
+    const nights = Math.max(1, daysBetween(inDate, outDate));
+    const isCheckOut = date === outDate;
+    return {
+      booking: b,
+      nights,
+      night: isCheckOut ? 0 : daysBetween(inDate, date) + 1,
+      isCheckIn: date === inDate,
+      isCheckOut,
+    };
+  }
+  return null;
 }

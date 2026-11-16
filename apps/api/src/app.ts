@@ -15,6 +15,7 @@ import { createResetLimiter } from './auth/resetLimiter.js';
 import { resolveSession, sessionFromRequest } from './auth/session.js';
 import { createSmtpMailer, type Mailer } from './mail/mailer.js';
 import { placesFromEnv } from './places/service.js';
+import { routesFromEnv } from './planning/service.js';
 import { AUTH_COOKIE, readCookie } from './auth/tokens.js';
 import type { Env } from './config.js';
 import type { Db } from './db.js';
@@ -36,7 +37,7 @@ export async function createApp(
   env: Env,
   db: Db,
   storage: Storage = createStorage(env),
-  /** Test seam: replaces fetch for outgoing calls (Claude, Voyage, Google Places). */
+  /** Test seam: replaces fetch for outgoing calls (Claude, Voyage, Google Places and Routes). */
   options: {
     fetch?: typeof fetch;
     /** Test seam: replaces the SMTP mailer (null = email not configured). */
@@ -53,6 +54,7 @@ export async function createApp(
     mailer: options.mailer !== undefined ? options.mailer : createSmtpMailer(env),
     resetLimiter: createResetLimiter(),
     places: placesFromEnv(env, options.fetch),
+    routes: routesFromEnv(env, options.fetch),
   };
 
   // --- WebSocket transport for subscriptions (graphql-ws) ---

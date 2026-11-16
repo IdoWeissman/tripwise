@@ -7,6 +7,8 @@ import type { Mailer } from '../mail/mailer.js';
 import { createLoaders, type Loaders } from './loaders.js';
 import type { PlacesClient } from '../places/google.js';
 import { placesFromEnv } from '../places/service.js';
+import { routesFromEnv } from '../planning/service.js';
+import type { GoogleRoutes } from '../planning/travel.js';
 
 export interface Context {
   db: Db;
@@ -22,6 +24,8 @@ export interface Context {
   resetLimiter: ResetLimiter;
   /** Google Places, or null when GOOGLE_PLACES_API_KEY isn't set. */
   places: PlacesClient | null;
+  /** Google Routes (travel times for the day planner), or null: distances are then estimated. */
+  routes: GoogleRoutes | null;
   /** Present for HTTP operations; absent over WebSocket. */
   req?: Request;
   res?: Response;
@@ -40,6 +44,7 @@ export function buildContext(
     mailer?: Mailer | null;
     resetLimiter?: ResetLimiter;
     places?: PlacesClient | null;
+    routes?: GoogleRoutes | null;
   },
   http?: { req: Request; res: Response },
 ): Context {
@@ -48,6 +53,7 @@ export function buildContext(
     mailer: null,
     resetLimiter: fallbackLimiter,
     places: placesFromEnv(base.env),
+    routes: routesFromEnv(base.env),
     ...base,
     ...http,
     loaders: createLoaders(base.db, base.viewerId),

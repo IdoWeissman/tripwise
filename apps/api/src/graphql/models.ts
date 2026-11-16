@@ -26,6 +26,7 @@ export interface ProposalCountsModel {
 
 import type { Activity, Booking, BookingSegment } from '../generated/prisma/client.js';
 import type { Draft, SegmentDraft } from '../bookings/parse/index.js';
+import type { IssueKind as PlanIssueKind, Leg as PlanLeg } from '../planning/plan.js';
 
 export type BookingModel = Booking & { segments?: BookingSegment[] };
 export interface UpNextModel {
@@ -64,3 +65,35 @@ export type BookingDraftModel = Draft & {
   sourceName?: string | null;
 };
 export type SegmentDraftModel = SegmentDraft;
+
+/** The day planner's output, with each stop's activity row attached. */
+export interface PlanStopModel {
+  activity: Activity;
+  start: string;
+  end: string;
+  durationMinutes: number;
+  durationEstimated: boolean;
+  travel: PlanLeg | null;
+}
+export interface DayPlanModel {
+  stops: PlanStopModel[];
+  issues: {
+    kind: PlanIssueKind;
+    message: string;
+    activityId: string | null;
+    blocking: boolean;
+  }[];
+  travelMinutes: number;
+  startTime: string | null;
+  endTime: string | null;
+  backToStay: PlanLeg | null;
+  travelEstimated: boolean;
+  freeFrom: string | null;
+  freeUntil: string | null;
+}
+export interface DayArrangementModel {
+  better: boolean;
+  savedMinutes: number;
+  reason: string;
+  plan: DayPlanModel;
+}
