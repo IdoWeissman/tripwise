@@ -28,6 +28,7 @@ import {
 } from '../lib/bookings';
 import { isPast, nowHHMM, todayIn } from '../lib/format';
 import { useTrip } from '../lib/trip';
+import { OutsideDatesNotice } from '../components/TripDates';
 import { AddBookingDialog } from './bookings/AddBookingDialog';
 import { CalendarDialog } from './bookings/CalendarDialog';
 import { BookingsDocument, type BookingSummary } from './bookings/queries';
@@ -216,6 +217,7 @@ export function BookingsPage() {
   return (
     <div className="flex max-w-[880px] flex-col gap-6">
       {header}
+      <OutsideDatesNotice />
 
       {/* phones: a fade at the right edge says the pill row scrolls */}
       <div className="relative after:pointer-events-none after:absolute after:inset-y-0 after:-right-4 after:w-10 after:bg-linear-to-l after:from-bg after:to-transparent sm:after:hidden">

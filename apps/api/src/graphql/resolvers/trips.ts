@@ -3,6 +3,7 @@ import { badInput, forbidden, requireTripRole, requireViewer } from '../errors.j
 import { isValidZone } from '../../lib/time.js';
 import { publishTripEvent } from '../pubsub.js';
 import { searchPlaces } from '../../places/search.js';
+import { datesToFit, outsideTrip } from '../../bookings/service.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -69,6 +70,46 @@ export const tripResolvers: Resolvers = {
       });
     },
 
+    updateTripDates: async (_p, { tripId, startDate, endDate }, ctx) => {
+      requireViewer(ctx);
+      await requireTripRole(ctx, tripId, 'EDITOR');
+      if (endDate < startDate) throw badInput('End date must be on or after the start date.');
+      const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / DAY_MS) + 1;
+      if (dayCount > 60) throw badInput('Trips can be at most 60 days long.');
+
+      const unplannedCount = await ctx.db.$transaction(async (tx) => {
+        const days = await tx.day.findMany({ where: { tripId } });
+        const inRange = (d: Date) => d >= startDate && d <= endDate;
+        const removed = days.filter((d) => !inRange(d.date)).map((d) => d.id);
+        // Plans on removed days are kept: they move to Unplanned (ideas just lose the day).
+        const moved = removed.length
+          ? await tx.activity.updateMany({
+              where: { dayId: { in: removed }, status: 'SCHEDULED' },
+              data: { dayId: null },
+            })
+          : { count: 0 };
+        await tx.day.deleteMany({ where: { id: { in: removed } } });
+        // Positions are unique per trip: park the kept days out of the way, then renumber.
+        const kept = days.filter((d) => inRange(d.date));
+        for (const [i, d] of kept.entries())
+          await tx.day.update({ where: { id: d.id }, data: { position: -1 - i } });
+        const byDate = new Map(kept.map((d) => [d.date.getTime(), d.id]));
+        for (let i = 0; i < dayCount; i++) {
+          const date = new Date(startDate.getTime() + i * DAY_MS);
+          const id = byDate.get(date.getTime());
+          if (id) await tx.day.update({ where: { id }, data: { position: i } });
+          else await tx.day.create({ data: { tripId, date, position: i } });
+        }
+        await tx.trip.update({ where: { id: tripId }, data: { startDate, endDate } });
+        return moved.count;
+      });
+      await publishTripEvent(tripId, 'ACTIVITY_MOVED', { actorId: ctx.viewerId });
+      return {
+        trip: await ctx.db.trip.findUniqueOrThrow({ where: { id: tripId } }),
+        unplannedCount,
+      };
+    },
+
     deleteTrip: async (_p, { id }, ctx) => {
       await requireTripRole(ctx, id, 'OWNER');
       // Rows go with the trip (ON DELETE CASCADE); stored files have to be removed explicitly.
@@ -119,6 +160,12 @@ export const tripResolvers: Resolvers = {
         orderBy: { position: 'asc' },
       }),
     myRole: (trip, _a, ctx) => requireTripRole(ctx, trip.id),
+    outsideBookings: async (trip, _a, ctx) =>
+      outsideTrip(await ctx.loaders.bookingsByTrip.load(trip.id), trip),
+    datesToFit: async (trip, _a, ctx) => {
+      const fit = datesToFit(await ctx.loaders.bookingsByTrip.load(trip.id), trip);
+      return fit && { startDate: new Date(fit.startDate), endDate: new Date(fit.endDate) };
+    },
     // One member query covers auth, the viewer's flags and the head count; bookings and the
     // ledger come from the per-request loaders Today already uses, so nothing is fetched twice.
     setup: async (trip, _a, ctx) => {
