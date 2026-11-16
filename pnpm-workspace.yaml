@@ -1,11 +1,10 @@
 packages:
   - 'apps/*'
 
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - '@prisma/engines'
-  - esbuild
-  - prisma
-
-ignoredBuiltDependencies:
-  - '@apollo/protobufjs'
+# Which dependencies may run install scripts (pnpm 11+). Everything else is blocked.
+allowBuilds:
+  '@apollo/protobufjs': false
+  '@parcel/watcher': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
