@@ -5,7 +5,10 @@ import { EmptyState, ErrorState, Skeleton } from '../../components/States';
 import { loadGoogleMaps } from '../../lib/maps';
 import { useTrip } from '../../lib/trip';
 import type { Column } from './Board';
+import { BOOKING_TYPES } from '../../lib/bookings';
+import { standaloneBookings } from './bookedPlans';
 import { UNPLANNED, type ItineraryActivity } from './queries';
+import { bookingTimeOn, dayTimeline } from './timeline';
 
 type Items = Record<string, string[]>;
 const ALL = 'all';
@@ -16,6 +19,8 @@ interface Stop {
   kind: 'stop' | 'idea' | 'stay';
   title: string;
   /** "3" for the third stop of its day; "2·3" when every day is shown. */
+  /** Booked events (a show, a restaurant) carry their type code, e.g. "SHOW". */
+  code?: string;
   mark: string;
   dayId: string | null;
   placeId: string;
@@ -73,25 +78,55 @@ export function TripMap({
       if (dayFilter !== ALL && c.id !== dayFilter && c.id !== UNPLANNED) continue;
       const list: Stop[] = [];
       let n = 0;
-      for (const id of items[c.id] ?? []) {
-        const a = byId.get(id);
+      // The day in time order: plans and booked events together, as the board shows them.
+      const date = c.day?.date.slice(0, 10) ?? '';
+      const entries = dayTimeline(
+        items[c.id] ?? [],
+        (id) => byId.get(id)?.startTime,
+        c.day ? standaloneBookings(c.day) : [],
+        date,
+      );
+      const isIdea = c.id === UNPLANNED;
+      const dayNo = c.day ? c.day.position + 1 : null;
+      const markOf = (n: number) => (isIdea ? '' : dayFilter === ALL ? `${dayNo}·${n}` : String(n));
+      for (const e of entries) {
+        if (e.kind === 'booking') {
+          const b = e.booking;
+          if (!b.place) continue; // flights and trains have no single place
+          n++;
+          list.push({
+            key: `booking-${b.id}`,
+            kind: 'stop',
+            title: b.title,
+            mark: markOf(n),
+            code: BOOKING_TYPES[b.type].code,
+            dayId: c.id,
+            placeId: b.place.id,
+            lat: b.place.lat,
+            lng: b.place.lng,
+            time: bookingTimeOn(b, date),
+          });
+          continue;
+        }
+        const a = byId.get(e.id);
         if (!a) continue;
-        if (!a.place) {
+        // A plan that stands for a booking is where the booking is, if the plan has no place.
+        const place = a.place ?? a.booking?.place;
+        if (!place) {
           offMap++;
           continue;
         }
         n++;
-        const isIdea = c.id === UNPLANNED;
-        const dayNo = c.day ? c.day.position + 1 : null;
         list.push({
           key: a.id,
           kind: isIdea ? 'idea' : 'stop',
           title: a.title,
-          mark: isIdea ? '' : dayFilter === ALL ? `${dayNo}·${n}` : String(n),
+          mark: markOf(n),
+          code: a.booking ? BOOKING_TYPES[a.booking.type].code : undefined,
           dayId: isIdea ? null : c.id,
-          placeId: a.place.id,
-          lat: a.place.lat,
-          lng: a.place.lng,
+          placeId: place.id,
+          lat: place.lat,
+          lng: place.lng,
           time: a.startTime ?? null,
         });
       }
@@ -162,8 +197,10 @@ export function TripMap({
                         <Mark stop={s} />
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-sm font-semibold">{s.title}</span>
-                          {s.time && (
-                            <span className="text-[13px] text-ink-muted figures">{s.time}</span>
+                          {(s.time || s.code) && (
+                            <span className="text-[13px] text-ink-muted figures">
+                              {[s.time, s.code && `Booked · ${s.code}`].filter(Boolean).join(' · ')}
+                            </span>
                           )}
                         </span>
                       </button>

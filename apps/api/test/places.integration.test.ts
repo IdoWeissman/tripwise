@@ -185,6 +185,27 @@ describe.runIf(run)('Places', () => {
     expect(calls.filter((c) => c.url.includes(':searchText')).length).toBe(searches);
   });
 
+  it('places booked events with an address too, but never flights or trains', async () => {
+    const owner = await signIn(server, 'demo@tripwise.app');
+    const q = `query($t: ID!) { trip(id: $t) { bookings { type title address location place { googlePlaceId } } } }`;
+    const res = await gql(owner, q, { t: tripId });
+    expect(res.errors).toBeUndefined();
+    const bookings = res.data.trip.bookings as {
+      type: string;
+      address: string | null;
+      location: string | null;
+      place: unknown;
+    }[];
+    const events = bookings.filter(
+      (b) =>
+        ['EVENT', 'ATTRACTION', 'TOUR', 'DINING'].includes(b.type) && (b.address || b.location),
+    );
+    expect(events.length).toBeGreaterThan(0);
+    for (const b of events) expect(b.place).not.toBeNull();
+    for (const b of bookings.filter((b) => ['FLIGHT', 'TRANSPORT'].includes(b.type)))
+      expect(b.place).toBeNull();
+  });
+
   it('lets editors change places, not viewers', async () => {
     const viewer = await signIn(server, 'daniel@tripwise.app');
     const denied = await gql(

@@ -5,7 +5,7 @@ import { googlePlaces, isGooglePlaceId, type PlacesClient } from './google.js';
 
 /** Google's terms: coordinates may be kept for up to 30 days. */
 export const COORDS_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-/** A stay whose address didn't match is tried again after this long, not on every view. */
+/** A booking whose address didn't match is tried again after this long, not on every view. */
 const LOOKUP_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function placesFromEnv(
@@ -55,11 +55,21 @@ export async function freshPlace(
   }
 }
 
+/** Bookings that happen at one place (so they belong on the map): not flights or trains. */
+export const PLACED_BOOKING_TYPES = new Set([
+  'STAY',
+  'EVENT',
+  'ATTRACTION',
+  'TOUR',
+  'DINING',
+  'OTHER',
+]);
+
 /**
- * Finds where a stay is from its address, once. The result (or the failed try) is remembered so
- * the itinerary doesn't search Google on every view.
+ * Finds where a booking is (a stay, a show, a restaurant…) from its name and address, once. The
+ * result (or the failed try) is remembered so the itinerary doesn't search Google on every view.
  */
-export async function matchStay(
+export async function matchBookingPlace(
   db: Db,
   places: PlacesClient,
   booking: {
@@ -72,7 +82,7 @@ export async function matchStay(
     placeLookupAt: Date | null;
   },
 ): Promise<Place | null> {
-  if (booking.type !== 'STAY' || booking.placeId) return null;
+  if (!PLACED_BOOKING_TYPES.has(booking.type) || booking.placeId) return null;
   if (booking.placeLookupAt && Date.now() - booking.placeLookupAt.getTime() < LOOKUP_RETRY_MS)
     return null;
   const where = booking.address ?? booking.location;
@@ -82,7 +92,7 @@ export async function matchStay(
     const [top] = await places.search(`${booking.title}, ${where}`);
     if (top) place = await ensurePlace(db, places, top.googlePlaceId, top);
   } catch (err) {
-    console.warn('Stay lookup failed:', err instanceof Error ? err.message : err);
+    console.warn('Booking place lookup failed:', err instanceof Error ? err.message : err);
   }
   await db.booking.update({
     where: { id: booking.id },

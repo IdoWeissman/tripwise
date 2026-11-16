@@ -22,6 +22,11 @@ export const ItineraryDocument = graphql(`
           endLocal
           confirmationCode
           missingFields
+          place {
+            id
+            lat
+            lng
+          }
           segments {
             id
             number
@@ -70,6 +75,11 @@ export const ItineraryDocument = graphql(`
       id
       type
       confirmationCode
+      place {
+        id
+        lat
+        lng
+      }
     }
     place {
       id

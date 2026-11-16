@@ -1,5 +1,5 @@
 import type { PlaceDetails } from '../../places/google.js';
-import { ensurePlace, freshPlace, matchStay } from '../../places/service.js';
+import { ensurePlace, freshPlace, matchBookingPlace } from '../../places/service.js';
 import type { Context } from '../context.js';
 import { badInput, requireTripRole, requireViewer } from '../errors.js';
 import type { Resolvers } from '../__generated__/resolvers-types.js';
@@ -92,7 +92,7 @@ export const placeResolvers: Resolvers = {
         const place = await ctx.loaders.placeById.load(b.placeId);
         return place ? freshPlace(ctx.db, ctx.places, place) : null;
       }
-      return ctx.places ? matchStay(ctx.db, ctx.places, b) : null;
+      return ctx.places ? matchBookingPlace(ctx.db, ctx.places, b) : null;
     },
   },
 };
