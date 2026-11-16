@@ -133,6 +133,25 @@ Opening a place shows live details — photo, rating, price level, opening hours
   the app works as before: free-text activities and no map.
 - **Stays** are matched to a place from their address once (failed lookups retry after a week).
 
+### Day planner
+
+Every day on the board gets a **day check**: stops, travel and the day's span, or what needs a look. The
+**day plan** lays the day out in time with travel between stops and flags what doesn't work: a place
+closed when you planned it, not enough time to get between stops, overlaps, a long trip across town, plans
+before your flight lands or after you must leave for the airport, clashes with booked events, a day too full
+for the trip's pace, no time for lunch. **Arrange this day** re-orders stops by route from where you stay
+and gives each a time — shown as a preview first, and only offered when it's better.
+
+- **Plain rules, not AI** (`apps/api/src/planning/plan.ts`): deterministic and unit-tested. Arranging tries
+  every order up to 7 stops (2-opt beyond), keeps booked plans and stops without a place in their slots,
+  and never returns a day with more travel, a later end or more problems.
+- **Trip settings**: pace (relaxed / balanced / packed) and getting around (walk & transit / drive).
+- **Travel times** from Google Routes (Compute Route Matrix, durations only) on the same server key —
+  allow "Routes API" on it. Walking for short hops, transit otherwise. Without Routes the planner estimates
+  from distance and says so. Opening hours come from Places with a hours-only field mask.
+- **Costs**: nothing is called for days without places; travel times and hours are kept in memory for an
+  hour so a day isn't billed twice; never stored.
+
 ### Trip assistant (RAG)
 
 An **Ask** panel on every trip screen answers questions like "what's the key box code?" or "who owes whom?",

@@ -27,7 +27,8 @@ import { ActivityCard } from './ActivityCard';
 import { DayDateContext } from './dayDate';
 import { standaloneBookings } from './bookedPlans';
 import { BookingCard, StayStrip } from './DayBookings';
-import type { Day, ItineraryActivity } from './queries';
+import { DayCheck } from './DayCheck';
+import type { Day, DayPlan, ItineraryActivity } from './queries';
 import { dayTimeline } from './timeline';
 import { TripRibbon } from './TripRibbon';
 
@@ -52,6 +53,10 @@ interface BoardProps {
   onItemsChange: (items: Items) => void;
   onMove: (activityId: string, columnId: string, position: number) => void;
   onAdd: (column: Column) => void;
+  plans: Map<string, DayPlan>;
+  plansLoading: boolean;
+  issuesById: Map<string, string[]>;
+  onOpenPlan: (column: Column) => void;
 }
 
 const findColumn = (items: Items, id: UniqueIdentifier) =>
@@ -78,6 +83,10 @@ export function Board({
   onItemsChange,
   onMove,
   onAdd,
+  plans,
+  plansLoading,
+  issuesById,
+  onOpenPlan,
 }: BoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Items | null>(null);
@@ -228,6 +237,16 @@ export function Board({
                 empty={ids.length === 0 && bookings.length === 0}
                 canEdit={canEdit}
                 onAdd={() => onAdd(c)}
+                check={
+                  c.day && (
+                    <DayCheck
+                      plan={plans.get(c.id)}
+                      loading={plansLoading}
+                      dayName={`${c.label}, ${c.sublabel}`}
+                      onOpen={() => onOpenPlan(c)}
+                    />
+                  )
+                }
               >
                 <DayDateContext.Provider value={date}>
                   {entries.map((e) => {
@@ -241,6 +260,7 @@ export function Board({
                         currency={currency}
                         avatarIndex={avatarIndex(a.createdBy.id)}
                         disabled={!canEdit}
+                        issues={issuesById.get(a.id)}
                       />
                     ) : null;
                   })}
@@ -271,6 +291,7 @@ function DayColumn({
   empty,
   canEdit,
   onAdd,
+  check,
   children,
 }: {
   column: Column;
@@ -278,6 +299,7 @@ function DayColumn({
   empty: boolean;
   canEdit: boolean;
   onAdd: () => void;
+  check: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
@@ -324,6 +346,7 @@ function DayColumn({
         </div>
       )}
       {column.day && <StayStrip day={column.day} />}
+      {check}
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
@@ -351,11 +374,13 @@ function SortableCard({
   currency,
   avatarIndex,
   disabled,
+  issues,
 }: {
   activity: ItineraryActivity;
   currency: string;
   avatarIndex: number;
   disabled: boolean;
+  issues?: string[];
 }) {
   const {
     attributes,
@@ -390,6 +415,7 @@ function SortableCard({
       activity={activity}
       currency={currency}
       avatarIndex={avatarIndex}
+      issues={issues}
       control={
         !disabled && (
           <button

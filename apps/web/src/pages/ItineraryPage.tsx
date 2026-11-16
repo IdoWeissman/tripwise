@@ -18,10 +18,15 @@ import { AddActivityDialog } from './itinerary/AddActivityDialog';
 import { standaloneBookings } from './itinerary/bookedPlans';
 import { Board, type Column } from './itinerary/Board';
 import { BookingCard, StayStrip } from './itinerary/DayBookings';
+import { DayCheck } from './itinerary/DayCheck';
+import { DayPlanDialog } from './itinerary/DayPlanDialog';
+import { PlanningSettings } from './itinerary/PlanningSettings';
 import {
+  DayPlansDocument,
   ItineraryDocument,
   MoveActivityDocument,
   UNPLANNED,
+  type DayPlan,
   type ItineraryActivity,
 } from './itinerary/queries';
 import { dayTimeline, orderedActivities } from './itinerary/timeline';
@@ -38,11 +43,14 @@ export function ItineraryPage() {
   const { data, loading, error, refetch } = useQuery(ItineraryDocument, {
     variables: { id: trip.id },
   });
+  // Plans (travel, opening hours) load after the board so it never waits on them.
+  const plans = useQuery(DayPlansDocument, { variables: { id: trip.id }, skip: !data });
   const [move] = useMutation(MoveActivityDocument);
   /** Local order while dragging / until the server confirms. */
   const [pending, setPending] = useState<Items | null>(null);
   const [adding, setAdding] = useState<Column | null>(null);
   const [mobileDay, setMobileDay] = useState<string | null>(null);
+  const [planFor, setPlanFor] = useState<Column | null>(null);
   const maps = useMaps();
   // Board or Map; kept in the URL so a link (or the back button) returns to the same view.
   const [params, setParams] = useSearchParams();
@@ -84,6 +92,20 @@ export function ItineraryPage() {
 
   const items = pending ?? serverItems;
 
+  const { planByDay, issuesById } = useMemo(() => {
+    const planByDay = new Map<string, DayPlan>();
+    const issuesById = new Map<string, string[]>();
+    for (const d of plans.data?.trip?.days ?? []) {
+      planByDay.set(d.id, d.plan);
+      for (const i of d.plan.issues)
+        if (i.activityId)
+          issuesById.set(i.activityId, [...(issuesById.get(i.activityId) ?? []), i.message]);
+    }
+    return { planByDay, issuesById };
+  }, [plans.data]);
+  const planSettings = plans.data?.trip;
+  const refreshAll = () => Promise.all([refetch(), plans.refetch()]);
+
   const moveTo = async (activityId: string, columnId: string, position: number) => {
     try {
       await move({
@@ -93,6 +115,7 @@ export function ItineraryPage() {
       });
       await refetch();
       setPending(null);
+      void plans.refetch();
     } catch (err) {
       setPending(null); // snap back to the server's order
       toast(
@@ -183,26 +206,39 @@ export function ItineraryPage() {
     <div className="flex flex-col gap-6">
       {header}
 
-      {maps.mapEnabled && (
-        <Segmented
-          label="Itinerary view"
-          value={view}
-          onChange={(v) =>
-            setParams(
-              (p) => {
-                if (v === 'map') p.set('view', 'map');
-                else p.delete('view');
-                return p;
-              },
-              { replace: true },
-            )
-          }
-          className="self-start"
-          options={[
-            { value: 'board', label: 'Board' },
-            { value: 'map', label: 'Map' },
-          ]}
-        />
+      {(maps.mapEnabled || planSettings) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {maps.mapEnabled && (
+            <Segmented
+              label="Itinerary view"
+              value={view}
+              onChange={(v) =>
+                setParams(
+                  (p) => {
+                    if (v === 'map') p.set('view', 'map');
+                    else p.delete('view');
+                    return p;
+                  },
+                  { replace: true },
+                )
+              }
+              className="self-start"
+              options={[
+                { value: 'board', label: 'Board' },
+                { value: 'map', label: 'Map' },
+              ]}
+            />
+          )}
+          {planSettings && (
+            <PlanningSettings
+              tripId={trip.id}
+              pace={planSettings.pace}
+              getAround={planSettings.getAround}
+              canEdit={canEdit}
+              onChanged={() => plans.refetch()}
+            />
+          )}
+        </div>
       )}
 
       {view === 'map' && maps.browserKey ? (
@@ -224,6 +260,10 @@ export function ItineraryPage() {
           onItemsChange={setPending}
           onMove={(id, col, pos) => void moveTo(id, col, pos)}
           onAdd={setAdding}
+          plans={planByDay}
+          plansLoading={plans.loading}
+          issuesById={issuesById}
+          onOpenPlan={setPlanFor}
         />
       ) : (
         <MobileDayList
@@ -244,6 +284,24 @@ export function ItineraryPage() {
             void moveTo(id, col, next[col]!.length - 1);
           }}
           onAdd={setAdding}
+          plans={planByDay}
+          plansLoading={plans.loading}
+          issuesById={issuesById}
+          onOpenPlan={setPlanFor}
+        />
+      )}
+
+      {planFor && planSettings && planByDay.get(planFor.id) && (
+        <DayPlanDialog
+          tripId={trip.id}
+          dayId={planFor.id}
+          dayName={`${planFor.label} · ${planFor.sublabel}`}
+          plan={planByDay.get(planFor.id)!}
+          pace={planSettings.pace}
+          getAround={planSettings.getAround}
+          canEdit={canEdit}
+          onClose={() => setPlanFor(null)}
+          onChanged={refreshAll}
         />
       )}
 
@@ -270,6 +328,10 @@ interface MobileProps {
   canEdit: boolean;
   onMove: (activityId: string, columnId: string) => void;
   onAdd: (column: Column) => void;
+  plans: Map<string, DayPlan>;
+  plansLoading: boolean;
+  issuesById: Map<string, string[]>;
+  onOpenPlan: (column: Column) => void;
 }
 
 /** "2 bookings · 3 activities" — every card on the day is counted. */
@@ -295,6 +357,10 @@ function MobileDayList({
   canEdit,
   onMove,
   onAdd,
+  plans,
+  plansLoading,
+  issuesById,
+  onOpenPlan,
 }: MobileProps) {
   const column = columns.find((c) => c.id === selected)!;
   const date = column.day?.date.slice(0, 10) ?? '';
@@ -324,6 +390,14 @@ function MobileDayList({
         )}
       </div>
       {column.day && <StayStrip day={column.day} />}
+      {column.day && (
+        <DayCheck
+          plan={plans.get(column.id)}
+          loading={plansLoading}
+          dayName={`${column.label}, ${column.sublabel}`}
+          onOpen={() => onOpenPlan(column)}
+        />
+      )}
       {ids.length === 0 && bookings.length === 0 && (
         <EmptyState
           title="Nothing planned yet"
@@ -342,6 +416,7 @@ function MobileDayList({
               activity={a}
               currency={currency}
               avatarIndex={avatarIndex(a.createdBy.id)}
+              issues={issuesById.get(a.id)}
               control={
                 canEdit && (
                   <span className="w-36">

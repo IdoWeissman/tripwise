@@ -141,6 +141,8 @@ type Trip {
   voteThreshold: Int!
   members: [TripMember!]!
   days: [Day!]!
+  "One day of this trip (for the day planner, which works a day at a time)."
+  day(id: ID!): Day
   proposals(status: ActivityStatus = PROPOSED): [Activity!]!
   proposalCounts: ProposalCounts!
   "Scheduled activities that are not assigned to a day yet."
@@ -157,6 +159,10 @@ type Trip {
   setup: TripSetup!
   "IANA time zone for the destination, e.g. \"Europe/Lisbon\"."
   timeZone: String!
+  "How full a day should be; the day planner's checks follow it."
+  pace: Pace!
+  "How the group gets between stops (sets the planner's travel times)."
+  getAround: GetAround!
   bookings: [Booking!]!
   booking(id: ID!): Booking
   bookingStats: BookingStats!
@@ -413,6 +419,99 @@ type Day {
   "Bookings that start this day (stays are reported via `stay`)."
   bookings: [Booking!]!
   stay: StayNight
+  "The day laid out in time with travel between stops, and anything that doesn't work."
+  plan: DayPlan!
+  "The day re-ordered by route from the stay, if that's better. Editors apply it with arrangeDay."
+  arrangement: DayArrangement!
+}
+
+enum Pace {
+  RELAXED
+  BALANCED
+  PACKED
+}
+
+enum GetAround {
+  WALK_TRANSIT
+  DRIVE
+}
+
+enum TravelMode {
+  WALK
+  TRANSIT
+  DRIVE
+}
+
+enum PlanIssueKind {
+  "Planned while the place is closed."
+  CLOSED
+  "Not enough time to get there from the previous stop."
+  TIGHT
+  "Starts before the previous stop ends."
+  OVERLAP
+  "A long trip across town for the trip's pace."
+  LONG_TRAVEL
+  "Before the group lands, or after it must leave for the airport."
+  OUTSIDE_WINDOW
+  "At the same time as a booked event."
+  BOOKING_CLASH
+  "Too much for the trip's pace."
+  PACKED
+  "No time for lunch."
+  NO_LUNCH
+}
+
+type TravelLeg {
+  minutes: Int!
+  mode: TravelMode!
+  meters: Int
+  "Estimated from distance (no routing service, or it failed)."
+  estimated: Boolean!
+}
+
+type PlanStop {
+  activity: Activity!
+  "Local HH:mm."
+  start: String!
+  end: String!
+  durationMinutes: Int!
+  "True when the length is typical for the kind of place, not set by the group."
+  durationEstimated: Boolean!
+  "From the previous stop, or from the stay for the first one. Null when unknown."
+  travel: TravelLeg
+}
+
+type PlanIssue {
+  kind: PlanIssueKind!
+  message: String!
+  "The stop it's about; null for the whole day."
+  activityId: ID
+  "True for problems that make the day impossible as planned (the rest are advice)."
+  blocking: Boolean!
+}
+
+type DayPlan {
+  stops: [PlanStop!]!
+  issues: [PlanIssue!]!
+  "Total travel, back to the stay included."
+  travelMinutes: Int!
+  startTime: String
+  endTime: String
+  backToStay: TravelLeg
+  travelEstimated: Boolean!
+  "Earliest start after an arriving flight (HH:mm), if any."
+  freeFrom: String
+  "Latest end before a departing flight (HH:mm), if any."
+  freeUntil: String
+}
+
+type DayArrangement {
+  "False when the day is already in a good order (the plan is then today's)."
+  better: Boolean!
+  savedMinutes: Int!
+  "One sentence for the user: what it fixes or saves, or why nothing changes."
+  reason: String!
+  plan: DayPlan!
 }
 
 type Activity {
@@ -439,6 +538,8 @@ type Activity {
   booking: Booking
   "The real place it happens at, when one was picked."
   place: Place
+  "How long it takes, in minutes, when the group set it."
+  durationMinutes: Int
 }
 
 "Who a valid reset link is for — shown on the reset screen."
@@ -643,6 +744,12 @@ type Mutation {
   updateReminderPreferences(tripId: ID!, input: ReminderPreferencesInput!): ReminderPreferences!
   "Owner only. Invalidates the old calendar link."
   resetCalendarLink(tripId: ID!): String!
+  "Editors and owners. The trip's pace and how the group gets around."
+  updateTripPlanning(tripId: ID!, pace: Pace!, getAround: GetAround!): Trip!
+  "Editors and owners. Sets a scheduled activity's start (HH:mm, null = any time) and length."
+  setActivityTiming(activityId: ID!, startTime: String, durationMinutes: Int): Activity!
+  "Editors and owners. Applies the day's arrangement (order and times); no change if it isn't better."
+  arrangeDay(dayId: ID!): Day!
   "Editors and owners. Attaches a real place to an activity, or removes it (null)."
   setActivityPlace(activityId: ID!, googlePlaceId: String): Activity!
   "Creates a personal access token for an AI assistant. Signed-in browser sessions only."

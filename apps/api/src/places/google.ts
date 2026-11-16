@@ -43,11 +43,22 @@ export interface PlaceDetails {
   photoAuthors: { name: string; url: string | null }[];
 }
 
+/** What the day planner needs: when it's open and what kind of place it is. */
+export interface PlanInfo {
+  primaryType: string | null;
+  /** Google's periods (day 0 = Sunday); empty when Google has no hours. */
+  periods: {
+    open: { day: number; hour: number; minute: number };
+    close?: { day: number; hour: number; minute: number };
+  }[];
+}
+
 export interface PlacesClient {
   search(query: string, opts?: { language?: string }): Promise<PlaceSuggestion[]>;
   location(googlePlaceId: string): Promise<{ lat: number; lng: number } | null>;
   details(googlePlaceId: string, opts?: { language?: string }): Promise<PlaceDetails | null>;
   photoUrl(photoName: string, maxWidthPx?: number): Promise<string | null>;
+  planInfo(googlePlaceId: string): Promise<PlanInfo | null>;
 }
 
 const PRICE_LEVELS = [
@@ -68,7 +79,8 @@ interface RawPlace {
   rating?: number;
   userRatingCount?: number;
   priceLevel?: string;
-  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  regularOpeningHours?: { weekdayDescriptions?: string[]; periods?: PlanInfo['periods'] };
+  primaryType?: string;
   currentOpeningHours?: { openNow?: boolean };
   googleMapsUri?: string;
   websiteUri?: string;
@@ -174,6 +186,22 @@ export function googlePlaces(opts: { apiKey: string; fetch?: typeof fetch }): Pl
         photoName: photo?.name ?? null,
         photoAuthors: (photo?.authorAttributions ?? []).flatMap((a) =>
           a.displayName ? [{ name: a.displayName, url: a.uri ?? null }] : [],
+        ),
+      };
+    },
+
+    async planInfo(googlePlaceId) {
+      if (!isGooglePlaceId(googlePlaceId)) return null;
+      const p = (await call(`${BASE}/places/${googlePlaceId}`, {
+        method: 'GET',
+        // Hours are an Enterprise field: asked for only when a day with this place is checked.
+        fieldMask: 'id,primaryType,regularOpeningHours.periods',
+      })) as RawPlace;
+      if (!p.id) return null;
+      return {
+        primaryType: p.primaryType ?? null,
+        periods: (p.regularOpeningHours?.periods ?? []).filter(
+          (x) => x.open && typeof x.open.day === 'number',
         ),
       };
     },
