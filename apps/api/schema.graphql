@@ -147,6 +147,13 @@ type Trip {
   proposalCounts: ProposalCounts!
   "Scheduled activities that are not assigned to a day yet."
   unplannedActivities: [Activity!]!
+  """
+  Bookings with a day outside the trip's dates (a flight the day before the trip starts). They
+  have no day on the itinerary until the dates change.
+  """
+  outsideBookings: [Booking!]!
+  "The smallest dates that keep the trip and every booking; null when everything fits."
+  datesToFit: DateRange
   expenses: [Expense!]!
   expenseSummary: ExpenseSummary!
   "Net balance per member. Positive = the group owes them. Always sums to zero."
@@ -562,6 +569,17 @@ input SignInInput {
   password: String!
 }
 
+type DateRange {
+  startDate: Date!
+  endDate: Date!
+}
+
+type UpdateTripDatesPayload {
+  trip: Trip!
+  "Plans on days that were removed; they're now in Unplanned."
+  unplannedCount: Int!
+}
+
 input CreateTripInput {
   name: String!
   destination: String!
@@ -706,6 +724,11 @@ type Mutation {
   """
   resetPassword(token: String!, password: String!): AuthPayload!
   createTrip(input: CreateTripInput!): Trip!
+  """
+  Editors and owners. Changes the trip's dates (at most 60 days). Days still in range keep their
+  plans; plans on removed days move to Unplanned (nothing is deleted).
+  """
+  updateTripDates(tripId: ID!, startDate: Date!, endDate: Date!): UpdateTripDatesPayload!
   "Owner only. Deletes the trip and everything in it, including uploaded documents."
   deleteTrip(id: ID!): Boolean!
   proposeActivity(input: ProposeActivityInput!): Activity!

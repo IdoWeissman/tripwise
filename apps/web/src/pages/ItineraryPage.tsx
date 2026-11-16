@@ -21,6 +21,7 @@ import { BookingCard, StayStrip } from './itinerary/DayBookings';
 import { DayCheck } from './itinerary/DayCheck';
 import { DayPlanDialog } from './itinerary/DayPlanDialog';
 import { PlanningSettings } from './itinerary/PlanningSettings';
+import { OutsideDatesNotice, TripDatesButton } from '../components/TripDates';
 import {
   DayPlansDocument,
   ItineraryDocument,
@@ -206,29 +207,31 @@ export function ItineraryPage() {
     <div className="flex flex-col gap-6">
       {header}
 
-      {(maps.mapEnabled || planSettings) && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {maps.mapEnabled && (
-            <Segmented
-              label="Itinerary view"
-              value={view}
-              onChange={(v) =>
-                setParams(
-                  (p) => {
-                    if (v === 'map') p.set('view', 'map');
-                    else p.delete('view');
-                    return p;
-                  },
-                  { replace: true },
-                )
-              }
-              className="self-start"
-              options={[
-                { value: 'board', label: 'Board' },
-                { value: 'map', label: 'Map' },
-              ]}
-            />
-          )}
+      <OutsideDatesNotice />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {maps.mapEnabled && (
+          <Segmented
+            label="Itinerary view"
+            value={view}
+            onChange={(v) =>
+              setParams(
+                (p) => {
+                  if (v === 'map') p.set('view', 'map');
+                  else p.delete('view');
+                  return p;
+                },
+                { replace: true },
+              )
+            }
+            className="self-start"
+            options={[
+              { value: 'board', label: 'Board' },
+              { value: 'map', label: 'Map' },
+            ]}
+          />
+        )}
+        <div className="flex flex-wrap items-center gap-2">
           {planSettings && (
             <PlanningSettings
               tripId={trip.id}
@@ -238,8 +241,9 @@ export function ItineraryPage() {
               onChanged={() => plans.refetch()}
             />
           )}
+          <TripDatesButton />
         </div>
-      )}
+      </div>
 
       {view === 'map' && maps.browserKey ? (
         <TripMap

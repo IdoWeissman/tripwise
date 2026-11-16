@@ -177,3 +177,38 @@ export function stayNight(
   }
   return null;
 }
+
+/**
+ * The local dates ("YYYY-MM-DD") a booking shows on in the itinerary: a stay's check-in and
+ * check-out days, every leg's departure day, or the start day. Empty when it has no time yet.
+ */
+export function bookingDates(b: BookingModel, tripZone: string): string[] {
+  if (b.status === 'CANCELLED') return [];
+  if (b.type === 'STAY') {
+    const zone = b.timeZone ?? tripZone;
+    return [b.startsAt, b.endsAt].flatMap((at) => (at ? [localDate(at, zone)] : []));
+  }
+  return timedParts(b).map((p) => localDate(p.at, p.segment?.departTz ?? b.timeZone ?? tripZone));
+}
+
+/** Bookings with a day outside the trip's dates (they'd have no day on the itinerary). */
+export function outsideTrip(
+  bookings: BookingModel[],
+  trip: { startDate: Date; endDate: Date; timeZone: string },
+) {
+  const start = trip.startDate.toISOString().slice(0, 10);
+  const end = trip.endDate.toISOString().slice(0, 10);
+  return bookings.filter((b) => bookingDates(b, trip.timeZone).some((d) => d < start || d > end));
+}
+
+/** The smallest date range that keeps the trip's dates and every booking: null when they fit. */
+export function datesToFit(
+  bookings: BookingModel[],
+  trip: { startDate: Date; endDate: Date; timeZone: string },
+): { startDate: string; endDate: string } | null {
+  const start = trip.startDate.toISOString().slice(0, 10);
+  const end = trip.endDate.toISOString().slice(0, 10);
+  const all = [start, end, ...bookings.flatMap((b) => bookingDates(b, trip.timeZone))].sort();
+  const fit = { startDate: all[0]!, endDate: all[all.length - 1]! };
+  return fit.startDate === start && fit.endDate === end ? null : fit;
+}
