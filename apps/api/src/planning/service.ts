@@ -5,7 +5,7 @@ import type { Activity, Day, Place } from '../generated/prisma/client.js';
 import type { Context } from '../graphql/context.js';
 import { localDate, localTime, zoneOffsetMinutes } from '../lib/time.js';
 import type { PlanInfo, PlacesClient } from '../places/google.js';
-import { matchStay } from '../places/service.js';
+import { matchBookingPlace } from '../places/service.js';
 import { arrangeDay, hhmm, kindOf, planDay, toMinutes, type DayInput } from './plan.js';
 import { googleRoutes, travelMatrix, type Point } from './travel.js';
 
@@ -81,7 +81,8 @@ export async function gatherDay(ctx: Context, day: Day): Promise<GatheredDay> {
   const stay = stayNight(bookings, date, tz);
   let stayPlace: Place | null = null;
   if (stay?.booking.placeId) stayPlace = await ctx.loaders.placeById.load(stay.booking.placeId);
-  else if (stay && ctx.places) stayPlace = await matchStay(ctx.db, ctx.places, stay.booking);
+  else if (stay && ctx.places)
+    stayPlace = await matchBookingPlace(ctx.db, ctx.places, stay.booking);
 
   // Travel points: the stay first, then each distinct place.
   const points: Point[] = [];
