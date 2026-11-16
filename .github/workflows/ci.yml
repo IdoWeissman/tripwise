@@ -22,7 +22,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile # also runs prisma generate + GraphQL codegen
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm generate # Prisma client + GraphQL types (gitignored; never rely on postinstall)
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

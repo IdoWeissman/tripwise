@@ -19,6 +19,7 @@
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
     "qa:smoke": "node scripts/qa-smoke.mjs",
     "codegen": "pnpm -r codegen",
+    "generate": "pnpm --filter @tripwise/api exec prisma generate && pnpm -r codegen",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @tripwise/api db:migrate",

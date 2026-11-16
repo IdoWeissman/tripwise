@@ -12,9 +12,9 @@ runs:
       with:
         node-version-file: .nvmrc
         cache: pnpm
-    - name: Install dependencies (also generates Prisma client and GraphQL types)
+    - name: Install dependencies, then generate the Prisma client and GraphQL types
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: pnpm install --frozen-lockfile && pnpm generate
     - name: Migrate and seed the database
       shell: bash
       run: |
