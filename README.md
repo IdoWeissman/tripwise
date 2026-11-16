@@ -81,8 +81,9 @@ uses the pooled `DATABASE_URL`, and migrations use `DATABASE_URL_UNPOOLED`.
 Uploaded confirmations are read **AI first**, checked, and reviewed by you before anything is saved:
 
 1. **Claude reads the original file** — the PDF itself (page images + text, so layout survives), the
-   email with its attached PDFs and calendar files, or the photo — through a **strict tool schema**
-   (`strict: true`), so the answer always has the right shape.
+   email with its attached PDFs and calendar files, or the photo — with **structured outputs**
+   (`output_config.format`, a JSON schema, through the official `@anthropic-ai/sdk`), so the answer
+   always has the right shape on every model.
 2. **Every key value comes with evidence**: the model quotes the text it read the code, dates and
    price from. The server checks each quote is really in the document and states that value, and
    runs consistency checks (check-out after check-in, legs in order, flight numbers present).
