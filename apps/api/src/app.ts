@@ -14,6 +14,7 @@ import { WebSocketServer } from 'ws';
 import { createResetLimiter } from './auth/resetLimiter.js';
 import { resolveSession, sessionFromRequest } from './auth/session.js';
 import { createSmtpMailer, type Mailer } from './mail/mailer.js';
+import { placesFromEnv } from './places/service.js';
 import { AUTH_COOKIE, readCookie } from './auth/tokens.js';
 import type { Env } from './config.js';
 import type { Db } from './db.js';
@@ -35,7 +36,7 @@ export async function createApp(
   env: Env,
   db: Db,
   storage: Storage = createStorage(env),
-  /** Test seam: replaces fetch for outgoing AI calls (Claude, Voyage). */
+  /** Test seam: replaces fetch for outgoing calls (Claude, Voyage, Google Places). */
   options: {
     fetch?: typeof fetch;
     /** Test seam: replaces the SMTP mailer (null = email not configured). */
@@ -51,6 +52,7 @@ export async function createApp(
     storage,
     mailer: options.mailer !== undefined ? options.mailer : createSmtpMailer(env),
     resetLimiter: createResetLimiter(),
+    places: placesFromEnv(env, options.fetch),
   };
 
   // --- WebSocket transport for subscriptions (graphql-ws) ---
@@ -95,7 +97,31 @@ export async function createApp(
   app.use(
     helmet({
       contentSecurityPolicy: isProd
-        ? { directives: { connectSrc: ["'self'", 'wss:'], upgradeInsecureRequests: [] } }
+        ? {
+            directives: {
+              // The trip map loads the Maps JavaScript API and its tiles, fonts and photos.
+              scriptSrc: ["'self'", 'https://maps.googleapis.com', 'https://maps.gstatic.com'],
+              styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+              fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+              imgSrc: [
+                "'self'",
+                'data:',
+                'blob:',
+                'https://maps.googleapis.com',
+                'https://maps.gstatic.com',
+                'https://*.googleusercontent.com',
+                'https://*.ggpht.com',
+              ],
+              connectSrc: [
+                "'self'",
+                'wss:',
+                'https://maps.googleapis.com',
+                'https://places.googleapis.com',
+              ],
+              workerSrc: ["'self'", 'blob:'],
+              upgradeInsecureRequests: [],
+            },
+          }
         : false,
     }),
   );

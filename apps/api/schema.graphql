@@ -53,6 +53,62 @@ type User {
   name: String!
 }
 
+"A real place (Google Places). Only its id and coordinates are stored; details are fetched live."
+type Place {
+  id: ID!
+  googlePlaceId: String!
+  lat: Float!
+  lng: Float!
+  "Name, rating, hours and photo, fetched from Google when asked for. Null when Google can't be reached."
+  details: PlaceDetails
+}
+
+type PlaceDetails {
+  name: String!
+  address: String
+  "What kind of place it is, e.g. Museum."
+  kind: String
+  rating: Float
+  ratingCount: Int
+  "0 (free) to 4 (very expensive)."
+  priceLevel: Int
+  "One line per weekday, e.g. Monday: 9:00 AM – 6:00 PM."
+  openingHours: [String!]!
+  openNow: Boolean
+  "Google Maps page for the place (required alongside Google content)."
+  mapsUrl: String
+  website: String
+  "A photo URL (no API key in it), or null."
+  photoUrl: String
+  "Photo authors to credit next to the photo."
+  photoAuthors: [PhotoAuthor!]!
+}
+
+type PhotoAuthor {
+  name: String!
+  url: String
+}
+
+"A real place found by search; nothing is stored until it's attached to an activity."
+type PlaceMatch {
+  googlePlaceId: String!
+  name: String!
+  address: String
+  kind: String
+  lat: Float!
+  lng: Float!
+}
+
+"How the web app loads the map. The browser key is public by design (restricted to the site)."
+type MapsConfig {
+  "Place search and details are available (server key set)."
+  placesEnabled: Boolean!
+  "The map can be shown (browser key set)."
+  mapEnabled: Boolean!
+  browserKey: String
+  mapId: String!
+}
+
 "A personal access token for connecting an AI assistant (MCP). The token itself is never returned again after creation."
 type ApiToken {
   id: ID!
@@ -161,6 +217,8 @@ type Booking {
   missingFields: [String!]!
   createdBy: User!
   createdAt: DateTime!
+  "Where a stay is on the map (matched from its address once)."
+  place: Place
 }
 
 type BookingSegment {
@@ -379,6 +437,8 @@ type Activity {
   name or place in the plan), so apps show the event once. Null when none matches.
   """
   booking: Booking
+  "The real place it happens at, when one was picked."
+  place: Place
 }
 
 "Who a valid reset link is for — shown on the reset screen."
@@ -463,6 +523,8 @@ input ProposeActivityInput {
   costPerPerson: String
   "Add straight to the itinerary instead of proposing (editors and owners)."
   scheduleNow: Boolean
+  "Attach a real place (from placeSuggestions)."
+  googlePlaceId: String
 }
 
 input MoveActivityInput {
@@ -519,6 +581,11 @@ type Query {
   passwordResetPreview(token: String!): PasswordResetPreview
   "The viewer's active (not revoked) AI assistant tokens, newest first."
   myApiTokens: [ApiToken!]!
+  "Real places matching the text, near the trip's destination. Trip members only."
+  placeSuggestions(tripId: ID!, query: String!): [PlaceMatch!]!
+  maps: MapsConfig!
+  "A place used by this trip (an activity or a stay), with live details. Trip members only."
+  place(tripId: ID!, id: ID!): Place
 }
 
 type Mutation {
@@ -576,6 +643,8 @@ type Mutation {
   updateReminderPreferences(tripId: ID!, input: ReminderPreferencesInput!): ReminderPreferences!
   "Owner only. Invalidates the old calendar link."
   resetCalendarLink(tripId: ID!): String!
+  "Editors and owners. Attaches a real place to an activity, or removes it (null)."
+  setActivityPlace(activityId: ID!, googlePlaceId: String): Activity!
   "Creates a personal access token for an AI assistant. Signed-in browser sessions only."
   createApiToken(name: String!): CreatedApiToken!
   "Revokes one of the viewer's tokens. Assistants using it lose access immediately."

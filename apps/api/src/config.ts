@@ -38,6 +38,14 @@ const EnvSchema = z.object({
   /** Questions for the whole site per day (UTC): a hard ceiling on spend for public demos. */
   ASSISTANT_SITE_DAILY_QUESTIONS: z.coerce.number().int().min(0).default(300),
 
+  // Real places and the trip map (Google Maps Platform). Off when unset.
+  /** Server key: Places API (New) only. Never sent to browsers. */
+  GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
+  /** Browser key: Maps JavaScript API only, restricted to the site's domains. */
+  GOOGLE_MAPS_BROWSER_KEY: z.string().min(1).optional(),
+  /** Map ID for advanced markers; DEMO_MAP_ID works for development. */
+  GOOGLE_MAPS_MAP_ID: z.string().default('DEMO_MAP_ID'),
+
   // Email reminders (Mailpit in docker-compose for development). Disabled when unset.
   SMTP_URL: z.string().url().optional(),
   MAIL_FROM: z.string().default('Tripwise <reminders@tripwise.local>'),

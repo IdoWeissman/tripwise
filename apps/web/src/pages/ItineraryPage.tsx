@@ -1,8 +1,10 @@
 import { useMutation, useQuery } from '@apollo/client/react';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { PageHeader } from '../components/Bits';
 import { PlusIcon } from '../components/Icons';
+import { Segmented } from '../components/Segmented';
+import { useMaps } from '../lib/maps';
 import { Select } from '../components/Select';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
@@ -23,6 +25,7 @@ import {
   type ItineraryActivity,
 } from './itinerary/queries';
 import { dayTimeline, orderedActivities } from './itinerary/timeline';
+import { TripMap } from './itinerary/TripMap';
 import { TripRibbon } from './itinerary/TripRibbon';
 
 type Items = Record<string, string[]>;
@@ -40,6 +43,10 @@ export function ItineraryPage() {
   const [pending, setPending] = useState<Items | null>(null);
   const [adding, setAdding] = useState<Column | null>(null);
   const [mobileDay, setMobileDay] = useState<string | null>(null);
+  const maps = useMaps();
+  // Board or Map; kept in the URL so a link (or the back button) returns to the same view.
+  const [params, setParams] = useSearchParams();
+  const view = maps.mapEnabled && params.get('view') === 'map' ? 'map' : 'board';
   const today = todayIn(trip.timeZone);
 
   const { columns, serverItems, byId } = useMemo(() => {
@@ -99,9 +106,11 @@ export function ItineraryPage() {
     <PageHeader
       title="Itinerary"
       subtitle={
-        isDesktop
-          ? 'Each day runs in time order. Drag an activity to another day; ones without a time can be reordered.'
-          : 'Each day runs in time order. Use Move to for another day.'
+        view === 'map'
+          ? 'Where everything is. Pick a day to see its stops in order.'
+          : isDesktop
+            ? 'Each day runs in time order. Drag an activity to another day; ones without a time can be reordered.'
+            : 'Each day runs in time order. Use Move to for another day.'
       }
       actions={
         canEdit && (
@@ -174,7 +183,37 @@ export function ItineraryPage() {
     <div className="flex flex-col gap-6">
       {header}
 
-      {isDesktop ? (
+      {maps.mapEnabled && (
+        <Segmented
+          label="Itinerary view"
+          value={view}
+          onChange={(v) =>
+            setParams(
+              (p) => {
+                if (v === 'map') p.set('view', 'map');
+                else p.delete('view');
+                return p;
+              },
+              { replace: true },
+            )
+          }
+          className="self-start"
+          options={[
+            { value: 'board', label: 'Board' },
+            { value: 'map', label: 'Map' },
+          ]}
+        />
+      )}
+
+      {view === 'map' && maps.browserKey ? (
+        <TripMap
+          columns={columns}
+          items={items}
+          byId={byId}
+          browserKey={maps.browserKey}
+          mapId={maps.mapId}
+        />
+      ) : isDesktop ? (
         <Board
           columns={columns}
           items={items}

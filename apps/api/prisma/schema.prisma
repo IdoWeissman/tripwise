@@ -54,13 +54,13 @@ enum BookingSource {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
-  name         String
-  passwordHash String
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique
+  name              String
+  passwordHash      String
   /// Sessions issued before this are rejected (ADR 0001: sign out everywhere on password change).
   passwordChangedAt DateTime?
-  createdAt    DateTime @default(now())
+  createdAt         DateTime  @default(now())
 
   memberships         TripMember[]
   activities          Activity[]           @relation("ActivityCreatedBy")
@@ -100,10 +100,10 @@ model Trip {
 }
 
 model TripMember {
-  tripId   String   @db.Uuid
-  userId   String   @db.Uuid
-  role     TripRole @default(EDITOR)
-  joinedAt DateTime @default(now())
+  tripId         String    @db.Uuid
+  userId         String    @db.Uuid
+  role           TripRole  @default(EDITOR)
+  joinedAt       DateTime  @default(now())
   /// When this member first created an invite link (links are stateless tokens).
   inviteSharedAt DateTime?
   /// When this member hid the trip's setup checklist.
@@ -138,6 +138,8 @@ model Activity {
   location      String?
   startTime     String? // "HH:mm" local to the trip
   costPerPerson Decimal?       @db.Decimal(12, 2)
+  /// The real place this activity happens at (Google Places), if one was picked.
+  placeId       String?        @db.Uuid
   status        ActivityStatus @default(PROPOSED)
   position      Int            @default(0)
   createdAt     DateTime       @default(now())
@@ -145,6 +147,7 @@ model Activity {
   trip      Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
   day       Day?   @relation(fields: [dayId], references: [id], onDelete: SetNull)
   createdBy User   @relation("ActivityCreatedBy", fields: [createdById], references: [id])
+  place     Place? @relation(fields: [placeId], references: [id], onDelete: SetNull)
   votes     Vote[]
 
   @@index([tripId, status])
@@ -215,6 +218,10 @@ model Booking {
   notes            String?
   /// Type-specific extras (seats, room type, …).
   details          Json?
+  /// Where a stay is, matched from its address once (Google Places).
+  placeId          String?       @db.Uuid
+  /// When we last tried to match the address, so failed lookups aren't retried on every view.
+  placeLookupAt    DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -222,6 +229,7 @@ model Booking {
   createdBy   User             @relation(fields: [createdById], references: [id])
   segments    BookingSegment[]
   attachments Attachment[]
+  place       Place?           @relation(fields: [placeId], references: [id], onDelete: SetNull)
 
   @@index([tripId, startsAt])
 }
@@ -345,4 +353,17 @@ model AssistantUsage {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([day, userId])
+}
+
+/// A real place from Google Places. Google's terms allow keeping the place ID indefinitely and
+/// coordinates for up to 30 days; everything else (name, rating, hours…) is fetched live.
+model Place {
+  id            String     @id @default(uuid()) @db.Uuid
+  googlePlaceId String     @unique
+  lat           Float
+  lng           Float
+  /// When lat/lng were fetched; refreshed after 30 days.
+  coordsAt      DateTime
+  activities    Activity[]
+  bookings      Booking[]
 }

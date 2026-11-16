@@ -1,6 +1,13 @@
 import DataLoader from 'dataloader';
 import type { Db } from '../db.js';
-import type { Attachment, Day, ExpenseSplit, Trip, User } from '../generated/prisma/client.js';
+import type {
+  Attachment,
+  Day,
+  ExpenseSplit,
+  Place,
+  Trip,
+  User,
+} from '../generated/prisma/client.js';
 import { computeBalances, decimalToCents, settleUp, type Transfer } from '../lib/money.js';
 import type { BookingModel, ExpenseModel } from './models.js';
 
@@ -17,6 +24,12 @@ export interface Ledger {
 /** Per-request DataLoaders — batch N+1 lookups into single queries. */
 export function createLoaders(db: Db, viewerId: string | null) {
   return {
+    placeById: new DataLoader<string, Place | null>(async (ids) => {
+      const rows = await db.place.findMany({ where: { id: { in: [...ids] } } });
+      const byId = new Map(rows.map((p) => [p.id, p]));
+      return ids.map((id) => byId.get(id) ?? null);
+    }),
+
     userById: new DataLoader<string, User | null>(async (ids) => {
       const users = await db.user.findMany({ where: { id: { in: [...ids] } } });
       const byId = new Map(users.map((u) => [u.id, u]));

@@ -5,6 +5,8 @@ import type { Storage } from '../storage.js';
 import { createResetLimiter, type ResetLimiter } from '../auth/resetLimiter.js';
 import type { Mailer } from '../mail/mailer.js';
 import { createLoaders, type Loaders } from './loaders.js';
+import type { PlacesClient } from '../places/google.js';
+import { placesFromEnv } from '../places/service.js';
 
 export interface Context {
   db: Db;
@@ -18,6 +20,8 @@ export interface Context {
   mailer: Mailer | null;
   /** Reset emails per address per hour — one per app, shared across requests. */
   resetLimiter: ResetLimiter;
+  /** Google Places, or null when GOOGLE_PLACES_API_KEY isn't set. */
+  places: PlacesClient | null;
   /** Present for HTTP operations; absent over WebSocket. */
   req?: Request;
   res?: Response;
@@ -35,6 +39,7 @@ export function buildContext(
     auth?: Context['auth'];
     mailer?: Mailer | null;
     resetLimiter?: ResetLimiter;
+    places?: PlacesClient | null;
   },
   http?: { req: Request; res: Response },
 ): Context {
@@ -42,6 +47,7 @@ export function buildContext(
     auth: 'session',
     mailer: null,
     resetLimiter: fallbackLimiter,
+    places: placesFromEnv(base.env),
     ...base,
     ...http,
     loaders: createLoaders(base.db, base.viewerId),

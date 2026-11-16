@@ -1,6 +1,7 @@
-import { forwardRef, useContext, type HTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useContext, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Avatar } from '../../components/Avatar';
+import { PlaceSheet } from '../../components/PlaceSheet';
 import { ClockIcon, PinIcon } from '../../components/Icons';
 import { BOOKING_TYPES } from '../../lib/bookings';
 import { formatMoney, isPast, toNumber } from '../../lib/format';
@@ -30,6 +31,7 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
   const date = useContext(DayDateContext);
   // Done steps back a tone and is struck through — never colour alone (rules §1.3).
   const done = !lifted && isPast(date, a.startTime, trip.timeZone);
+  const [placeOpen, setPlaceOpen] = useState(false);
   return (
     <article
       ref={ref}
@@ -59,12 +61,29 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
       </h3>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-muted">
-          {a.location && (
+          {a.place ? (
             <>
-              <PinIcon size={14} className="shrink-0" />
-              <span className="truncate">{a.location}</span>
+              {/* A real place: opens its live details (rules §2 Place sheet). */}
+              <button
+                type="button"
+                onClick={() => setPlaceOpen(true)}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="-my-3 flex min-h-11 min-w-0 items-center gap-1.5 font-semibold text-accent-strong"
+              >
+                <PinIcon size={14} className="shrink-0" />
+                <span className="truncate">{a.location ?? 'Place details'}</span>
+                <span className="sr-only">: place details for {a.title}</span>
+              </button>
               <span aria-hidden="true">·</span>
             </>
+          ) : (
+            a.location && (
+              <>
+                <PinIcon size={14} className="shrink-0" />
+                <span className="truncate">{a.location}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            )
           )}
           <span className="shrink-0 figures">
             {a.costPerPerson ? `${formatMoney(toNumber(a.costPerPerson), currency)} pp` : 'Free'}
@@ -97,6 +116,17 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
             )}
           </span>
         </Link>
+      )}
+      {placeOpen && a.place && (
+        // The sheet renders inside the card's React tree: keep its clicks away from drag handling.
+        <div onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <PlaceSheet
+            tripId={trip.id}
+            placeId={a.place.id}
+            title={a.title}
+            onClose={() => setPlaceOpen(false)}
+          />
+        </div>
       )}
     </article>
   );
