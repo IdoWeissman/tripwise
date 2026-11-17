@@ -8,6 +8,7 @@ import type { Column } from './Board';
 import { BOOKING_TYPES } from '../../lib/bookings';
 import { standaloneBookings } from './bookedPlans';
 import { UNPLANNED, type ItineraryActivity } from './queries';
+import { spread } from './mapPins';
 import { bookingTimeOn, dayTimeline } from './timeline';
 
 type Items = Record<string, string[]>;
@@ -40,15 +41,18 @@ export function TripMap({
   byId,
   browserKey,
   mapId,
+  todayId,
 }: {
   columns: Column[];
   items: Items;
   byId: Map<string, ItineraryActivity>;
   browserKey: string;
   mapId: string;
+  /** While the trip is on, the map opens on today's stops: what you need in the street. */
+  todayId: string | null;
 }) {
   const { trip } = useTrip();
-  const [dayFilter, setDayFilter] = useState<string>(ALL);
+  const [dayFilter, setDayFilter] = useState<string>(todayId ?? ALL);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Stop | null>(null);
   const days = columns.filter((c) => c.id !== UNPLANNED);
@@ -143,8 +147,34 @@ export function TripMap({
   }, [columns, days, items, byId, dayFilter]);
 
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[320px_1fr] lg:items-start">
-      <div className="lg:order-2 lg:col-start-2 lg:row-start-1">
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[320px_1fr] lg:grid-rows-[auto_1fr] lg:items-start">
+      {/* phones: the day picker comes before the map, so changing day doesn't mean scrolling past it */}
+      <div className="flex flex-col gap-1.5 lg:col-start-1 lg:row-start-1">
+        <Select
+          aria-label="Show on the map"
+          value={dayFilter}
+          onValueChange={(v) => {
+            setDayFilter(v);
+            setSelected(null);
+          }}
+          options={[
+            { value: ALL, label: 'All days' },
+            ...days.map((c) => ({
+              value: c.id,
+              label: `${c.label} · ${c.sublabel}${c.isToday ? ' · today' : ''}`,
+            })),
+          ]}
+        />
+        {stops.some((x) => x.kind === 'stop') && (
+          <p className="text-meta text-ink-muted">
+            {dayFilter === ALL
+              ? 'Plates read day · stop: 3·2 is the second stop on day 3.'
+              : 'Plates number the day’s stops in time order.'}
+          </p>
+        )}
+      </div>
+
+      <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
         {stops.length === 0 ? (
           <EmptyState
             title="Nothing on the map yet"
@@ -164,27 +194,15 @@ export function TripMap({
 
       <section
         aria-label="Places on the map"
-        className="flex flex-col gap-3 lg:order-1 lg:row-start-1"
+        className="flex flex-col gap-3 lg:col-start-1 lg:row-start-2"
       >
-        <Select
-          aria-label="Show on the map"
-          value={dayFilter}
-          onValueChange={(v) => {
-            setDayFilter(v);
-            setSelected(null);
-          }}
-          options={[
-            { value: ALL, label: 'All days' },
-            ...days.map((c) => ({ value: c.id, label: `${c.label} · ${c.sublabel}` })),
-          ]}
-        />
         {sections.length > 0 && (
           <div className="flex flex-col rounded-card bg-surface">
             {sections.map((sec) => (
               <div key={sec.id} className="border-b border-border last:border-b-0">
-                <h3 className="px-4 pt-3 pb-1 text-xs font-extrabold tracking-[0.06em] text-ink-muted uppercase">
+                <h2 className="px-4 pt-3 pb-1 text-xs font-extrabold tracking-[0.06em] text-ink-muted uppercase">
                   {sec.label}
-                </h3>
+                </h2>
                 <ol>
                   {sec.stops.map((s) => (
                     <li key={s.key}>
@@ -196,9 +214,11 @@ export function TripMap({
                       >
                         <Mark stop={s} />
                         <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-sm font-semibold">{s.title}</span>
+                          <bdi dir="auto" className="truncate text-sm font-semibold">
+                            {s.title}
+                          </bdi>
                           {(s.time || s.code) && (
-                            <span className="text-[13px] text-ink-muted figures">
+                            <span className="text-meta text-ink-muted figures">
                               {[s.time, s.code && `Booked · ${s.code}`].filter(Boolean).join(' · ')}
                             </span>
                           )}
@@ -221,7 +241,7 @@ export function TripMap({
           </div>
         )}
         {offMap > 0 && (
-          <p className="text-[13px] text-ink-muted">
+          <p className="text-meta text-ink-muted">
             {offMap} {offMap === 1 ? 'activity has' : 'activities have'} no place yet, so{' '}
             {offMap === 1 ? 'it isn’t' : 'they aren’t'} on the map. Pick a place when you add or
             propose one.
@@ -256,7 +276,7 @@ function Mark({ stop }: { stop: Stop }) {
       </span>
     );
   return (
-    <span className="flex h-7 min-w-11 shrink-0 items-center justify-center rounded-chip bg-sign px-1.5 text-[13px] font-extrabold text-white figures">
+    <span className="flex h-7 min-w-11 shrink-0 items-center justify-center rounded-chip bg-sign px-1.5 text-meta font-extrabold text-white figures">
       {stop.mark}
     </span>
   );
@@ -267,11 +287,15 @@ const signColor = () =>
   getComputedStyle(document.documentElement).getPropertyValue('--color-sign').trim() ||
   'currentColor';
 
+/** Stops draw above the stay (which is everywhere you go home to), the selected pin above all. */
+const zOf = (s: Stop, selected: string | null) =>
+  s.key === selected ? 10 : s.kind === 'stay' ? 1 : 5;
+
 /** Pin element for an advanced marker; the same look as `Mark`. */
 function pinElement(stop: Stop, active: boolean): HTMLElement {
   const el = document.createElement('div');
   const base =
-    'flex h-8 items-center justify-center rounded-chip px-2 text-[13px] font-extrabold tracking-[0.04em] figures transition-transform';
+    'flex h-8 items-center justify-center rounded-chip px-2 text-meta font-extrabold tracking-[0.04em] figures transition-transform';
   const look =
     stop.kind === 'idea'
       ? 'border-[1.5px] border-dashed border-ink-muted bg-surface text-ink-muted'
@@ -317,7 +341,8 @@ function GoogleMap({
           disableDefaultUI: true,
           zoomControl: true,
           clickableIcons: false,
-          gestureHandling: 'cooperative',
+          // one finger pans: the map is used one-handed mid-trip; the page scrolls around it
+          gestureHandling: 'greedy',
         });
         setState('ready');
       })
@@ -336,14 +361,15 @@ function GoogleMap({
     route.current?.setMap(null);
 
     const bounds = new google.maps.LatLngBounds();
+    const placed = spread(stops);
     for (const s of stops) {
       const marker = new google.maps.marker.AdvancedMarkerElement({
         map: m,
-        position: { lat: s.lat, lng: s.lng },
+        position: placed.get(s.key) ?? { lat: s.lat, lng: s.lng },
         content: pinElement(s, s.key === selected),
         title: s.kind === 'stop' ? `${s.mark}. ${s.title}` : s.title,
         gmpClickable: true,
-        zIndex: s.key === selected ? 10 : s.kind === 'stay' ? 5 : 1,
+        zIndex: zOf(s, selected),
       });
       marker.addListener('click', () => onSelect(s.key));
       markers.current.set(s.key, marker);
@@ -382,14 +408,14 @@ function GoogleMap({
       const mk = markers.current.get(s.key);
       if (!mk) continue;
       mk.content = pinElement(s, s.key === selected);
-      mk.zIndex = s.key === selected ? 10 : s.kind === 'stay' ? 5 : 1;
+      mk.zIndex = zOf(s, selected);
     }
     const s = stops.find((x) => x.key === selected);
     if (s) map.current?.panTo({ lat: s.lat, lng: s.lng });
   }, [selected, stops, state]);
 
   return (
-    <div className="relative h-[60vh] min-h-80 overflow-hidden rounded-card bg-surface-column lg:h-[640px]">
+    <div className="relative h-[50vh] min-h-80 overflow-hidden rounded-card bg-surface-column lg:h-[640px]">
       <div ref={box} className="absolute inset-0" aria-hidden="true" />
       {state === 'loading' && <Skeleton className="absolute inset-0 rounded-card" />}
       {state === 'error' && (

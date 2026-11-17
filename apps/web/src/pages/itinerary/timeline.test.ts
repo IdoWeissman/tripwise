@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { bookingTimeOn, dayTimeline, legOn, orderedActivities } from './timeline';
+import {
+  bookingTimeOn,
+  dayTimeline,
+  doneActivityIds,
+  entryStates,
+  legOn,
+  orderedActivities,
+} from './timeline';
 
 const leg = (id: string, departLocal: string, arriveLocal: string) => ({
   id,
@@ -59,5 +66,27 @@ describe('dayTimeline', () => {
       'b',
     ]);
     expect(orderedActivities(['c', 'a', 'b'], (id) => t[id])).toEqual(['a', 'c', 'b']);
+  });
+});
+
+describe('a day in progress', () => {
+  const entries = [
+    { kind: 'activity' as const, id: 'breakfast', time: '09:00' },
+    { kind: 'activity' as const, id: 'palace', time: '11:00' },
+    { kind: 'activity' as const, id: 'fado', time: '20:00' },
+    { kind: 'activity' as const, id: 'souvenirs', time: null },
+  ];
+
+  it('marks done, in progress and next only on today', () => {
+    expect(entryStates(entries, true, '14:10')).toEqual(['done', 'now', 'next', 'untimed']);
+    // other days have no "now": nothing is done or next there
+    expect(entryStates(entries, false, '14:10')).toEqual(['ahead', 'ahead', 'ahead', 'untimed']);
+  });
+
+  it("collects today's finished plans, so their warnings can expire", () => {
+    expect(doneActivityIds(entries, entryStates(entries, true, '14:10'))).toEqual(
+      new Set(['breakfast']),
+    );
+    expect(doneActivityIds(entries, entryStates(entries, false, '14:10')).size).toBe(0);
   });
 });

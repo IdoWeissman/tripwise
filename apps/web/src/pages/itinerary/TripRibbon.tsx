@@ -1,22 +1,16 @@
 import { useEffect, useRef } from 'react';
-import type { BookingType } from '../../gql/graphql';
 import { formatDayShort } from '../../lib/format';
 import { standaloneBookings } from './bookedPlans';
 import type { Column } from './Board';
 import type { ItineraryActivity } from './queries';
 import { dayTimeline } from './timeline';
 
-/** Ribbon marks: bookings in sign blue, plans in Plan blue. */
-const MARK: Record<BookingType, string> = {
-  FLIGHT: 'bg-sign',
-  STAY: 'bg-sign',
-  EVENT: 'bg-sign',
-  ATTRACTION: 'bg-sign',
-  TOUR: 'bg-sign',
-  TRANSPORT: 'bg-sign',
-  DINING: 'bg-sign',
-  OTHER: 'bg-sign',
-};
+/**
+ * Ribbon marks tell bookings from plans by form, not by two near-identical blues: a booking is a
+ * solid sign-blue mark, a plan an outlined Plan-blue one (booked = solid, planned = drawn).
+ */
+const BOOKING_MARK = 'bg-sign';
+const PLAN_MARK = 'border-[1.5px] border-accent bg-surface';
 const MAX_MARKS = 6;
 
 interface Props {
@@ -77,7 +71,7 @@ export function TripRibbon({ columns, items, byId, active, onPick, mode }: Props
       aria-label="Trip days"
       className="relative -mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0"
     >
-      <div className="flex min-w-full gap-1 rounded-card bg-surface-muted p-1">
+      <div className="flex min-w-full gap-0.5 rounded-card bg-surface-muted p-1 md:gap-1">
         {columns.map((c, index) => {
           const date = c.day?.date.slice(0, 10) ?? '';
           const bookings = c.day ? standaloneBookings(c.day) : [];
@@ -100,10 +94,15 @@ export function TripRibbon({ columns, items, byId, active, onPick, mode }: Props
               tabIndex={mode === 'select' && !on ? -1 : undefined}
               onKeyDown={(e) => onKeyDown(e, index)}
               aria-current={c.isToday ? 'date' : undefined}
-              aria-label={`${c.day ? `${c.label}, ${c.sublabel}` : c.label}${c.isToday ? ', today' : ''}. ${summary || 'Nothing planned'}.`}
+              aria-label={`${c.day ? `${c.label}, ${c.sublabel}` : c.label}${c.isToday ? ', today' : ''}${
+                mode === 'scroll' && on ? ', on screen' : ''
+              }. ${summary || 'Nothing planned'}.`}
               onClick={() => onPick(c.id)}
-              className={`flex min-h-11 min-w-[60px] flex-1 flex-col items-start gap-1 rounded-control px-2.5 py-2 text-left transition-colors ${
-                on ? 'bg-surface shadow-segment' : 'hover:bg-surface/60'
+              className={`flex min-h-11 min-w-14 flex-1 flex-col items-start gap-1 rounded-control px-2 py-2 text-left transition-colors md:min-w-[60px] md:px-2.5 ${
+                on
+                  ? 'bg-surface shadow-segment'
+                  : // days off screen stay legible: a lighter panel, not a greyed-out "disabled" look
+                    'bg-surface/55 hover:bg-surface'
               }`}
             >
               <span
@@ -111,7 +110,7 @@ export function TripRibbon({ columns, items, byId, active, onPick, mode }: Props
               >
                 {c.isToday ? 'Today' : c.day ? c.label : 'No day'}
               </span>
-              <span className="text-[15px] leading-none font-bold whitespace-nowrap figures">
+              <span className="text-sm leading-none font-bold whitespace-nowrap figures md:text-body">
                 {c.day ? formatDayShort(c.day.date) : 'Unplanned'}
               </span>
               <span aria-hidden="true" className="flex h-1.5 w-full gap-0.5">
@@ -124,7 +123,7 @@ export function TripRibbon({ columns, items, byId, active, onPick, mode }: Props
                       <span
                         key={i}
                         className={`h-full w-3 shrink-0 rounded-full ${
-                          e.kind === 'booking' ? MARK[e.booking.type] : 'bg-accent'
+                          e.kind === 'booking' ? BOOKING_MARK : PLAN_MARK
                         }`}
                       />
                     ))

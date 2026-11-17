@@ -75,6 +75,8 @@
   --text-headline: 34px;
   --text-headline-sm: 26px;
   --text-timetable: 22px;
+  /* the itinerary day column landmark (rules §2 · 03) */
+  --text-numeral: 28px;
   /* text sizes (rules §1.2): meta lines and body copy */
   --text-meta: 13px;
   --text-meta--line-height: 1.45;

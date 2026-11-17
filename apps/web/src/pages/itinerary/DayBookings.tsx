@@ -4,6 +4,7 @@ import { bookedByPlans } from './bookedPlans';
 import type { Day } from './queries';
 import { isPast } from '../../lib/format';
 import { useTrip } from '../../lib/trip';
+import { StatePill } from './StatePill';
 import { legOn, type DayBooking } from './timeline';
 
 /** Plan-blue stay strip pinned at the top of a day — rules §2 · 03. Links to the stay. */
@@ -35,7 +36,16 @@ export function StayStrip({ day }: { day: Day }) {
 }
 
 /** Compact, read-only booking card for one day (edit on the booking). Shows the leg that belongs to `date`. */
-export function BookingCard({ booking: b, date }: { booking: DayBooking; date: string }) {
+export function BookingCard({
+  booking: b,
+  date,
+  state,
+}: {
+  booking: DayBooking;
+  date: string;
+  /** Today: the booking in progress, or the next thing ahead. */
+  state?: 'now' | 'next';
+}) {
   const t = BOOKING_TYPES[b.type];
   const leg = legOn(b, date);
   const start = localTime(leg?.departLocal ?? b.startLocal);
@@ -62,17 +72,23 @@ export function BookingCard({ booking: b, date }: { booking: DayBooking; date: s
           <span className="sr-only">{t.label} booking: </span>
           {t.code}
         </span>
+        {state && !done && <StatePill state={state} />}
+        <span className="flex-1" />
         <span
           className={`text-xs font-semibold figures ${needs ? 'text-attention-ink' : 'text-ink-secondary'}`}
         >
-          {start ? (end ? `${start} – ${end}` : start) : 'Time missing'}
+          {start ? (end ? `${start}–${end}` : start) : 'Time missing'}
         </span>
       </span>
       <span
         className={`text-sm leading-snug font-semibold text-balance ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
       >
         {done && <span className="sr-only">Done: </span>}
-        {leg?.fromCode && leg.toCode ? `${leg.fromCode} → ${leg.toCode}` : b.title}
+        {state === 'now' && <span className="sr-only">Happening now: </span>}
+        {state === 'next' && <span className="sr-only">Next: </span>}
+        <bdi dir="auto">
+          {leg?.fromCode && leg.toCode ? `${leg.fromCode} → ${leg.toCode}` : b.title}
+        </bdi>
       </span>
       <span className="truncate text-xs text-ink-muted">
         {[leg?.number ?? b.provider, b.confirmationCode].filter(Boolean).join(' · ')}

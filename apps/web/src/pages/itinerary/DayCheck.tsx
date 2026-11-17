@@ -29,7 +29,7 @@ export function DayCheck({
       onClick={onOpen}
       onPointerDown={(e) => e.stopPropagation()}
       aria-label={`Day plan for ${dayName}: ${problems ? `${problems} to check. ` : ''}${summary}`}
-      className={`flex min-h-11 w-full items-center gap-2 rounded-control border px-3 py-1.5 text-left text-[13px] ${
+      className={`flex min-h-11 w-full items-center gap-2 rounded-control border px-3 py-1.5 text-left text-meta ${
         problems
           ? 'border-attention bg-tint-orange text-attention-ink hover:bg-attention/60'
           : 'border-border bg-surface text-ink-secondary hover:border-border-input'

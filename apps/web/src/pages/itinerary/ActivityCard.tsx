@@ -7,6 +7,7 @@ import { BOOKING_TYPES } from '../../lib/bookings';
 import { formatMoney, isPast, toNumber } from '../../lib/format';
 import { useTrip } from '../../lib/trip';
 import { DayDateContext } from './dayDate';
+import { StatePill } from './StatePill';
 import type { ItineraryActivity } from './queries';
 
 interface ActivityCardProps extends HTMLAttributes<HTMLElement> {
@@ -18,6 +19,8 @@ interface ActivityCardProps extends HTMLAttributes<HTMLElement> {
   lifted?: boolean;
   /** What the day plan found wrong with this stop ("Closed on Mondays …"). */
   issues?: string[];
+  /** Today: the stop in progress, or the next one ahead. */
+  state?: 'now' | 'next';
 }
 
 /**
@@ -25,7 +28,17 @@ interface ActivityCardProps extends HTMLAttributes<HTMLElement> {
  * a plan that stands for a booking carries that booking instead of appearing twice.
  */
 export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function ActivityCard(
-  { activity: a, currency, avatarIndex, control, lifted = false, issues, className = '', ...rest },
+  {
+    activity: a,
+    currency,
+    avatarIndex,
+    control,
+    lifted = false,
+    issues,
+    state,
+    className = '',
+    ...rest
+  },
   ref,
 ) {
   const booked = a.booking ? BOOKING_TYPES[a.booking.type] : null;
@@ -47,23 +60,30 @@ export const ActivityCard = forwardRef<HTMLElement, ActivityCardProps>(function 
       {...rest}
     >
       <div className="flex min-h-7 items-center justify-between gap-2">
-        {a.startTime ? (
-          <span
-            className={`flex items-center gap-1.5 text-sm font-extrabold figures ${done ? 'text-ink-muted' : 'text-accent-strong'}`}
-          >
-            <ClockIcon size={14} />
-            {a.startTime}
-          </span>
-        ) : (
-          <span className="text-xs text-ink-muted">Any time</span>
-        )}
+        <span className="flex min-w-0 items-center gap-2">
+          {/* the time leads the card, a step above its title (rules §1.2 figures) */}
+          {a.startTime ? (
+            <span
+              className={`flex items-center gap-1.5 text-base font-extrabold figures ${done ? 'text-ink-muted' : 'text-accent-strong'}`}
+            >
+              <ClockIcon size={14} />
+              {a.startTime}
+            </span>
+          ) : (
+            <span className="text-xs text-ink-muted">Any time</span>
+          )}
+          {state && !done && <StatePill state={state} />}
+        </span>
         {control}
       </div>
       <h3
         className={`text-sm leading-snug font-semibold text-balance ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
       >
         {done && <span className="sr-only">Done: </span>}
-        {a.title}
+        {state === 'now' && <span className="sr-only">Happening now: </span>}
+        {state === 'next' && <span className="sr-only">Next: </span>}
+        {/* its own direction run, so a Hebrew title reads right to left */}
+        <bdi dir="auto">{a.title}</bdi>
       </h3>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-muted">

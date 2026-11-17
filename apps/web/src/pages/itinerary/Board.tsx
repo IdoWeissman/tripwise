@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { GripIcon, PlusIcon } from '../../components/Icons';
 import { ActivityCard } from './ActivityCard';
 import { DayDateContext } from './dayDate';
@@ -29,7 +30,7 @@ import { standaloneBookings } from './bookedPlans';
 import { BookingCard, StayStrip } from './DayBookings';
 import { DayCheck } from './DayCheck';
 import type { Day, DayPlan, ItineraryActivity } from './queries';
-import { dayTimeline } from './timeline';
+import { dayTimeline, entryStates } from './timeline';
 import { TripRibbon } from './TripRibbon';
 
 export interface Column {
@@ -57,6 +58,8 @@ interface BoardProps {
   plansLoading: boolean;
   issuesById: Map<string, string[]>;
   onOpenPlan: (column: Column) => void;
+  /** "HH:MM" at the destination, for today's done / now / next. */
+  nowTime: string;
 }
 
 const findColumn = (items: Items, id: UniqueIdentifier) =>
@@ -87,6 +90,7 @@ export function Board({
   plansLoading,
   issuesById,
   onOpenPlan,
+  nowTime,
 }: BoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Items | null>(null);
@@ -218,7 +222,13 @@ export function Board({
           byId={byId}
           active={inView}
           mode="scroll"
-          onPick={(id) => scrollToColumn(id)}
+          onPick={(id) => {
+            scrollToColumn(id);
+            // the ribbon is a way to get to a day: keyboard and screen-reader users land on it too
+            scroller.current
+              ?.querySelector<HTMLElement>(`[data-column="${id}"] h2`)
+              ?.focus({ preventScroll: true });
+          }}
         />
       </div>
       <div ref={scroller} onScroll={measure} className="relative overflow-x-auto pb-2">
@@ -229,6 +239,9 @@ export function Board({
             const bookings = c.day ? standaloneBookings(c.day) : [];
             const entries = dayTimeline(items[c.id] ?? [], timeOf, bookings, date);
             const ids = entries.flatMap((e) => (e.kind === 'activity' ? [e.id] : []));
+            const states = entryStates(entries, !!c.isToday, nowTime);
+            const pill = (i: number) =>
+              states[i] === 'now' || states[i] === 'next' ? states[i] : undefined;
             return (
               <DayColumn
                 key={c.id}
@@ -249,9 +262,16 @@ export function Board({
                 }
               >
                 <DayDateContext.Provider value={date}>
-                  {entries.map((e) => {
+                  {entries.map((e, i) => {
                     if (e.kind === 'booking')
-                      return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
+                      return (
+                        <BookingCard
+                          key={e.booking.id}
+                          booking={e.booking}
+                          date={date}
+                          state={pill(i)}
+                        />
+                      );
                     const a = byId.get(e.id);
                     return a ? (
                       <SortableCard
@@ -261,6 +281,7 @@ export function Board({
                         avatarIndex={avatarIndex(a.createdBy.id)}
                         disabled={!canEdit}
                         issues={issuesById.get(a.id)}
+                        state={pill(i)}
                       />
                     ) : null;
                   })}
@@ -315,18 +336,19 @@ function DayColumn({
       {column.day ? (
         // The date is the column's landmark: a big numeral, like the times on a flight card.
         <div className="flex items-end justify-between gap-2 px-1 pt-1">
-          <h2 className="flex items-end gap-2.5">
+          {/* focusable from the ribbon (tabIndex -1: not a tab stop of its own) */}
+          <h2 tabIndex={-1} className="flex items-end gap-2.5 rounded-control">
             <span className="sr-only">
               {column.label}, {column.sublabel}
               {column.isToday ? ', today' : ''}
             </span>
             <span
               aria-hidden="true"
-              className={`text-[28px] leading-none font-bold tracking-[-0.02em] figures ${column.isToday ? 'text-accent-strong' : ''}`}
+              className={`text-numeral leading-none font-bold tracking-[-0.02em] figures ${column.isToday ? 'text-accent-strong' : ''}`}
             >
               {new Date(column.day.date).getUTCDate()}
             </span>
-            <span aria-hidden="true" className="flex flex-col pb-px text-[13px] leading-tight">
+            <span aria-hidden="true" className="flex flex-col pb-px text-meta leading-tight">
               <span className="font-semibold">
                 {WEEKDAY_MONTH.format(new Date(column.day.date))}
               </span>
@@ -341,8 +363,10 @@ function DayColumn({
         </div>
       ) : (
         <div className="flex min-h-7 items-center justify-between gap-2 px-1 pt-1">
-          <h2 className="text-[15px] font-bold">{column.label}</h2>
-          <span className="text-[13px] text-ink-muted">{column.sublabel}</span>
+          <h2 tabIndex={-1} className="rounded-control text-body font-bold">
+            {column.label}
+          </h2>
+          <span className="text-meta text-ink-muted">{column.sublabel}</span>
         </div>
       )}
       {column.day && <StayStrip day={column.day} />}
@@ -351,9 +375,13 @@ function DayColumn({
         {children}
       </SortableContext>
       {empty && (
-        <p className="rounded-card border-[1.5px] border-dashed border-border-input px-3 py-5 text-center text-[13px] text-ink-muted">
+        // an empty day points at the group's ideas, where its plans usually come from
+        <div className="flex flex-col items-center gap-1 rounded-card border-[1.5px] border-dashed border-border-input px-3 py-4 text-center text-meta text-ink-muted">
           Nothing planned yet
-        </p>
+          <Link to="../proposals" className="flex min-h-11 items-center text-sm font-bold">
+            Pick from the group's ideas
+          </Link>
+        </div>
       )}
       {canEdit && (
         <button
@@ -375,12 +403,14 @@ function SortableCard({
   avatarIndex,
   disabled,
   issues,
+  state,
 }: {
   activity: ItineraryActivity;
   currency: string;
   avatarIndex: number;
   disabled: boolean;
   issues?: string[];
+  state?: 'now' | 'next';
 }) {
   const {
     attributes,
@@ -401,7 +431,7 @@ function SortableCard({
       <div
         ref={setNodeRef}
         style={style}
-        className="flex h-16 items-center justify-center rounded-card border-[1.5px] border-dashed border-accent bg-accent-tint text-[13px] font-semibold text-accent-strong"
+        className="flex h-16 items-center justify-center rounded-card border-[1.5px] border-dashed border-accent bg-accent-tint text-meta font-semibold text-accent-strong"
       >
         Drop here
       </div>
@@ -416,6 +446,7 @@ function SortableCard({
       currency={currency}
       avatarIndex={avatarIndex}
       issues={issues}
+      state={state}
       control={
         !disabled && (
           <button

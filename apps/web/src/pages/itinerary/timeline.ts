@@ -1,4 +1,4 @@
-import { localTime } from '../../lib/bookings';
+import { agendaStates, localTime, type AgendaState } from '../../lib/bookings';
 import type { Day } from './queries';
 
 export type DayBooking = Day['bookings'][number];
@@ -68,5 +68,31 @@ export function orderedActivities(
 ): string[] {
   return dayTimeline(activityIds, timeOf, [], '').flatMap((e) =>
     e.kind === 'activity' ? [e.id] : [],
+  );
+}
+
+/**
+ * Each entry's state on the day (rules §2 · 03 Today): on today, "done" / "now" (in progress) /
+ * "next" / "ahead" by the destination's clock, the same rule as Today's timetable; on any other
+ * day nothing is done or next. Entries without a time are "untimed".
+ */
+export function entryStates(
+  entries: readonly { time: string | null }[],
+  isToday: boolean,
+  now: string,
+): AgendaState[] {
+  return agendaStates(
+    entries.map((e) => e.time),
+    isToday ? now : '',
+  );
+}
+
+/** Plans already finished today: their warnings no longer ask for anything. */
+export function doneActivityIds(
+  entries: readonly ({ kind: 'activity'; id: string } | { kind: 'booking' })[],
+  states: readonly AgendaState[],
+): Set<string> {
+  return new Set(
+    entries.flatMap((e, i) => (e.kind === 'activity' && states[i] === 'done' ? [e.id] : [])),
   );
 }

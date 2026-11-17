@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, Ref } from 'react';
 
 type Variant = 'primary' | 'vote' | 'secondary' | 'ghost' | 'destructive';
 
@@ -16,6 +16,8 @@ const VARIANTS: Record<Variant, string> = {
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
+  /** React 19 passes refs as props: focus can return to a button (rules §1.6). */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /** 44px min height per design rules §1.6; one primary per region. */

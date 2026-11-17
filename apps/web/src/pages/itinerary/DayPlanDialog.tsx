@@ -1,13 +1,22 @@
 import { useLazyQuery, useMutation } from '@apollo/client/react';
-import { useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
 import { SelectField, TimeInputField } from '../../components/Fields';
 import { AlertIcon } from '../../components/Icons';
 import { useToast } from '../../components/Toast';
+import { BOOKING_TYPES, localTime } from '../../lib/bookings';
 import { messageFromError } from '../../lib/errors';
 import type { GetAround, Pace } from '../../gql/graphql';
-import { DURATIONS, durationText, getAroundLabel, legText, paceLabel } from './planText';
+import {
+  canArrange,
+  DURATIONS,
+  durationText,
+  getAroundLabel,
+  legText,
+  paceLabel,
+} from './planText';
+import { bookingTimeOn, legOn, type DayBooking } from './timeline';
 import {
   ArrangeDayDocument,
   DayArrangementDocument,
@@ -24,6 +33,10 @@ interface Props {
   /** "Day 2 · Tue, Mar 2". */
   dayName: string;
   plan: DayPlan;
+  /** The day's bookings that no plan stands for (a show, a sight): fixed points of the day. */
+  bookings: DayBooking[];
+  /** "YYYY-MM-DD" of the day. */
+  date: string;
   pace: Pace;
   getAround: GetAround;
   canEdit: boolean;
@@ -41,6 +54,8 @@ export function DayPlanDialog({
   dayId,
   dayName,
   plan,
+  bookings,
+  date,
   pace,
   getAround,
   canEdit,
@@ -56,6 +71,39 @@ export function DayPlanDialog({
   const [previewing, setPreviewing] = useState(false);
   const preview = previewing ? arrangement.data?.trip?.day?.arrangement : undefined;
   const dayIssues = plan.issues.filter((i) => !i.activityId);
+  const arrangeable = canArrange(plan.stops);
+
+  // Focus follows the preview: into it when it opens, back to "Arrange this day" when it closes.
+  const previewRef = useRef<HTMLElement>(null);
+  const arrangeRef = useRef<HTMLButtonElement>(null);
+  const wasPreviewing = useRef(false);
+  useEffect(() => {
+    if (preview) previewRef.current?.focus();
+    else if (wasPreviewing.current) arrangeRef.current?.focus();
+    wasPreviewing.current = Boolean(preview);
+  }, [preview]);
+
+  // The day's bookings sit among the stops by time, fixed, so a clash names something listed.
+  const fixed = bookings
+    .map((b) => {
+      const leg = legOn(b, date);
+      return {
+        booking: b,
+        start: bookingTimeOn(b, date),
+        end: localTime(leg?.arriveLocal ?? b.endLocal),
+        title: leg?.fromCode && leg.toCode ? `${leg.fromCode} → ${leg.toCode}` : b.title,
+      };
+    })
+    .sort((x, y) => (x.start ?? '99').localeCompare(y.start ?? '99'));
+  const bookingsBefore = (time: string | null) =>
+    fixed.filter((x) => x.start && time && x.start <= time);
+  const shown = new Set<string>();
+  const bookingRows = (list: typeof fixed) =>
+    list
+      .filter((x) => !shown.has(x.booking.id) && shown.add(x.booking.id))
+      .map((x) => <BookingRow key={x.booking.id} {...x} />);
+  const hasTravel = plan.stops.some((s) => s.travel) || Boolean(plan.backToStay);
+  const hasTypical = plan.stops.some((s) => s.durationEstimated);
 
   const apply = async () => {
     try {
@@ -71,7 +119,7 @@ export function DayPlanDialog({
   return (
     <Dialog open onClose={onClose} title={`Day plan · ${dayName}`} wide>
       <div className="flex flex-col gap-5">
-        <p className="text-[13px] text-ink-muted">
+        <p className="text-meta text-ink-muted">
           {paceLabel(pace)} pace · {getAroundLabel(getAround)}
           {plan.freeFrom && <> · free from {plan.freeFrom}</>}
           {plan.freeUntil && <> · until {plan.freeUntil}</>}
@@ -79,8 +127,9 @@ export function DayPlanDialog({
 
         {dayIssues.length > 0 && <IssueList issues={dayIssues} />}
 
-        {preview ? (
+        {preview && (
           <ArrangementPreview
+            ref={previewRef}
             better={preview.better}
             reason={preview.reason}
             plan={preview.plan}
@@ -88,25 +137,30 @@ export function DayPlanDialog({
             onApply={() => void apply()}
             onDismiss={() => setPreviewing(false)}
           />
-        ) : (
-          <ol aria-label={`${dayName} in time order`} className="flex flex-col">
+        )}
+        {/* "nothing to re-order" is a note above the day, never instead of it */}
+        {!preview?.better && (
+          <ol aria-label={`${dayName} in time order`} className="flex flex-col gap-0">
             {plan.stops.map((s, i) => (
-              <StopRow
-                key={s.activity.id}
-                stop={s}
-                first={i === 0}
-                issues={plan.issues.filter((x) => x.activityId === s.activity.id)}
-                canEdit={canEdit}
-                editing={editing === s.activity.id}
-                onEdit={() => setEditing(s.activity.id)}
-                onDone={async (changed) => {
-                  setEditing(null);
-                  if (changed) await onChanged();
-                }}
-              />
+              <Fragment key={s.activity.id}>
+                {bookingRows(bookingsBefore(s.start))}
+                <StopRow
+                  stop={s}
+                  first={i === 0}
+                  issues={plan.issues.filter((x) => x.activityId === s.activity.id)}
+                  canEdit={canEdit}
+                  editing={editing === s.activity.id}
+                  onEdit={() => setEditing(s.activity.id)}
+                  onDone={async (changed) => {
+                    setEditing(null);
+                    if (changed) await onChanged();
+                  }}
+                />
+              </Fragment>
             ))}
+            {bookingRows(fixed)}
             {plan.backToStay && (
-              <li className="flex min-h-9 items-center gap-2 border-l-2 border-dashed border-border-input pl-4 text-[13px] text-ink-muted">
+              <li className="flex min-h-9 items-center gap-2 border-l-2 border-dashed border-border-input pl-4 text-meta text-ink-muted">
                 {legText(plan.backToStay)} back to where you stay
               </li>
             )}
@@ -122,7 +176,9 @@ export function DayPlanDialog({
         {canEdit && !preview && !editing && (
           <div className="flex flex-col gap-1.5">
             <Button
-              disabled={arrangement.loading || plan.stops.length < 2}
+              ref={arrangeRef}
+              disabled={arrangement.loading || !arrangeable}
+              aria-describedby="arrange-why"
               onClick={() => {
                 setPreviewing(true);
                 void loadArrangement({ variables: { tripId, dayId } });
@@ -131,19 +187,23 @@ export function DayPlanDialog({
             >
               {arrangement.loading ? 'Working it out…' : 'Arrange this day'}
             </Button>
-            <p className="text-[13px] text-ink-muted">
-              Orders stops by route from where you stay and gives each a time. Booked plans keep
-              theirs. You see the result before anything changes.
+            <p id="arrange-why" className="text-meta text-ink-muted">
+              {arrangeable
+                ? 'Orders stops by route from where you stay and gives each a time. Booked plans keep theirs. You see the result before anything changes.'
+                : 'Needs two plans with a place that aren’t booked: pick a place for a plan (on its card) to let the day be arranged.'}
             </p>
           </div>
         )}
 
-        <p className="text-xs text-ink-muted">
-          {plan.travelEstimated
-            ? 'Travel times are estimates from distance.'
-            : 'Travel times and opening hours from Google, as of now.'}{' '}
-          Lengths marked “typical” are usual for that kind of place.
-        </p>
+        {(hasTravel || hasTypical) && (
+          <p className="text-xs text-ink-muted">
+            {hasTravel &&
+              (plan.travelEstimated
+                ? 'Travel times are estimates from distance. '
+                : 'Travel times and opening hours from Google, as of now. ')}
+            {hasTypical && 'Lengths marked “typical” are usual for that kind of place.'}
+          </p>
+        )}
       </div>
     </Dialog>
   );
@@ -183,7 +243,7 @@ function StopRow({
   return (
     <>
       {s.travel && (
-        <li className="flex min-h-9 items-center border-l-2 border-dashed border-border-input pl-4 text-[13px] text-ink-muted">
+        <li className="flex min-h-9 items-center border-l-2 border-dashed border-border-input pl-4 text-meta text-ink-muted">
           {legText(s.travel)}
           {first ? ' from where you stay' : ''}
         </li>
@@ -195,11 +255,13 @@ function StopRow({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-extrabold text-accent-strong figures">
+            <p className="text-body font-extrabold text-accent-strong figures">
               {s.start}–{s.end}
             </p>
-            <p className="text-sm font-semibold text-balance">{s.activity.title}</p>
-            <p className="text-[13px] text-ink-muted">
+            <p className="text-sm font-semibold text-balance">
+              <bdi dir="auto">{s.activity.title}</bdi>
+            </p>
+            <p className="text-meta text-ink-muted">
               {durationText(s.durationMinutes)}
               {s.durationEstimated ? ' (typical)' : ''}
               {booked ? ' · booked, time fixed' : !s.activity.startTime ? ' · any time' : ''}
@@ -212,7 +274,7 @@ function StopRow({
           )}
         </div>
         {issues.map((i, n) => (
-          <p key={n} className="flex items-start gap-2 text-[13px] text-attention-ink">
+          <p key={n} className="flex items-start gap-2 text-meta text-attention-ink">
             <AlertIcon size={16} className="mt-px shrink-0" />
             {i.message}
           </p>
@@ -284,6 +346,7 @@ function TimingEditor({
 }
 
 function ArrangementPreview({
+  ref,
   better,
   reason,
   plan,
@@ -291,6 +354,7 @@ function ArrangementPreview({
   onApply,
   onDismiss,
 }: {
+  ref: React.Ref<HTMLElement>;
   better: boolean;
   reason: string;
   plan: DayPlan;
@@ -300,25 +364,34 @@ function ArrangementPreview({
 }) {
   if (!better)
     return (
-      <div className="flex flex-col items-start gap-3 rounded-card border border-border bg-surface-column px-4 py-3">
+      <section
+        ref={ref}
+        tabIndex={-1}
+        aria-label="Arrange this day"
+        className="flex flex-col items-start gap-3 rounded-card border border-border bg-surface-column px-4 py-3"
+      >
         <p className="text-sm">{reason}</p>
         <Button variant="secondary" onClick={onDismiss}>
-          Back to the day
+          Done
         </Button>
-      </div>
+      </section>
     );
   return (
     <section
+      ref={ref}
+      tabIndex={-1}
       aria-label="Suggested order"
       className="flex flex-col gap-3 rounded-card border border-accent-tint-border bg-accent-tint px-4 py-3"
     >
-      <h3 className="text-[15px] font-bold text-accent-deep">{reason}</h3>
+      <h3 className="text-body font-bold text-accent-deep">{reason}</h3>
       <ol className="flex flex-col gap-1.5">
         {plan.stops.map((s, i) => (
           <li key={s.activity.id} className="flex items-baseline gap-3 text-sm">
             <span className="w-12 shrink-0 font-bold text-accent-strong figures">{s.start}</span>
             <span className="min-w-0">
-              <span className="font-semibold">{s.activity.title}</span>
+              <bdi dir="auto" className="font-semibold">
+                {s.activity.title}
+              </bdi>
               {s.travel && (
                 <span className="text-ink-muted">
                   {' '}
@@ -331,7 +404,7 @@ function ArrangementPreview({
         ))}
       </ol>
       {plan.issues.length > 0 && (
-        <p className="text-[13px] text-accent-ink-soft">
+        <p className="text-meta text-accent-ink-soft">
           Still to check after this: {plan.issues.map((i) => i.message).join('; ')}.
         </p>
       )}
@@ -344,5 +417,39 @@ function ArrangementPreview({
         </Button>
       </div>
     </section>
+  );
+}
+
+/** A booking on the day (a show, a sight): a fixed point in the day plan, not moved or retimed. */
+function BookingRow({
+  booking,
+  start,
+  end,
+  title,
+}: {
+  booking: DayBooking;
+  start: string | null;
+  end: string | null;
+  title: string;
+}) {
+  const t = BOOKING_TYPES[booking.type];
+  return (
+    <li className="my-1 flex flex-col gap-1 rounded-card border border-border bg-surface px-4 py-3">
+      <p className="text-body font-extrabold text-accent-strong figures">
+        {start ? (end ? `${start}–${end}` : start) : 'Time missing'}
+      </p>
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <span
+          className={`rounded-chip px-1.5 py-0.5 text-xs font-bold tracking-[0.04em] ${t.chip}`}
+        >
+          <span className="sr-only">{t.label} booking: </span>
+          {t.code}
+        </span>
+        <bdi dir="auto" className="min-w-0 text-balance">
+          {title}
+        </bdi>
+      </p>
+      <p className="text-meta text-ink-muted">Booked, time fixed</p>
+    </li>
   );
 }

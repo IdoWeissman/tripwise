@@ -132,6 +132,9 @@ export const DayPlansDocument = graphql(`
         booking {
           id
         }
+        place {
+          id
+        }
       }
       start
       end

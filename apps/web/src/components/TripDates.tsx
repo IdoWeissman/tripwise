@@ -130,16 +130,27 @@ export function OutsideDatesNotice() {
 }
 
 /** "Nov 21 – 24" with a calendar icon: opens the trip-dates dialog (editors). */
-export function TripDatesButton() {
+/** Editors: the trip's dates, opening Trip dates. `compact` (phones) shows just the calendar icon. */
+export function TripDatesButton({ compact = false }: { compact?: boolean } = {}) {
   const { trip, canEdit } = useTrip();
   const [open, setOpen] = useState(false);
   if (!canEdit) return null;
+  const range = formatDateRange(trip.startDate, trip.endDate);
   return (
     <>
-      <Button variant="secondary" className="px-4 text-sm" onClick={() => setOpen(true)}>
+      <Button
+        variant="secondary"
+        className={compact ? 'size-11 shrink-0 px-0!' : 'px-4 text-sm'}
+        onClick={() => setOpen(true)}
+        aria-label={compact ? `Trip dates, ${range}: change the trip dates` : undefined}
+      >
         <CalendarIcon size={16} />
-        {formatDateRange(trip.startDate, trip.endDate)}
-        <span className="sr-only">: change the trip dates</span>
+        {!compact && (
+          <>
+            {range}
+            <span className="sr-only">: change the trip dates</span>
+          </>
+        )}
       </Button>
       {open && <TripDatesDialog onClose={() => setOpen(false)} />}
     </>

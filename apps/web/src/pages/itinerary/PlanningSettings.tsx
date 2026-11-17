@@ -2,6 +2,7 @@ import { useMutation } from '@apollo/client/react';
 import { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
+import { SlidersIcon } from '../../components/Icons';
 import { Segmented } from '../../components/Segmented';
 import { useToast } from '../../components/Toast';
 import type { GetAround, Pace } from '../../gql/graphql';
@@ -19,18 +20,28 @@ export function PlanningSettings({
   getAround,
   canEdit,
   onChanged,
+  compact = false,
 }: {
   tripId: string;
   pace: Pace;
   getAround: GetAround;
   canEdit: boolean;
   onChanged: () => Promise<unknown>;
+  /** Phones: just the pace, so the toolbar stays one row; the full setting is read out. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const full = `${paceLabel(pace)} pace · ${getAroundLabel(getAround)}`;
   return (
     <>
-      <Button variant="secondary" className="px-4 text-sm" onClick={() => setOpen(true)}>
-        {paceLabel(pace)} pace · {getAroundLabel(getAround)}
+      <Button
+        variant="secondary"
+        className={`min-w-0 text-sm ${compact ? 'px-3!' : 'px-4'}`}
+        onClick={() => setOpen(true)}
+        aria-label={`Day planning: ${full}. ${canEdit ? 'Change' : 'See'} how days are planned`}
+      >
+        <SlidersIcon size={16} className="shrink-0" />
+        <span className="truncate">{compact ? `${paceLabel(pace)} pace` : full}</span>
       </Button>
       {open && (
         <SettingsDialog
@@ -97,7 +108,7 @@ function SettingsDialog({
             onChange={canEdit ? setPace : () => undefined}
             options={PACES.map(({ value, label }) => ({ value, label }))}
           />
-          <p className="text-[13px] text-ink-muted figures">{detail}</p>
+          <p className="text-meta text-ink-muted figures">{detail}</p>
         </fieldset>
         <fieldset className="flex flex-col gap-2" disabled={!canEdit}>
           <legend className="mb-2 text-sm font-bold">Getting around</legend>
@@ -114,7 +125,7 @@ function SettingsDialog({
             {loading ? 'Saving…' : 'Save'}
           </Button>
         ) : (
-          <p className="text-[13px] text-ink-muted">Only editors and owners can change these.</p>
+          <p className="text-meta text-ink-muted">Only editors and owners can change these.</p>
         )}
       </form>
     </Dialog>

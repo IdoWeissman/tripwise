@@ -38,3 +38,13 @@ export function planSummaryParts(plan: DayPlan): string[] {
 
 /** Lengths offered when setting how long a stop takes. */
 export const DURATIONS = [15, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300, 360];
+
+/**
+ * Whether "Arrange this day" can change anything: the server moves only stops with a place that
+ * don't stand for a booking, and needs two of them (planning/plan.ts arrangeDay).
+ */
+export function canArrange(
+  stops: readonly { activity: { place?: unknown; booking?: unknown } }[],
+): boolean {
+  return stops.filter((s) => s.activity.place && !s.activity.booking).length >= 2;
+}

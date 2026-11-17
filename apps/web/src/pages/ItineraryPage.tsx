@@ -2,14 +2,16 @@ import { useMutation, useQuery } from '@apollo/client/react';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { PageHeader } from '../components/Bits';
-import { PlusIcon } from '../components/Icons';
+import { Button } from '../components/Button';
+import { ChevronDownIcon, PlusIcon } from '../components/Icons';
 import { Segmented } from '../components/Segmented';
 import { useMaps } from '../lib/maps';
 import { Select } from '../components/Select';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { messageFromError } from '../lib/errors';
-import { formatDay, todayIn } from '../lib/format';
+import { formatDay, nowHHMM, todayIn } from '../lib/format';
+import { useNow } from '../lib/useNow';
 import { useMemberIndexOf, useTrip } from '../lib/trip';
 import { useIsDesktop } from '../lib/useMediaQuery';
 import { ActivityCard } from './itinerary/ActivityCard';
@@ -30,7 +32,7 @@ import {
   type DayPlan,
   type ItineraryActivity,
 } from './itinerary/queries';
-import { dayTimeline, orderedActivities } from './itinerary/timeline';
+import { dayTimeline, doneActivityIds, entryStates, orderedActivities } from './itinerary/timeline';
 import { TripMap } from './itinerary/TripMap';
 import { TripRibbon } from './itinerary/TripRibbon';
 
@@ -56,7 +58,10 @@ export function ItineraryPage() {
   // Board or Map; kept in the URL so a link (or the back button) returns to the same view.
   const [params, setParams] = useSearchParams();
   const view = maps.mapEnabled && params.get('view') === 'map' ? 'map' : 'board';
-  const today = todayIn(trip.timeZone);
+  // The destination's clock, ticking: today's done / now / next move on their own (rules §2 · 03).
+  const nowMs = useNow();
+  const today = todayIn(trip.timeZone, new Date(nowMs));
+  const nowTime = nowHHMM(trip.timeZone, new Date(nowMs));
 
   const { columns, serverItems, byId } = useMemo(() => {
     const t = data?.trip;
@@ -93,17 +98,37 @@ export function ItineraryPage() {
 
   const items = pending ?? serverItems;
 
+  // Today's plans that are already over: their warnings no longer ask anything of anyone, so they
+  // drop out of the day check, the cards and the day plan (rules §2 · 03 Day check).
+  const doneToday = useMemo(() => {
+    const col = columns.find((c) => c.isToday);
+    if (!col?.day) return new Set<string>();
+    const entries = dayTimeline(
+      items[col.id] ?? [],
+      (id) => byId.get(id)?.startTime,
+      standaloneBookings(col.day),
+      col.day.date.slice(0, 10),
+    );
+    return doneActivityIds(entries, entryStates(entries, true, nowTime));
+  }, [columns, items, byId, nowTime]);
+
   const { planByDay, issuesById } = useMemo(() => {
     const planByDay = new Map<string, DayPlan>();
     const issuesById = new Map<string, string[]>();
     for (const d of plans.data?.trip?.days ?? []) {
-      planByDay.set(d.id, d.plan);
-      for (const i of d.plan.issues)
+      const plan = d.plan.issues.some((i) => i.activityId && doneToday.has(i.activityId))
+        ? {
+            ...d.plan,
+            issues: d.plan.issues.filter((i) => !i.activityId || !doneToday.has(i.activityId)),
+          }
+        : d.plan;
+      planByDay.set(d.id, plan);
+      for (const i of plan.issues)
         if (i.activityId)
           issuesById.set(i.activityId, [...(issuesById.get(i.activityId) ?? []), i.message]);
     }
     return { planByDay, issuesById };
-  }, [plans.data]);
+  }, [plans.data, doneToday]);
   const planSettings = plans.data?.trip;
   const refreshAll = () => Promise.all([refetch(), plans.refetch()]);
 
@@ -126,25 +151,33 @@ export function ItineraryPage() {
     }
   };
 
+  // Desktop: "Add activity" leads (placing things on days is what this screen is for), with
+  // proposing an idea for a vote one step beside it. Phones keep the first screen for the day:
+  // no instructions, and both actions sit under the day.
+  const addTo =
+    columns.find((c) => c.isToday) ?? columns.find((c) => c.id !== UNPLANNED) ?? columns[0];
   const header = (
     <PageHeader
       title="Itinerary"
       subtitle={
         view === 'map'
           ? 'Where everything is. Pick a day to see its stops in order.'
-          : isDesktop
-            ? 'Each day runs in time order. Drag an activity to another day; ones without a time can be reordered.'
-            : 'Each day runs in time order. Use Move to for another day.'
+          : 'Each day runs in time order. Drag an activity to another day; ones without a time can be reordered.'
       }
+      subtitleClassName="max-lg:hidden"
       actions={
-        canEdit && (
-          <Link
-            to="../proposals"
-            className="flex min-h-11 items-center gap-2 rounded-control bg-sign px-4.5 text-sm font-semibold text-white no-underline hover:bg-sign-raised"
-          >
-            <PlusIcon />
-            Propose activity
-          </Link>
+        canEdit &&
+        isDesktop &&
+        addTo && (
+          <>
+            <Link to="../proposals" className={SECONDARY_LINK}>
+              Propose an idea
+            </Link>
+            <Button onClick={() => setAdding(addTo)}>
+              <PlusIcon />
+              Add activity
+            </Button>
+          </>
         )
       }
     />
@@ -209,7 +242,8 @@ export function ItineraryPage() {
 
       <OutsideDatesNotice />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* one row on phones too: the view, then the trip's planning settings, compact */}
+      <div className="flex items-center justify-between gap-2 lg:flex-wrap lg:gap-3">
         {maps.mapEnabled && (
           <Segmented
             label="Itinerary view"
@@ -224,14 +258,14 @@ export function ItineraryPage() {
                 { replace: true },
               )
             }
-            className="self-start"
+            className="shrink-0 self-start"
             options={[
               { value: 'board', label: 'Board' },
               { value: 'map', label: 'Map' },
             ]}
           />
         )}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2 lg:flex-wrap">
           {planSettings && (
             <PlanningSettings
               tripId={trip.id}
@@ -239,9 +273,10 @@ export function ItineraryPage() {
               getAround={planSettings.getAround}
               canEdit={canEdit}
               onChanged={() => plans.refetch()}
+              compact={!isDesktop}
             />
           )}
-          <TripDatesButton />
+          <TripDatesButton compact={!isDesktop} />
         </div>
       </div>
 
@@ -252,6 +287,7 @@ export function ItineraryPage() {
           byId={byId}
           browserKey={maps.browserKey}
           mapId={maps.mapId}
+          todayId={columns.find((c) => c.isToday)?.id ?? null}
         />
       ) : isDesktop ? (
         <Board
@@ -268,6 +304,7 @@ export function ItineraryPage() {
           plansLoading={plans.loading}
           issuesById={issuesById}
           onOpenPlan={setPlanFor}
+          nowTime={nowTime}
         />
       ) : (
         <MobileDayList
@@ -292,6 +329,7 @@ export function ItineraryPage() {
           plansLoading={plans.loading}
           issuesById={issuesById}
           onOpenPlan={setPlanFor}
+          nowTime={nowTime}
         />
       )}
 
@@ -301,6 +339,8 @@ export function ItineraryPage() {
           dayId={planFor.id}
           dayName={`${planFor.label} · ${planFor.sublabel}`}
           plan={planByDay.get(planFor.id)!}
+          bookings={planFor.day ? standaloneBookings(planFor.day) : []}
+          date={planFor.day?.date.slice(0, 10) ?? ''}
           pace={planSettings.pace}
           getAround={planSettings.getAround}
           canEdit={canEdit}
@@ -336,7 +376,12 @@ interface MobileProps {
   plansLoading: boolean;
   issuesById: Map<string, string[]>;
   onOpenPlan: (column: Column) => void;
+  /** "HH:MM" at the destination, for today's done / now / next. */
+  nowTime: string;
 }
+
+const SECONDARY_LINK =
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-control border-[1.5px] border-border bg-surface px-5 text-body font-bold text-ink no-underline hover:border-border-input hover:text-ink';
 
 /** "2 bookings · 3 activities" — every card on the day is counted. */
 function dayCount(activities: number, bookings: number) {
@@ -365,12 +410,56 @@ function MobileDayList({
   plansLoading,
   issuesById,
   onOpenPlan,
+  nowTime,
 }: MobileProps) {
   const column = columns.find((c) => c.id === selected)!;
   const date = column.day?.date.slice(0, 10) ?? '';
   const bookings = column.day ? standaloneBookings(column.day) : [];
   const ids = items[selected] ?? [];
   const entries = dayTimeline(ids, (id) => byId.get(id)?.startTime, bookings, date);
+  const states = entryStates(entries, !!column.isToday, nowTime);
+  // Mid-trip the day leads with what's next: what's already over folds into one row.
+  const done = entries.flatMap((e, i) => (states[i] === 'done' ? [{ e, i }] : []));
+  const rest = entries.flatMap((e, i) => (states[i] === 'done' ? [] : [{ e, i }]));
+
+  const card = ({ e, i }: { e: (typeof entries)[number]; i: number }) => {
+    const st = states[i];
+    const state = st === 'now' || st === 'next' ? st : undefined;
+    if (e.kind === 'booking')
+      return <BookingCard key={e.booking.id} booking={e.booking} date={date} state={state} />;
+    const a = byId.get(e.id);
+    if (!a) return null;
+    // A booked plan moves with its booking, and a finished one stays where it happened.
+    const movable = canEdit && !a.booking && st !== 'done';
+    return (
+      <ActivityCard
+        key={e.id}
+        activity={a}
+        currency={currency}
+        avatarIndex={avatarIndex(a.createdBy.id)}
+        issues={issuesById.get(a.id)}
+        state={state}
+        control={
+          movable && (
+            <span className="w-36 shrink-0">
+              <Select
+                aria-label={`Move ${a.title} to another day`}
+                placeholder="Move to…"
+                value={undefined}
+                onValueChange={(col) => onMove(e.id, col)}
+                options={columns
+                  .filter((c) => c.id !== selected)
+                  .map((c) => ({
+                    value: c.id,
+                    label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
+                  }))}
+              />
+            </span>
+          )
+        }
+      />
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -383,14 +472,12 @@ function MobileDayList({
         onPick={onSelect}
       />
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <h2 className="text-xl font-bold">
+        <h2 className="text-lg font-extrabold">
           {column.label} · {column.sublabel}
           {column.isToday && <span className="sr-only">, today</span>}
         </h2>
         {(ids.length > 0 || bookings.length > 0) && (
-          <span className="text-[13px] text-ink-muted">
-            {dayCount(ids.length, bookings.length)}
-          </span>
+          <span className="text-meta text-ink-muted">{dayCount(ids.length, bookings.length)}</span>
         )}
       </div>
       {column.day && <StayStrip day={column.day} />}
@@ -405,53 +492,38 @@ function MobileDayList({
       {ids.length === 0 && bookings.length === 0 && (
         <EmptyState
           title="Nothing planned yet"
-          body="Add an activity or propose an idea for the group to vote on."
+          body="Add an activity, or propose an idea for the group to vote on."
         />
       )}
       <DayDateContext.Provider value={date}>
-        {entries.map((e) => {
-          if (e.kind === 'booking')
-            return <BookingCard key={e.booking.id} booking={e.booking} date={date} />;
-          const a = byId.get(e.id);
-          if (!a) return null;
-          return (
-            <ActivityCard
-              key={e.id}
-              activity={a}
-              currency={currency}
-              avatarIndex={avatarIndex(a.createdBy.id)}
-              issues={issuesById.get(a.id)}
-              control={
-                canEdit && (
-                  <span className="w-36">
-                    <Select
-                      aria-label={`Move ${a.title} to another day`}
-                      placeholder="Move to…"
-                      value={undefined}
-                      onValueChange={(col) => onMove(e.id, col)}
-                      options={columns
-                        .filter((c) => c.id !== selected)
-                        .map((c) => ({
-                          value: c.id,
-                          label: c.id === UNPLANNED ? 'Unplanned' : `${c.label} · ${c.sublabel}`,
-                        }))}
-                    />
-                  </span>
-                )
-              }
-            />
-          );
-        })}
+        {done.length > 0 && (
+          <details className="group rounded-card bg-surface-column">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold text-ink-secondary">
+              {done.length} done earlier
+              <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="flex flex-col gap-2.5 px-2 pb-2">{done.map(card)}</div>
+          </details>
+        )}
+        {rest.map(card)}
       </DayDateContext.Provider>
       {canEdit && (
-        <button
-          type="button"
-          onClick={() => onAdd(column)}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-card border border-border-input bg-surface text-[15px] font-semibold"
-        >
-          <PlusIcon />
-          Add activity
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => onAdd(column)}
+            className="flex min-h-12 items-center justify-center gap-2 rounded-control bg-sign text-body font-bold text-white hover:bg-sign-raised"
+          >
+            <PlusIcon />
+            Add activity
+          </button>
+          <Link
+            to="../proposals"
+            className="flex min-h-11 items-center justify-center text-sm font-bold"
+          >
+            Or propose an idea for the group
+          </Link>
+        </div>
       )}
     </div>
   );

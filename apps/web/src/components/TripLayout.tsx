@@ -368,8 +368,18 @@ export function TripLayout() {
   );
 }
 
+/** A trip that can't be shown still sits inside the app: the account sign header, then the message. */
 function Centered({ children }: { children: ReactNode }) {
-  return <main className="mx-auto max-w-xl px-4 py-24">{children}</main>;
+  return (
+    <div className="min-h-screen bg-bg">
+      <header className="flex items-center bg-sign px-4 py-3 text-white sm:px-8">
+        <Logo onSign />
+      </header>
+      <main id="main" className="mx-auto max-w-xl px-4 py-24">
+        {children}
+      </main>
+    </div>
+  );
 }
 
 function ShellSkeleton() {
