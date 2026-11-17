@@ -91,7 +91,7 @@ export function SetupChecklist({
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-money text-white">
           <CheckIcon size={16} />
         </span>
-        <h2 id="setup-title" className="flex-1 text-[15px] font-bold text-money">
+        <h2 id="setup-title" className="flex-1 text-body font-bold text-money">
           You're set — the trip is ready for the group.
         </h2>
         {hideButton}
@@ -138,9 +138,7 @@ export function SetupChecklist({
                     <span className="sr-only">{s.done ? 'Done:' : 'To do:'}</span> {s.title}
                   </span>
                   {!s.done && (
-                    <span
-                      className={`text-[13px] text-ink-muted ${started ? 'max-md:hidden' : ''}`}
-                    >
+                    <span className={`text-meta text-ink-muted ${started ? 'max-md:hidden' : ''}`}>
                       {s.help}
                     </span>
                   )}

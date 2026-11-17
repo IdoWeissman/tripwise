@@ -1,5 +1,5 @@
 import { useQuery } from '@apollo/client/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../components/Button';
 import {
@@ -19,16 +19,22 @@ import {
   BOOKING_TYPES,
   countdown,
   dayShift,
+  daysFrom,
   directions,
   duration,
+  inDays,
   leaveBy,
   localDay,
   localTime,
+  wallClock,
+  reminderWhen,
+  splitReminders,
   untilTime,
   type AgendaState,
 } from '../lib/bookings';
 import { formatMoney, nowHHMM, todayIn, toNumber } from '../lib/format';
 import { useTrip } from '../lib/trip';
+import { loadSnapshot, saveSnapshot } from '../lib/overviewSnapshot';
 import { useNow } from '../lib/useNow';
 import { SetupChecklist } from './overview/SetupChecklist';
 
@@ -72,8 +78,9 @@ const TripOverviewDocument = graphql(`
           arriveLocal
         }
       }
-      reminders(limit: 3) {
+      reminders(limit: 6) {
         key
+        kind
         title
         body
         fireAt
@@ -91,6 +98,8 @@ const TripOverviewDocument = graphql(`
       expenseSummary {
         total
         viewerBalance
+        viewerPaid
+        expenseCount
       }
     }
   }
@@ -120,12 +129,12 @@ const DayAgendaDocument = graphql(`
 type Overview = NonNullable<TripOverviewQuery['trip']>;
 type Agenda = NonNullable<DayAgendaQuery['trip']>['agenda'];
 
-function greeting(timeZone: string) {
-  let hour = new Date().getHours();
+function greeting(timeZone: string, nowMs: number) {
+  let hour = new Date(nowMs).getHours();
   try {
     hour = Number(
       new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(
-        new Date(),
+        new Date(nowMs),
       ),
     );
   } catch {
@@ -133,6 +142,14 @@ function greeting(timeZone: string) {
   }
   return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 }
+
+const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' });
+const MONTH_DAY = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+const utcDay = (date: string) => new Date(`${date}T00:00:00Z`);
 
 /** Trip overview / Today — the station: departure board, timetable, money panel. Rules §2 · 10. */
 export function OverviewPage() {
@@ -146,7 +163,16 @@ export function OverviewPage() {
     // Always revalidate on arrival: coming back from a setup step must show its tick.
     fetchPolicy: 'cache-and-network',
   });
-  const days = useMemo(() => data?.trip?.days ?? [], [data]);
+  // The last overview that loaded, kept on this device: on flaky airport Wi-Fi a failed load
+  // still shows the next departure and its code instead of a blank error.
+  const [snapshot] = useState(() => loadSnapshot<TripOverviewQuery>(trip.id));
+  useEffect(() => {
+    if (data?.trip) saveSnapshot(trip.id, data);
+  }, [data, trip.id]);
+  const offline = !data?.trip && !!error && !!snapshot?.data.trip;
+  const view = data?.trip ? data : offline ? snapshot!.data : undefined;
+
+  const days = useMemo(() => view?.trip?.days ?? [], [view]);
   // The day that matters: today during the trip, otherwise the first (before) or last (after) day.
   const day = useMemo(() => {
     if (!days.length) return undefined;
@@ -159,44 +185,59 @@ export function OverviewPage() {
     variables: { id: trip.id, dayId: day?.id ?? '' },
     skip: !day,
   });
-  const view = data;
   const dayDate = day?.date.slice(0, 10);
+  // From the trip's own dates (already loaded), so the lines don't change once the page's data
+  // arrives; whole calendar days in the trip's time zone, never hours from UTC midnight.
+  const startDate = trip.startDate.slice(0, 10);
+  const endDate = trip.endDate.slice(0, 10);
+  const tripDays = daysFrom(startDate, endDate) + 1;
+  const phase = today < startDate ? 'before' : today > endDate ? 'ended' : 'during';
+  const hello = `${greeting(trip.timeZone, nowMs)}${me ? `, ${me}` : ''}`;
+  // On trip days the headline is the day itself; the greeting steps down to the status line.
+  const title =
+    phase === 'during'
+      ? `${WEEKDAY.format(utcDay(today))} · Day ${daysFrom(startDate, today) + 1} of ${tripDays}`
+      : hello;
   const status =
-    dayDate === today
-      ? `Day ${day!.position + 1} of ${days.length} · ${localDay(today)} · ${trip.destination}`
-      : days[0] && today < days[0].date.slice(0, 10)
-        ? `Starts ${countdown(`${days[0].date.slice(0, 10)}T00:00:00Z`)} · ${days.length} days · ${trip.destination}`
-        : `Trip ended · ${days.length} days · ${trip.destination}`;
+    phase === 'during'
+      ? `${hello} · ${MONTH_DAY.format(utcDay(today))} · ${trip.destination}`
+      : phase === 'before'
+        ? `Starts ${inDays(today, startDate)} · ${tripDays} days · ${trip.destination}`
+        : `Trip ended · ${tripDays} days · ${trip.destination}`;
 
-  // On phones the first screen belongs to the day: one-line greeting, one row of the two
-  // actions people take mid-trip. Add to calendar lives with the reminders.
-  const header = (
+  // On phones the first screen belongs to the day: the day as the headline, one row of the two
+  // actions people take mid-trip. Add to calendar lives with the reminders. Add booking steps
+  // aside when the board already offers it (no departures yet) and once the trip is over.
+  const header = (showAddBooking: boolean) => (
     <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
       <div className="flex min-w-0 flex-col gap-1">
         <h1 className="truncate text-headline-sm font-extrabold tracking-[-0.02em] md:text-headline">
-          {greeting(trip.timeZone)}
-          {me && `, ${me}`}
+          {title}
         </h1>
-        <p className="text-sm text-ink-muted md:text-[15px]">{view ? status : trip.destination}</p>
+        <p className="text-sm text-ink-muted md:text-body">
+          <bdi>{status}</bdi>
+        </p>
       </div>
       {canEdit && (
         <div className="flex w-full gap-3 sm:w-auto">
           <Link
             to="../expenses?add"
             relative="path"
-            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control bg-sign px-5 text-[15px] font-bold text-white no-underline hover:bg-sign-raised hover:text-white sm:flex-none"
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control bg-sign px-5 text-body font-bold text-white no-underline hover:bg-sign-raised hover:text-white sm:flex-none"
           >
             <PlusIcon />
             Add expense
           </Link>
-          <Link
-            to="../bookings?add"
-            relative="path"
-            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control border-[1.5px] border-border bg-surface px-5 text-[15px] font-bold text-ink no-underline hover:border-border-input hover:text-ink sm:flex-none"
-          >
-            <PlusIcon />
-            Add booking
-          </Link>
+          {showAddBooking && (
+            <Link
+              to="../bookings?add"
+              relative="path"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-control border-[1.5px] border-border bg-surface px-5 text-body font-bold text-ink no-underline hover:border-border-input hover:text-ink sm:flex-none"
+            >
+              <PlusIcon />
+              Add booking
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -205,11 +246,19 @@ export function OverviewPage() {
   if (loading && !view) {
     return (
       <div className="flex flex-col gap-6" aria-busy="true">
-        {header}
+        {header(phase !== 'ended')}
+        <p className="sr-only" role="status">
+          Loading today…
+        </p>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex flex-col gap-6">
             <div className="h-48 animate-pulse rounded-card bg-sign/80" />
-            <Skeleton className="h-64" />
+            <section className="rounded-card bg-surface py-1">
+              <div className="px-5 py-3 md:px-6">
+                <Skeleton className="h-6 w-40" />
+              </div>
+              <TimetableSkeleton />
+            </section>
           </div>
           <div className="flex flex-col gap-4">
             <div className="h-36 animate-pulse rounded-card bg-money/80" />
@@ -219,10 +268,12 @@ export function OverviewPage() {
       </div>
     );
   }
-  if (error || !view?.trip) {
+  // Only with nothing to show at all: a failed refresh keeps the page that's here, and a failed
+  // first load shows the copy saved on this device.
+  if (!view?.trip) {
     return (
       <div className="flex flex-col gap-6">
-        {header}
+        {header(phase !== 'ended')}
         <ErrorState message="We couldn't load the trip overview." onRetry={() => void refetch()} />
       </div>
     );
@@ -233,8 +284,6 @@ export function OverviewPage() {
   const showSetup = isOwner && !t.setup.hidden;
   // The server already drops spent reminders; a page left open must too.
   const reminders = t.reminders.filter((r) => Date.parse(r.targetAt) > nowMs);
-  // Phones show one reminder: leaving for the airport outranks the rest.
-  const phoneReminder = reminders.find((r) => r.key.endsWith(':leave')) ?? reminders[0];
 
   // One "next" for the whole screen: the next thing today (plan or booking). When today has
   // nothing left, the board falls back to the next booking, labelled with its day.
@@ -252,176 +301,291 @@ export function OverviewPage() {
   const nextIdx = isToday ? states.indexOf('next') : -1;
   const nextToday = nextIdx >= 0 ? agenda[nextIdx]! : null;
   const upNext = t.upNext && Date.parse(t.upNext.startsAt) > nowMs ? t.upNext : null;
+  const upNextDay = upNext
+    ? (upNext.segment?.departLocal ?? upNext.booking.startLocal ?? '').slice(0, 10)
+    : '';
   const board: BoardContent = nextToday
     ? nextToday.booking && upNext && nextToday.booking.id === upNext.booking.id
-      ? { kind: 'booking', upNext, label: 'Up next' }
+      ? { kind: 'booking', upNext, label: 'Up next', later: false }
       : { kind: 'plan', item: nextToday, until: untilTime(now, nextToday.time!) }
     : upNext
       ? {
           kind: 'booking',
           upNext,
-          label: `Next booking · ${localDay(upNext.segment?.departLocal ?? upNext.booking.startLocal) ?? ''}`,
+          label: `Next booking · ${localDay(upNextDay) ?? ''}`,
+          // a booking on another day doesn't get today's board: compact, no yellow, after the day
+          later: upNextDay !== today,
         }
-      : { kind: 'none', todayDone: isToday && agenda.length > 0 };
+      : phase === 'ended'
+        ? { kind: 'ended', balance }
+        : { kind: 'none', todayDone: isToday && agenda.length > 0 };
+  const boardOffersBooking = board.kind === 'none';
+  const later = board.kind === 'booking' && board.later;
+  const boardBookingId =
+    board.kind === 'booking'
+      ? board.upNext.booking.id
+      : board.kind === 'plan'
+        ? (board.item.booking?.id ?? null)
+        : null;
+  // Each booking said once: the board's own reminder folds into it; the rest are for the phone
+  // strip (the soonest) and the Reminders panel (the next three).
+  const split = splitReminders(reminders, boardBookingId);
+  const boardReminder = split.board && {
+    title: split.board.title,
+    when: reminderWhen(split.board, trip.timeZone, nowMs),
+  };
+  const stripReminder = split.others[0];
+  const panelReminders = split.others.slice(0, 3);
+  // Today's plans all behind us: the timetable says what's free next instead of ending on a
+  // struck-through row.
+  const dayDone = isToday && agenda.length > 0 && states.every((s) => s === 'done');
+  const ended = phase === 'ended';
+
+  const setup = showSetup && (
+    <SetupChecklist tripId={trip.id} setup={t.setup} started={today >= startDate} />
+  );
+  // Before the trip the checklist leads; once it has started the day comes first.
+  const setupFirst = phase === 'before';
+
+  const departureBoard = !(
+    showSetup &&
+    board.kind === 'none' &&
+    !board.todayDone &&
+    !t.setup.hasBookings
+  ) && (
+    // An empty board would only repeat the checklist's first row, so it waits.
+    <DepartureBoard
+      board={board}
+      canEdit={canEdit}
+      nowMs={nowMs}
+      currency={trip.currency}
+      tripDays={tripDays}
+      destination={trip.destination}
+      reminder={boardReminder}
+    />
+  );
+  const timetable = ended ? (
+    <Recap
+      days={tripDays}
+      dates={`${MONTH_DAY.format(utcDay(startDate))} – ${MONTH_DAY.format(utcDay(endDate))}`}
+      bookings={trip.bookingStats.total}
+      planned={trip.proposalCounts.scheduled}
+      expenses={t.expenseSummary.expenseCount}
+      total={formatMoney(toNumber(t.expenseSummary.total), trip.currency)}
+      // what you used = what you paid − what you're owed, in whole cents (money is exact)
+      share={formatMoney(
+        (Math.round(toNumber(t.expenseSummary.viewerPaid) * 100) - Math.round(balance * 100)) / 100,
+        trip.currency,
+      )}
+    />
+  ) : (
+    <Timetable
+      loading={agendaQuery.loading && !agendaQuery.data}
+      error={!!agendaQuery.error && !agendaQuery.data}
+      onRetry={() => void agendaQuery.refetch()}
+      agenda={agenda}
+      states={states}
+      heading={
+        // the status line above already carries today's date
+        isToday ? 'Today' : day ? `Day ${day.position + 1} · ${localDay(dayDate)}` : 'Today'
+      }
+      dayDone={dayDone}
+      openIdeas={trip.proposalCounts.proposed}
+      canEdit={canEdit}
+    />
+  );
 
   return (
     <div className="flex flex-col gap-6">
-      {header}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+      {header(!ended && !boardOffersBooking)}
+      {offline && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card bg-surface-muted px-4 py-2 md:px-5"
+        >
+          <p className="py-2 text-sm text-ink-secondary">
+            <strong className="text-ink">Offline.</strong> Showing Today as saved on this device,{' '}
+            {savedAt(snapshot!.at, trip.timeZone, today)}.
+          </p>
+          <Button variant="secondary" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        </div>
+      )}
+      <div
+        className={`grid items-start gap-6 lg:gap-8 ${
+          ended ? 'max-w-3xl' : 'lg:grid-cols-[minmax(0,1fr)_360px]'
+        }`}
+      >
         <div className="flex min-w-0 flex-col gap-6">
           {/* first-run checklist for the organiser; gone once hidden */}
-          {showSetup && (
-            <SetupChecklist
-              tripId={trip.id}
-              setup={t.setup}
-              started={today >= trip.startDate.slice(0, 10)}
-            />
-          )}
-          {/* An empty board would only repeat the checklist's first row, so it waits. */}
-          {!(showSetup && board.kind === 'none' && !board.todayDone && !t.setup.hasBookings) && (
-            <DepartureBoard board={board} canEdit={canEdit} nowMs={nowMs} />
-          )}
-          {phoneReminder && (
+          {setupFirst && setup}
+          {/* a booking on another day waits under today's plan */}
+          {later ? timetable : departureBoard}
+          {stripReminder && !ended && (
             <Link
-              to={`../bookings/${phoneReminder.booking.id}`}
+              to={`../bookings/${stripReminder.booking.id}`}
               relative="path"
               className="flex items-start gap-3 rounded-card bg-signal-tint px-4 py-3 text-ink no-underline hover:text-ink md:hidden"
             >
               <BellIcon size={18} className="mt-0.5 shrink-0 text-signal-ink" />
-              <span className="text-sm">
-                <strong>{phoneReminder.title}.</strong> {phoneReminder.body}
+              <span className="text-sm" dir="auto">
+                <strong>
+                  {stripReminder.title} · {reminderWhen(stripReminder, trip.timeZone, nowMs)}.
+                </strong>{' '}
+                {stripReminder.body}
               </span>
             </Link>
           )}
-          <Timetable
-            loading={agendaQuery.loading && !agendaQuery.data}
-            error={!!agendaQuery.error && !agendaQuery.data}
-            onRetry={() => void agendaQuery.refetch()}
-            agenda={agenda}
-            states={states}
-            heading={
-              isToday
-                ? `Today · ${localDay(today)}`
-                : day
-                  ? `Day ${day.position + 1} · ${localDay(dayDate)}`
-                  : 'Today'
-            }
-          />
+          {later ? departureBoard : timetable}
+          {!setupFirst && setup}
         </div>
 
-        {/* tablets: the side panels sit two-up under the day; desktop: a column beside it */}
-        <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:flex lg:flex-col">
-          <Link
-            to="../expenses"
-            relative="path"
-            className={`flex flex-col gap-1 rounded-card px-6 py-5 text-white no-underline hover:text-white ${
-              balance < 0 ? 'bg-negative-ink' : 'bg-money'
-            }`}
-          >
-            {/* one short name for the link; the figures read as its description */}
-            <span className="text-[15px] font-bold">Your balance</span>
-            <span className="figures text-board-sm leading-[1.1] font-extrabold tracking-[-0.02em] lg:text-display">
-              {formatMoney(balance, trip.currency, true)}
-            </span>
-            <span className="text-sm text-white/90">
-              {balance < 0 ? 'You owe' : balance > 0 ? 'You are owed' : 'All settled'} · Group spent{' '}
-              {formatMoney(toNumber(t.expenseSummary.total), trip.currency)}
-            </span>
-          </Link>
-
-          <section
-            aria-labelledby="ov-wait"
-            className="flex flex-col rounded-card bg-surface px-5 pt-3 pb-1"
-          >
-            <h2 id="ov-wait" className="text-base font-extrabold">
-              Waiting on the group
-            </h2>
-            <Waiting
-              to="../proposals"
-              mark="bg-vote"
-              label="Open ideas"
-              note="Waiting for votes"
-              count={trip.proposalCounts.proposed}
-              countClass="text-vote"
-            />
-            {trip.bookingStats.needsDetails > 0 ? (
-              <Waiting
-                to="../bookings"
-                mark="bg-negative"
-                label="Bookings"
-                note="Missing details"
-                count={trip.bookingStats.needsDetails}
-                countClass="text-negative-ink"
-              />
-            ) : (
-              <Waiting
-                to="../bookings"
-                mark="bg-accent"
-                label="Bookings"
-                note={trip.bookingStats.total ? 'All confirmed' : 'None yet'}
-                count={trip.bookingStats.total}
-                countClass="text-accent-strong"
-              />
-            )}
-          </section>
-
-          <section
-            aria-labelledby="ov-rem"
-            className="hidden flex-col rounded-card bg-surface px-5 pt-3 pb-2 md:flex"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h2 id="ov-rem" className="text-base font-extrabold">
-                Reminders
-              </h2>
-              <Link
-                to="../bookings?calendar"
-                relative="path"
-                className="flex min-h-11 items-center gap-1.5 text-sm font-bold"
+        {/* after the trip the board and recap say it all: no balance twice, no stale panels */}
+        {!ended && (
+          // tablets: the side panels sit two-up under the day; desktop: a column beside it
+          <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:flex lg:flex-col">
+            <Link
+              to="../expenses"
+              relative="path"
+              aria-labelledby="ov-bal"
+              aria-describedby="ov-bal-amount ov-bal-note"
+              className={`flex flex-col gap-1 rounded-card px-6 py-5 text-white no-underline hover:text-white ${
+                balance < 0 ? 'bg-negative-ink' : 'bg-money'
+              }`}
+            >
+              {/* one short name for the link; the figures read as its description */}
+              <span id="ov-bal" className="text-body font-bold">
+                Your balance
+              </span>
+              {/* a step under the board time at every width, so the board stays the headline */}
+              <span
+                id="ov-bal-amount"
+                className="figures text-count leading-[1.1] font-extrabold tracking-[-0.02em] md:text-board-sm"
               >
-                <CalendarIcon size={16} />
-                Add to calendar
-              </Link>
-            </div>
-            {reminders.length === 0 ? (
-              <p className="pb-3 text-sm text-ink-muted">
-                Nothing coming up. Reminders appear here before flights, check-outs and shows.
-              </p>
-            ) : (
-              reminders.map((r) => (
+                {formatMoney(balance, trip.currency, true)}
+              </span>
+              <span id="ov-bal-note" className="text-sm text-white/90">
+                {balance < 0 ? 'You owe' : balance > 0 ? 'You are owed' : 'All settled'} · Group
+                spent {formatMoney(toNumber(t.expenseSummary.total), trip.currency)}
+              </span>
+            </Link>
+
+            <section
+              aria-labelledby="ov-wait"
+              className="flex flex-col rounded-card bg-surface px-5 pt-3 pb-1"
+            >
+              <h2 id="ov-wait" className="text-base font-extrabold">
+                Waiting on the group
+              </h2>
+              <Waiting
+                to="../proposals"
+                mark="bg-vote"
+                label="Open ideas"
+                note={trip.proposalCounts.proposed ? 'Waiting for votes' : 'Nothing to vote on'}
+                count={trip.proposalCounts.proposed}
+                countClass="text-vote"
+              />
+              {trip.bookingStats.needsDetails > 0 ? (
+                <Waiting
+                  to="../bookings"
+                  mark="bg-negative"
+                  label="Bookings"
+                  note="Missing details"
+                  count={trip.bookingStats.needsDetails}
+                  countClass="text-negative-ink"
+                />
+              ) : (
+                // no bookings yet is the board's (and the checklist's) to say, not a zero here
+                trip.bookingStats.total > 0 && (
+                  <Waiting
+                    to="../bookings"
+                    mark="bg-accent"
+                    label="Bookings"
+                    note="All confirmed"
+                    count={trip.bookingStats.total}
+                    countClass="text-accent-strong"
+                  />
+                )
+              )}
+            </section>
+
+            <section
+              aria-labelledby="ov-rem"
+              className="hidden flex-col rounded-card bg-surface px-5 pt-3 pb-2 md:flex"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="ov-rem" className="text-base font-extrabold">
+                  Reminders
+                </h2>
                 <Link
-                  key={r.key}
-                  to={`../bookings/${r.booking.id}`}
+                  to="../bookings?calendar"
                   relative="path"
-                  className="flex flex-col border-t border-border py-3 text-ink no-underline first-of-type:border-t-0 hover:text-accent-strong"
+                  className="flex min-h-11 items-center gap-1.5 text-sm font-bold"
                 >
-                  <span className="text-sm font-bold">{r.title}</span>
-                  <span className="text-[13px] text-ink-muted">
-                    {countdown(r.fireAt, nowMs)} · {r.body}
-                  </span>
+                  <CalendarIcon size={16} />
+                  Add to calendar
                 </Link>
-              ))
-            )}
-          </section>
-          {/* phones: the reminders panel is hidden, so the calendar link moves here */}
-          <Link
-            to="../bookings?calendar"
-            relative="path"
-            className="flex min-h-11 items-center justify-center gap-2 rounded-card border-[1.5px] border-border bg-surface text-sm font-bold text-ink no-underline hover:text-ink md:hidden"
-          >
-            <CalendarIcon size={16} />
-            Calendar &amp; reminders
-          </Link>
-        </div>
+              </div>
+              {panelReminders.length === 0 ? (
+                <p className="pb-3 text-sm text-ink-muted">
+                  {split.board
+                    ? 'Nothing else coming up. The next departure’s reminder is on the board.'
+                    : 'Nothing coming up. Reminders appear here before flights, check-outs and shows.'}
+                </p>
+              ) : (
+                panelReminders.map((r) => (
+                  <Link
+                    key={r.key}
+                    to={`../bookings/${r.booking.id}`}
+                    relative="path"
+                    className="flex flex-col border-t border-border py-3 text-ink no-underline first-of-type:border-t-0 hover:text-accent-strong"
+                  >
+                    <span className="text-sm font-bold" dir="auto">
+                      {r.title}
+                    </span>
+                    <span className="text-meta text-ink-muted" dir="auto">
+                      {reminderWhen(r, trip.timeZone, nowMs)} · {r.body}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </section>
+            {/* phones: the reminders panel is hidden, so the calendar link moves here */}
+            <Link
+              to="../bookings?calendar"
+              relative="path"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-card border-[1.5px] border-border bg-surface text-sm font-bold text-ink no-underline hover:text-ink md:hidden"
+            >
+              <CalendarIcon size={16} />
+              Calendar &amp; reminders
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+/** "at 14:32", or "Mon at 14:32" when it wasn't saved today. */
+function savedAt(at: number, timeZone: string, today: string) {
+  const local = wallClock(new Date(at).toISOString(), timeZone);
+  const day = local.slice(0, 10);
+  return day === today ? `at ${local.slice(11, 16)}` : `${localDay(day)} at ${local.slice(11, 16)}`;
+}
+
 type AgendaItem = Agenda[number];
 type BoardContent =
-  | { kind: 'booking'; upNext: NonNullable<Overview['upNext']>; label: string }
+  | {
+      kind: 'booking';
+      upNext: NonNullable<Overview['upNext']>;
+      label: string;
+      /** On another day than today: a compact board without the yellow time. */
+      later: boolean;
+    }
   | { kind: 'plan'; item: AgendaItem; until: string }
-  | { kind: 'none'; todayDone: boolean };
+  | { kind: 'none'; todayDone: boolean }
+  | { kind: 'ended'; balance: number };
 
 function Waiting({
   to,
@@ -447,31 +611,69 @@ function Waiting({
       <span aria-hidden="true" className={`size-3 shrink-0 rounded-[3px] ${mark}`} />
       <span className="flex flex-1 flex-col">
         <span className="text-base font-extrabold">{label}</span>
-        <span className="text-[13px] text-ink-muted">{note}</span>
+        <span className="text-meta text-ink-muted">{note}</span>
       </span>
-      <span className={`figures text-count leading-none font-extrabold ${countClass}`}>
+      {/* timetable size: the board's time stays the biggest figure on the screen */}
+      <span className={`figures text-timetable leading-none font-extrabold ${countClass}`}>
         {count}
       </span>
     </Link>
   );
 }
 
+/** A white action on the sign: the board's own next step (yellow stays for now and next). */
+const SIGN_ACTION =
+  'mt-2 flex min-h-11 items-center gap-2 rounded-control bg-white px-4 text-sm font-bold text-sign no-underline hover:bg-signal-tint hover:text-sign';
+
 function DepartureBoard({
   board,
   canEdit,
   nowMs,
+  currency,
+  tripDays,
+  destination,
+  reminder,
 }: {
   board: BoardContent;
   canEdit: boolean;
   nowMs: number;
+  currency: string;
+  tripDays: number;
+  destination: string;
+  /** The board's own booking's next reminder, folded in as one line. */
+  reminder?: BoardReminder;
 }) {
+  if (board.kind === 'ended') {
+    const { balance } = board;
+    const amount = formatMoney(Math.abs(balance), currency);
+    return (
+      <section
+        aria-labelledby="ov-next"
+        className="flex flex-col items-start gap-2 rounded-card bg-sign px-6 py-5 text-white"
+      >
+        <h2 id="ov-next" className="text-timetable font-extrabold" dir="auto">
+          That was {tripDays} {tripDays === 1 ? 'day' : 'days'} in {destination.split(',')[0]}
+        </h2>
+        <p className="text-sm text-sign-ink-soft">
+          {balance > 0
+            ? `You're owed ${amount}. See who still owes you and mark payments as they come in.`
+            : balance < 0
+              ? `You owe ${amount}. Settle up so everyone ends the trip square.`
+              : 'Your balance is settled. The plan and every booking stay here to look back on.'}
+        </p>
+        <Link to={balance ? '../expenses' : '../itinerary'} relative="path" className={SIGN_ACTION}>
+          {balance > 0 ? 'See who owes you' : balance < 0 ? 'Settle up' : 'Open itinerary'}
+        </Link>
+      </section>
+    );
+  }
   if (board.kind === 'none') {
     return (
       <section
         aria-labelledby="ov-next"
         className="flex flex-col items-start gap-2 rounded-card bg-sign px-6 py-5 text-white"
       >
-        <h2 id="ov-next" className="text-[22px] font-extrabold">
+        <h2 id="ov-next" className="text-timetable font-extrabold">
           {board.todayDone ? "That's everything for today" : 'No departures yet'}
         </h2>
         <p className="text-sm text-sign-ink-soft">
@@ -480,11 +682,7 @@ function DepartureBoard({
             : "Add flights, stays and tickets to see what's next here and get reminders before each one."}
         </p>
         {canEdit && (
-          <Link
-            to="../bookings?add"
-            relative="path"
-            className="mt-2 flex min-h-11 items-center gap-2 rounded-control bg-signal px-4 text-sm font-bold text-sign no-underline hover:text-sign"
-          >
+          <Link to="../bookings?add" relative="path" className={SIGN_ACTION}>
             <PlusIcon size={16} />
             Add a booking
           </Link>
@@ -492,19 +690,48 @@ function DepartureBoard({
       </section>
     );
   }
-  if (board.kind === 'plan') return <PlanBoard item={board.item} until={board.until} />;
-  return <BookingBoard upNext={board.upNext} label={board.label} nowMs={nowMs} />;
+  if (board.kind === 'plan')
+    return <PlanBoard item={board.item} until={board.until} reminder={reminder} />;
+  return (
+    <BookingBoard
+      upNext={board.upNext}
+      label={board.label}
+      later={board.later}
+      nowMs={nowMs}
+      reminder={reminder}
+    />
+  );
+}
+
+type BoardReminder = { title: string; when: string };
+
+/** One line on the board for its booking's next reminder ("Online check-in opens · Tomorrow · 17:40"). */
+function ReminderLine({ reminder }: { reminder: BoardReminder }) {
+  return (
+    <span className="flex items-center gap-1.5 text-sm font-bold text-white" dir="auto">
+      <BellIcon size={16} className="shrink-0 text-sign-ink-soft" />
+      {reminder.title} · {reminder.when}
+    </span>
+  );
 }
 
 /** The board when the next thing today is a plan (or a booking without leg details). */
-function PlanBoard({ item: a, until }: { item: AgendaItem; until: string }) {
+function PlanBoard({
+  item: a,
+  until,
+  reminder,
+}: {
+  item: AgendaItem;
+  until: string;
+  reminder?: BoardReminder;
+}) {
   const type = a.booking ? BOOKING_TYPES[a.booking.type] : null;
   return (
     <section
       aria-labelledby="ov-next"
       className="overflow-hidden rounded-card bg-sign text-white [perspective:800px]"
     >
-      <div className="flex flex-wrap justify-between gap-2 border-b border-white/15 px-5 py-3 text-[13px] font-bold md:px-6">
+      <div className="flex flex-wrap justify-between gap-2 border-b border-white/15 px-5 py-3 text-meta font-bold md:px-6">
         <h2 id="ov-next" className="text-sign-ink-soft">
           Up next · {type?.label ?? 'Plan'}
         </h2>
@@ -518,10 +745,19 @@ function PlanBoard({ item: a, until }: { item: AgendaItem; until: string }) {
           {a.time}
         </span>
         <span className="flex min-w-0 flex-col gap-1">
-          <span className="text-[22px] leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-headline-sm">
+          <span
+            dir="auto"
+            title={a.title}
+            className="text-timetable leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-headline-sm"
+          >
             {a.title}
           </span>
-          {a.subtitle && <span className="text-sm text-sign-ink-soft">{a.subtitle}</span>}
+          {a.subtitle && (
+            <span className="text-sm text-sign-ink-soft" dir="auto">
+              {a.subtitle}
+            </span>
+          )}
+          {reminder && <ReminderLine reminder={reminder} />}
         </span>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-x-4 border-t border-white/15 px-5 py-1.5 md:px-6">
@@ -540,11 +776,15 @@ function PlanBoard({ item: a, until }: { item: AgendaItem; until: string }) {
 function BookingBoard({
   upNext,
   label,
+  later,
   nowMs,
+  reminder,
 }: {
   upNext: NonNullable<Overview['upNext']>;
   label: string;
+  later: boolean;
   nowMs: number;
+  reminder?: BoardReminder;
 }) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
@@ -557,6 +797,9 @@ function BookingBoard({
   // Leave by goes once it has passed: a missed time is not an instruction.
   const leaveStillAhead = s ? Date.parse(s.departsAt) - LEAVE_BEFORE_MS > nowMs : false;
   const leave = b.type === 'FLIGHT' && s && leaveStillAhead ? leaveBy(s.departLocal) : null;
+  const routeTitle = s
+    ? `${s.fromName ?? s.fromCode ?? ''} → ${s.toName ?? s.toCode ?? ''}`
+    : b.title;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(b.confirmationCode ?? '');
@@ -571,26 +814,39 @@ function BookingBoard({
       aria-labelledby="ov-next"
       className="overflow-hidden rounded-card bg-sign text-white [perspective:800px]"
     >
-      <div className="flex flex-wrap justify-between gap-2 border-b border-white/15 px-5 py-3 text-[13px] font-bold md:px-6">
+      <div className="flex flex-wrap justify-between gap-2 border-b border-white/15 px-5 py-3 text-meta font-bold md:px-6">
         <h2 id="ov-next" className="text-sign-ink-soft">
           {label} · {t.label}
         </h2>
-        <span className="text-signal">
+        {/* yellow is for today's next; a later day's countdown stays quiet */}
+        <span className={later ? 'text-sign-ink-soft' : 'text-signal'}>
           {verb} {countdown(upNext.startsAt, nowMs)}
         </span>
       </div>
       <div
         key={b.id}
-        className="grid origin-top grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-4 px-5 py-5 motion-safe:animate-flap-in md:grid-cols-[auto_minmax(0,1fr)_auto_auto] md:px-6"
+        className={`grid origin-top grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-4 px-5 motion-safe:animate-flap-in md:grid-cols-[auto_minmax(0,1fr)_auto_auto] md:px-6 ${
+          later ? 'py-4' : 'py-5'
+        }`}
       >
-        <span className="figures text-board-sm leading-none font-extrabold text-signal md:text-board">
+        <span
+          className={
+            later
+              ? 'figures text-timetable leading-none font-extrabold text-white md:text-headline-sm'
+              : 'figures text-board-sm leading-none font-extrabold text-signal md:text-board'
+          }
+        >
           {time ?? '—'}
         </span>
         <span className="flex min-w-0 flex-col gap-1">
-          <span className="text-[22px] leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-headline-sm">
-            {s ? `${s.fromName ?? s.fromCode ?? ''} → ${s.toName ?? s.toCode ?? ''}` : b.title}
+          <span
+            dir="auto"
+            title={routeTitle}
+            className="text-timetable leading-tight font-extrabold tracking-[-0.01em] md:truncate md:text-headline-sm"
+          >
+            {routeTitle}
           </span>
-          <span className="text-sm text-sign-ink-soft">
+          <span className="text-sm text-sign-ink-soft" dir="auto">
             {(s
               ? [
                   [s.number, b.provider].filter(Boolean).join(' · '),
@@ -603,6 +859,7 @@ function BookingBoard({
               .filter(Boolean)
               .join(' · ')}
           </span>
+          {reminder && <ReminderLine reminder={reminder} />}
         </span>
         <span className="col-span-2 flex items-center justify-between gap-4 md:contents">
           {b.confirmationCode && (
@@ -629,14 +886,20 @@ function BookingBoard({
           {leave && (
             <span className="flex flex-col items-end md:items-center md:pl-2">
               <span className="text-xs font-bold text-sign-ink-soft">Leave by</span>
-              <span className="figures text-headline-sm leading-tight font-extrabold">{leave}</span>
+              {/* on another day the time carries its day, or it reads as today */}
+              <span
+                className={`figures leading-tight font-extrabold ${later ? 'text-timetable' : 'text-headline-sm'}`}
+              >
+                {later && `${localDay(s?.departLocal)?.split(',')[0] ?? ''} `}
+                {leave}
+              </span>
             </span>
           )}
         </span>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-white/15 px-5 py-1.5 md:px-6">
         {b.attachments.length > 0 && (
-          <span className="mr-auto text-[13px] text-sign-ink-soft">
+          <span className="mr-auto text-meta text-sign-ink-soft">
             {b.attachments.length} document{b.attachments.length === 1 ? '' : 's'}
           </span>
         )}
@@ -657,6 +920,7 @@ function BookingBoard({
             <PinIcon size={16} />
             <span className="max-sm:hidden">{route.label}</span>
             <span className="sm:hidden">Directions</span>
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
         )}
         {b.bookingUrl && (
@@ -667,6 +931,7 @@ function BookingBoard({
             className="flex min-h-11 items-center text-sm font-bold text-white hover:text-signal"
           >
             Manage<span className="max-sm:sr-only">&nbsp;booking</span>
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
         )}
       </div>
@@ -692,6 +957,9 @@ function Timetable({
   loading,
   error,
   onRetry,
+  dayDone,
+  openIdeas,
+  canEdit,
 }: {
   agenda: Agenda;
   states: AgendaState[];
@@ -699,7 +967,30 @@ function Timetable({
   loading: boolean;
   error: boolean;
   onRetry: () => void;
+  /** Today, with every plan behind us. */
+  dayDone: boolean;
+  openIdeas: number;
+  canEdit: boolean;
 }) {
+  // A free day (or the rest of one) points at the group's open ideas, or at the itinerary.
+  const freeAction =
+    openIdeas > 0 ? (
+      <Link
+        to="../proposals"
+        relative="path"
+        className="flex min-h-11 items-center text-sm font-bold"
+      >
+        {openIdeas} {openIdeas === 1 ? 'idea is' : 'ideas are'} waiting for votes
+      </Link>
+    ) : canEdit ? (
+      <Link
+        to="../itinerary"
+        relative="path"
+        className="flex min-h-11 items-center text-sm font-bold"
+      >
+        Add to the itinerary
+      </Link>
+    ) : null;
   return (
     <section aria-labelledby="ov-today" className="rounded-card bg-surface py-1">
       <div className="flex items-center justify-between px-5 md:px-6">
@@ -715,9 +1006,7 @@ function Timetable({
         </Link>
       </div>
       {loading ? (
-        <div className="px-5 pb-4 md:px-6">
-          <Skeleton className="h-48" />
-        </div>
+        <TimetableSkeleton />
       ) : error ? (
         // Never let a failed load pass for an empty day.
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 md:px-6">
@@ -727,9 +1016,10 @@ function Timetable({
           </Button>
         </div>
       ) : agenda.length === 0 ? (
-        <p className="border-t border-border px-5 py-5 text-sm text-ink-muted md:px-6">
-          Nothing scheduled this day yet.
-        </p>
+        <div className="mx-5 mt-1 mb-4 flex flex-wrap items-center justify-between gap-x-4 rounded-card border-[1.5px] border-dashed border-border-input px-4 py-2 md:mx-6">
+          <p className="py-2 text-sm text-ink-secondary">Nothing planned for this day yet.</p>
+          {freeAction}
+        </div>
       ) : (
         <ol>
           {agenda.map((a, i) => {
@@ -774,10 +1064,12 @@ function Timetable({
                 <span className="flex min-w-0 flex-col">
                   <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex-nowrap">
                     <span
-                      className={`min-w-0 text-base md:truncate font-bold ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
+                      title={a.title}
+                      className={`min-w-0 text-base font-bold md:truncate ${done ? 'text-ink-muted line-through decoration-1' : ''}`}
                     >
                       <span className="sr-only">{sr}: </span>
-                      {a.title}
+                      {/* its own run, so a Hebrew title isn't set in the English label's direction */}
+                      <bdi>{a.title}</bdi>
                     </span>
                     {state === 'now' && (
                       <span
@@ -797,7 +1089,9 @@ function Timetable({
                     )}
                   </span>
                   {a.subtitle && (
-                    <span className="truncate text-[13px] text-ink-muted">{a.subtitle}</span>
+                    <span className="truncate text-meta text-ink-muted" dir="auto">
+                      {a.subtitle}
+                    </span>
                   )}
                 </span>
               </>
@@ -818,8 +1112,95 @@ function Timetable({
               </li>
             );
           })}
+          {dayDone && (
+            <li className="flex flex-wrap items-center justify-between gap-x-4 border-t border-border px-5 py-2 md:px-6">
+              <span className="py-2 text-sm text-ink-secondary">The rest of the day is free.</span>
+              {freeAction}
+            </li>
+          )}
         </ol>
       )}
+    </section>
+  );
+}
+
+/** Loading rows in the timetable's own shape: time · chip · title. */
+function TimetableSkeleton() {
+  return (
+    <div aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="grid min-h-16 grid-cols-[64px_56px_minmax(0,1fr)] items-center gap-3 border-t border-border px-5 py-3 md:grid-cols-[88px_64px_minmax(0,1fr)] md:gap-4 md:px-6"
+        >
+          <Skeleton className="h-6 w-14" />
+          <Skeleton className="h-7" />
+          <span className="flex flex-col gap-1.5">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * After the trip, the last day's struck-through rows give way to the trip in a few lines: a
+ * timetable-style panel of what the group did and what it cost.
+ */
+function Recap({
+  days,
+  dates,
+  bookings,
+  planned,
+  expenses,
+  total,
+  share,
+}: {
+  days: number;
+  dates: string;
+  bookings: number;
+  planned: number;
+  expenses: number;
+  total: string;
+  share: string;
+}) {
+  const rows: [string, string][] = [
+    ['Days', `${days} · ${dates}`],
+    ['Bookings', String(bookings)],
+    ['Plans on the itinerary', String(planned)],
+    [
+      'Group spent',
+      `${total}${expenses ? ` · ${expenses} expense${expenses === 1 ? '' : 's'}` : ''}`,
+    ],
+    ['Your share', share],
+  ];
+  return (
+    <section aria-labelledby="ov-recap" className="rounded-card bg-surface py-1">
+      <div className="flex items-center justify-between px-5 md:px-6">
+        <h2 id="ov-recap" className="text-lg font-extrabold">
+          The trip
+        </h2>
+        <Link
+          to="../itinerary"
+          relative="path"
+          className="flex min-h-11 items-center text-sm font-bold"
+        >
+          Full itinerary
+        </Link>
+      </div>
+      <dl>
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="flex min-h-14 items-center justify-between gap-4 border-t border-border px-5 py-3 md:px-6"
+          >
+            <dt className="text-sm text-ink-secondary">{label}</dt>
+            <dd className="figures text-right text-base font-extrabold">{value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

@@ -1,7 +1,7 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { useApolloClient, useQuery, useSubscription } from '@apollo/client/react';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { formatDateRange } from '../lib/format';
 import {
   buildMemberIndex,
@@ -38,7 +38,7 @@ const SECTIONS = [
   {
     to: 'itinerary',
     label: 'Itinerary',
-    short: 'Plan',
+    short: 'Itinerary',
     icon: CalendarIcon,
     mark: 'bg-rail-plan',
     mobile: true,
@@ -54,7 +54,7 @@ const SECTIONS = [
   {
     to: 'proposals',
     label: 'Proposals',
-    short: 'Vote',
+    short: 'Proposals',
     icon: BulbIcon,
     mark: 'bg-rail-vote',
     mobile: true,
@@ -62,7 +62,7 @@ const SECTIONS = [
   {
     to: 'expenses',
     label: 'Expenses',
-    short: 'Money',
+    short: 'Expenses',
     icon: WalletIcon,
     mark: 'bg-rail-money',
     mobile: true,
@@ -71,7 +71,7 @@ const SECTIONS = [
   {
     to: 'members',
     label: 'Members',
-    short: 'People',
+    short: 'Members',
     icon: UsersIcon,
     mark: 'bg-white',
     mobile: false,
@@ -111,6 +111,19 @@ export function TripLayout() {
       timer.current = setTimeout(() => void client.refetchQueries({ include: 'active' }), 150);
     },
   });
+
+  // The browser tab names the screen and the trip, so screen readers (and a row of tabs) can tell
+  // them apart: "Today · Lisbon with the crew — Tripwise".
+  const { pathname } = useLocation();
+  const tripName = data?.trip?.name;
+  useEffect(() => {
+    if (!tripName) return;
+    const section = SECTIONS.find((x) => pathname.split('/').includes(x.to));
+    document.title = `${section ? `${section.label} · ` : ''}${tripName} — Tripwise`;
+    return () => {
+      document.title = 'Tripwise';
+    };
+  }, [pathname, tripName]);
 
   const ctx = useMemo<TripContext | null>(() => {
     if (!data?.trip || !data.me) return null;
@@ -280,7 +293,7 @@ export function TripLayout() {
           {askButton(1, 'px-3 min-[360px]:px-4')}
           <NavLink
             to="members"
-            aria-label="People on this trip"
+            aria-label="Members of this trip"
             className={({ isActive }) =>
               `flex size-11 shrink-0 items-center justify-center rounded-control ${isActive ? 'bg-white text-sign' : 'bg-sign-raised text-white hover:text-white'}`
             }

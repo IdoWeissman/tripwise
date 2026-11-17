@@ -14,6 +14,9 @@ import {
   groupRowsByDay,
   untilTime,
   localDayTime,
+  reminderWhen,
+  splitReminders,
+  inDays,
 } from './bookings';
 
 describe('booking formatting', () => {
@@ -122,5 +125,64 @@ describe('directions', () => {
       'https://www.google.com/maps/dir/?api=1&destination=Caffe%20Example%2C%20Piazza%20Example%205%2C%20Roma',
     );
     expect(directions({ type: 'EVENT' })).toBeNull();
+  });
+});
+
+describe('reminders on Today', () => {
+  // Tue, May 18 2027, 14:10 in Lisbon (UTC+1 in May).
+  const now = Date.parse('2027-05-18T13:10:00Z');
+  const tz = 'Europe/Lisbon';
+  const leave = {
+    kind: 'LEAVE_FOR_AIRPORT',
+    fireAt: '2027-05-20T13:10:00Z',
+    targetAt: '2027-05-20T14:10:00Z',
+  };
+  const checkIn = {
+    kind: 'CHECK_IN_OPENS',
+    fireAt: '2027-05-19T15:40:00Z',
+    targetAt: '2027-05-20T16:40:00Z',
+  };
+
+  it('names the day instead of a long countdown, and the time only when the title lacks it', () => {
+    expect(reminderWhen(leave, tz, now)).toBe('Thu, May 20');
+    expect(reminderWhen(checkIn, tz, now)).toBe('Tomorrow · 16:40');
+    expect(reminderWhen({ ...checkIn, fireAt: '2027-05-18T16:00:00Z' }, tz, now)).toBe(
+      'in 2 h 50 min',
+    );
+    expect(reminderWhen({ ...checkIn, fireAt: '2027-05-18T12:00:00Z' }, tz, now)).toBe('Open now');
+    expect(reminderWhen({ ...leave, targetAt: '2027-05-18T22:30:00Z' }, tz, now)).toBe(
+      'in 9 h 20 min',
+    );
+    expect(reminderWhen({ ...leave, targetAt: '2027-05-19T03:00:00Z' }, tz, now)).toBe('Tomorrow');
+  });
+
+  it("splits reminders: the board's booking keeps its own, the rest go to the strip and panel", () => {
+    const checkOut = {
+      kind: 'CHECK_OUT',
+      fireAt: '2027-05-20T07:00:00Z',
+      targetAt: '2027-05-20T10:00:00Z',
+      booking: { id: 's1' },
+    };
+    const rs = [
+      { ...checkIn, booking: { id: 'f1' } },
+      checkOut,
+      { ...leave, booking: { id: 'f1' } },
+    ];
+    const split = splitReminders(rs, 'f1');
+    // the board already shows Leave by, so only check-in folds into it
+    expect(split.board?.kind).toBe('CHECK_IN_OPENS');
+    expect(split.others).toEqual([checkOut]);
+    // nothing on the board: every reminder is the panel's
+    expect(splitReminders(rs, null)).toEqual({ board: undefined, others: rs });
+    expect(splitReminders([{ ...leave, booking: { id: 'f1' } }], 'f1')).toEqual({
+      board: undefined,
+      others: [],
+    });
+  });
+
+  it('counts whole days to the trip', () => {
+    expect(inDays('2027-05-18', '2027-05-18')).toBe('today');
+    expect(inDays('2027-05-18', '2027-05-19')).toBe('tomorrow');
+    expect(inDays('2027-05-18', '2027-05-30')).toBe('in 12 days');
   });
 });

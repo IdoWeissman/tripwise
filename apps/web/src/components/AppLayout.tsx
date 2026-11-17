@@ -7,6 +7,7 @@ import { Button } from './Button';
 import { SparkleIcon } from './Icons';
 import { Logo } from './Logo';
 import { Skeleton } from './States';
+import { clearSnapshots } from '../lib/overviewSnapshot';
 
 const SignOutDocument = graphql(`
   mutation SignOut {
@@ -53,6 +54,7 @@ export function AppLayout() {
               onClick={async () => {
                 await signOut();
                 await client.clearStore();
+                clearSnapshots();
                 navigate('/sign-in');
               }}
             >

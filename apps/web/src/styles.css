@@ -75,6 +75,11 @@
   --text-headline: 34px;
   --text-headline-sm: 26px;
   --text-timetable: 22px;
+  /* text sizes (rules §1.2): meta lines and body copy */
+  --text-meta: 13px;
+  --text-meta--line-height: 1.45;
+  --text-body: 15px;
+  --text-body--line-height: 1.5;
 
   /* the only shadows allowed (rules §1.3) */
   --shadow-segment: 0 1px 2px rgb(17 20 24 / 0.08);

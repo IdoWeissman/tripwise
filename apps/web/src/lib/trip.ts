@@ -21,6 +21,7 @@ export const TripShellDocument = graphql(`
       timeZone
       proposalCounts {
         proposed
+        scheduled
       }
       bookingStats {
         total

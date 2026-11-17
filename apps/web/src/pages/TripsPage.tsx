@@ -33,6 +33,9 @@ const TripsQuery = graphql(`
 `);
 
 /** Trip plates: the sign blue, its raised tone, and money green — white type on all three. */
+/** "1 open vote", "3 open votes". */
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 const TINTS = ['bg-sign text-white', 'bg-sign-raised text-white', 'bg-money text-white'];
 
 type Filter = 'upcoming' | 'past';
@@ -158,8 +161,8 @@ export function TripsPage() {
                     max={4}
                   />
                   <span className="text-[13px] text-ink-muted">
-                    {trip.proposalCounts.scheduled} activities · {trip.proposalCounts.proposed} open
-                    votes
+                    {plural(trip.proposalCounts.scheduled, 'activity', 'activities')} ·{' '}
+                    {plural(trip.proposalCounts.proposed, 'open vote', 'open votes')}
                   </span>
                 </div>
               </div>

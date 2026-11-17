@@ -462,3 +462,77 @@ export function untilTime(now: string, time: string): string {
   const m = mins % 60;
   return `in ${h} h${m ? ` ${m} min` : ''}`;
 }
+
+/** "2027-05-19T15:10" — an instant as wall-clock time in `timeZone`. */
+export function wallClock(iso: string, timeZone: string): string {
+  const d = new Date(iso);
+  try {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      })
+        .formatToParts(d)
+        .map((x) => [x.type, x.value]),
+    );
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  } catch {
+    return d.toISOString().slice(0, 16);
+  }
+}
+
+/** Calendar days from `a` to `b` ("YYYY-MM-DD"). */
+export const daysFrom = (a: string, b: string) =>
+  Math.round((asUtc(b).getTime() - asUtc(a).getTime()) / 86_400_000);
+
+/** "today", "tomorrow" or "in 12 days" — whole calendar days, not hours. */
+export function inDays(from: string, to: string): string {
+  const n = daysFrom(from, to);
+  return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+}
+
+export interface ReminderTiming {
+  kind: string;
+  fireAt: string;
+  targetAt: string;
+}
+
+/**
+ * When a reminder's moment is, in words people use: "in 40 min" within 12 hours, otherwise the
+ * day ("Today", "Tomorrow", "Thu, Nov 19"). The moment is when check-in opens, or the thing itself
+ * (leave by, check-out, start), whose title already carries the time, so only check-in adds it.
+ */
+export function reminderWhen(r: ReminderTiming, timeZone: string, now = Date.now()): string {
+  const checkIn = r.kind === 'CHECK_IN_OPENS';
+  const at = checkIn ? r.fireAt : r.targetAt;
+  const ms = Date.parse(at) - now;
+  if (ms < 0) return checkIn ? 'Open now' : 'Now';
+  if (ms < 12 * 3_600_000) return countdown(at, now);
+  const local = wallClock(at, timeZone);
+  const today = wallClock(new Date(now).toISOString(), timeZone).slice(0, 10);
+  const n = daysFrom(today, local.slice(0, 10));
+  const day = n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : localDay(local)!;
+  return checkIn ? `${day} · ${local.slice(11, 16)}` : day;
+}
+
+/**
+ * Each booking said once on Today. Reminders about the booking on the board fold into the board
+ * as one line (its soonest, skipping "leave for the airport": the board shows Leave by itself);
+ * every other reminder, soonest first (the server sorts by when they fire), is for the phone
+ * strip and the Reminders panel.
+ */
+export function splitReminders<R extends { kind: string; booking: { id: string } }>(
+  reminders: R[],
+  boardBookingId: string | null,
+): { board: R | undefined; others: R[] } {
+  const own = (r: R) => boardBookingId !== null && r.booking.id === boardBookingId;
+  return {
+    board: reminders.find((r) => own(r) && r.kind !== 'LEAVE_FOR_AIRPORT'),
+    others: reminders.filter((r) => !own(r)),
+  };
+}
